@@ -1,0 +1,1590 @@
+.=C:\Users\josue\musictree
+.\.env
+PORT=5000
+DATABASE_URL=postgresql://postgres:cruzazul@localhost:5432/postgres
+SUPABASE_URL=https://klpqgnuhcricvrwcieqq.supabase.co
+SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtscHFnbnVoY3JpY3Zyd2NpZXFxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzYyOTE3ODQsImV4cCI6MjA1MTg2Nzc4NH0.90jlfGfr74anxNYx5mMjwXOl_y2vDaTD8uJK1q6EN_U
+JWT_SECRET=musictree_secret_key_123
+
+.\.vscode
+.\controllers
+.\db.js
+const { createClient } = require('@supabase/supabase-js');
+require('dotenv').config();
+
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+module.exports = supabase;
+
+.\frontend
+.\index.js
+const express = require("express");
+const cors = require("cors");
+const dotenv = require("dotenv");
+const app = express();
+const PORT = process.env.PORT || 5000;
+// Importar rutas
+const authRoutes = require("./routes/authRoutes");
+const userRoutes = require("./routes/userRoutes");
+const artistaRoutes = require("./routes/artistaRoutes");
+const albumRoutes = require("./routes/albumRoutes");
+const cancionRoutes = require("./routes/cancionRoutes");
+const listaRoutes = require("./routes/listaRoutes");
+const valoracionRoutes = require("./routes/valoracionRoutes");
+const tendenciaRoutes = require("./routes/tendenciaRoutes");
+const votacionRoutes = require("./routes/votacionRoutes");
+
+dotenv.config();
+
+// Middleware para parsear JSON
+app.use(express.json());
+app.use(cors())
+
+// Usar rutas
+app.use("/auth", authRoutes);
+app.use("/usuarios", userRoutes);
+app.use("/artistas", artistaRoutes);
+app.use("/albumes", albumRoutes);
+app.use("/canciones", cancionRoutes);
+app.use("/listas", listaRoutes);
+app.use("/valoraciones", valoracionRoutes);
+app.use("/tendencias", tendenciaRoutes);
+app.use("/votaciones", votacionRoutes);
+
+app.get("/", (req, res) => {
+  res.send("MusicTree API funcionando 🚀");
+});
+
+app.listen(PORT, () => {
+  console.log(`Servidor corriendo en http://localhost:${PORT}`);
+});
+
+.\middleware
+.\node_modules
+.\package-lock.json
+.\package.json
+.\README.md
+.\routes
+.\supabase
+.\supabaseClient.js
+require("dotenv").config(); // Asegura que las variables de entorno se carguen
+const { createClient } = require("@supabase/supabase-js");
+
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseAnonKey = process.env.SUPABASE_KEY;
+
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+module.exports = supabase;
+
+.\.vscode\extensions.json
+.\.vscode\settings.json
+.\controllers\albumController.js
+const supabase = require("../db"); // Conexión a Supabase
+
+// 📌 Crear un álbum
+const crearAlbum = async (req, res) => {
+    const { titulo, anio, imagen_url, artista_id, numero_canciones, tipo_album, popularidad } = req.body;
+
+    try {
+        const { data, error } = await supabase
+            .from('albumes')
+            .insert([
+                { titulo, anio, imagen_url, artista_id, numero_canciones, tipo_album, popularidad }
+            ])
+            .single();
+
+        if (error) throw error;
+        res.status(201).json(data);
+    } catch (error) {
+        console.error("❌ Error al crear álbum:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+};
+
+// 📌 Obtener todos los álbumes
+const obtenerAlbumes = async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('albumes')
+            .select('*');
+
+        if (error) throw error;
+        res.json(data);
+    } catch (error) {
+        console.error("❌ Error al obtener álbumes:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+};
+
+// 📌 Obtener un álbum por ID
+const obtenerAlbumPorId = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const { data, error } = await supabase
+            .from('albumes')
+            .select('*')
+            .eq('id_album', id)
+            .single();
+
+        if (error) {
+            return res.status(404).json({ error: "Álbum no encontrado" });
+        }
+
+        res.json(data);
+    } catch (error) {
+        console.error("❌ Error al obtener álbum:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+};
+
+// 📌 Actualizar un álbum
+const actualizarAlbum = async (req, res) => {
+    const { id } = req.params;
+    const { titulo, anio, imagen_url, artista_id, numero_canciones, tipo_album, popularidad } = req.body;
+
+    try {
+        const { data, error } = await supabase
+            .from('albumes')
+            .update({ titulo, anio, imagen_url, artista_id, numero_canciones, tipo_album, popularidad })
+            .eq('id_album', id)
+            .single();
+
+        if (error) {
+            return res.status(404).json({ error: "Álbum no encontrado" });
+        }
+
+        res.json(data);
+    } catch (error) {
+        console.error("❌ Error al actualizar álbum:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+};
+
+// 📌 Eliminar un álbum
+const eliminarAlbum = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const { data, error } = await supabase
+            .from('albumes')
+            .delete()
+            .eq('id_album', id)
+            .single();
+
+        if (error) {
+            return res.status(404).json({ error: "Álbum no encontrado" });
+        }
+
+        res.json({ message: "Álbum eliminado con éxito" });
+    } catch (error) {
+        console.error("❌ Error al eliminar álbum:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+};
+
+module.exports = { crearAlbum, obtenerAlbumes, obtenerAlbumPorId, actualizarAlbum, eliminarAlbum };
+
+.\controllers\artistaController.js
+const supabase = require("../db"); // Conexión a Supabase
+
+// 📌 Crear un artista
+const crearArtista = async (req, res) => {
+    const { nombre_artista, biografia, foto_artista } = req.body;
+
+    try {
+        const { data, error } = await supabase
+            .from('artistas')
+            .insert([
+                { nombre_artista, biografia, foto_artista }
+            ])
+            .single();
+
+        if (error) throw error;
+        res.status(201).json(data);
+    } catch (error) {
+        console.error("❌ Error al crear artista:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+};
+
+// 📌 Obtener todos los artistas
+const obtenerArtistas = async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('artistas')
+            .select('*');
+
+        if (error) throw error;
+        res.json(data);
+    } catch (error) {
+        console.error("❌ Error al obtener artistas:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+};
+
+// 📌 Obtener un artista por ID
+const obtenerArtistaPorId = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const { data, error } = await supabase
+            .from('artistas')
+            .select('*')
+            .eq('ID_artista', id)
+            .single();
+
+        if (error) {
+            return res.status(404).json({ error: "Artista no encontrado" });
+        }
+
+        res.json(data);
+    } catch (error) {
+        console.error("❌ Error al obtener artista:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+};
+
+// 📌 Actualizar un artista
+const actualizarArtista = async (req, res) => {
+    const { id } = req.params;
+    const { nombre_artista, biografia, foto_artista } = req.body;
+
+    try {
+        const { data, error } = await supabase
+            .from('artistas')
+            .update({ nombre_artista, biografia, foto_artista })
+            .eq('ID_artista', id)
+            .single();
+
+        if (error) {
+            return res.status(404).json({ error: "Artista no encontrado" });
+        }
+
+        res.json(data);
+    } catch (error) {
+        console.error("❌ Error al actualizar artista:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+};
+
+// 📌 Eliminar un artista
+const eliminarArtista = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const { data, error } = await supabase
+            .from('artistas')
+            .delete()
+            .eq('ID_artista', id)
+            .single();
+
+        if (error) {
+            return res.status(404).json({ error: "Artista no encontrado" });
+        }
+
+        res.json({ message: "Artista eliminado con éxito" });
+    } catch (error) {
+        console.error("❌ Error al eliminar artista:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+};
+
+module.exports = { crearArtista, obtenerArtistas, obtenerArtistaPorId, actualizarArtista, eliminarArtista };
+
+.\controllers\authController.js
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const supabase = require("../db");
+require("dotenv").config();
+
+const register = async (req, res) => {
+  const { nombre, email, username, password, tipo_usuario = "regular" } = req.body;
+
+  try {
+    const password_hash = await bcrypt.hash(password, 10);
+
+    const { data, error } = await supabase
+      .from("usuarios")
+      .insert([{ nombre, email, username, password_hash, tipo_usuario }])
+      .select()
+      .single();
+
+    if (error) {
+      console.error("⚠️ Error al registrar en Supabase:", error);
+      return res.status(500).json({ error: "Error al registrar usuario" });
+    }
+
+    res.json({ usuario: data });
+  } catch (error) {
+    console.error("❌ Error al registrar usuario:", error);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
+};
+
+const login = async (req, res) => {
+  const { emailOrUsername, password } = req.body;
+  try {
+    const { data, error } = await supabase
+      .from('usuarios')
+      .select('*')
+      .or(`email.eq.${emailOrUsername},username.eq.${emailOrUsername}`)
+      .single();
+
+    if (error || !data) {
+      return res.status(401).json({ message: "Usuario o correo no encontrado" });
+    }
+
+    const isMatch = await bcrypt.compare(password, data.password_hash);
+    if (!isMatch) {
+      return res.status(401).json({ message: "Contraseña incorrecta" });
+    }
+
+    const token = jwt.sign(
+      { id: data.id_usuario, tipo_usuario: data.tipo_usuario }, // ✅ Ahora coincide con el middleware
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );    
+
+    res.json({ token });
+  } catch (err) {
+    console.error("Error en el login:", err);
+    res.status(500).json({ message: "Error del servidor" });
+  }
+};
+
+module.exports = { register, login };
+
+.\controllers\cancionController.js
+const supabase = require("../db"); // Conexión a Supabase
+
+// 📌 Crear una canción
+const crearCancion = async (req, res) => {
+    const { titulo, album_id, orden, duracion_segundos } = req.body;
+
+    try {
+        const { data, error } = await supabase
+            .from('canciones')
+            .insert([{ titulo, album_id, orden, duracion_segundos }])
+            .single();
+
+        if (error) throw error;
+
+        res.status(201).json(data);
+    } catch (error) {
+        console.error("❌ Error al crear canción:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+};
+
+// 📌 Obtener todas las canciones
+const obtenerCanciones = async (req, res) => {
+    try {
+        const { data, error } = await supabase.from('canciones').select('*');
+
+        if (error) throw error;
+
+        res.json(data);
+    } catch (error) {
+        console.error("❌ Error al obtener canciones:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+};
+
+// 📌 Obtener una canción por ID
+const obtenerCancionPorId = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const { data, error } = await supabase
+            .from('canciones')
+            .select('*')
+            .eq('id_cancion', id)
+            .single();
+
+        if (error) {
+            return res.status(404).json({ error: "Canción no encontrada" });
+        }
+
+        res.json(data);
+    } catch (error) {
+        console.error("❌ Error al obtener canción:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+};
+
+// 📌 Actualizar una canción
+const actualizarCancion = async (req, res) => {
+    const { id } = req.params;
+    const { titulo, album_id, orden, duracion_segundos } = req.body;
+
+    try {
+        const { data, error } = await supabase
+            .from('canciones')
+            .update({ titulo, album_id, orden, duracion_segundos })
+            .eq('id_cancion', id)
+            .single();
+
+        if (error) {
+            return res.status(404).json({ error: "Canción no encontrada" });
+        }
+
+        res.json(data);
+    } catch (error) {
+        console.error("❌ Error al actualizar canción:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+};
+
+// 📌 Eliminar una canción
+const eliminarCancion = async (req, res) => {
+    const { id } = req.params;
+
+    try {
+        const { data, error } = await supabase
+            .from('canciones')
+            .delete()
+            .eq('id_cancion', id)
+            .single();
+
+        if (error) {
+            return res.status(404).json({ error: "Canción no encontrada" });
+        }
+
+        res.json({ message: "Canción eliminada con éxito" });
+    } catch (error) {
+        console.error("❌ Error al eliminar canción:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+};
+
+module.exports = { crearCancion, obtenerCanciones, obtenerCancionPorId, actualizarCancion, eliminarCancion };
+
+.\controllers\listaController.js
+const supabase = require("../db"); // Conexión a Supabase
+
+// ✅ Crear una lista
+exports.crearLista = async (req, res) => {
+    const { usuario, nombre, descripcion, tipo_lista } = req.body;
+    try {
+        const { data, error } = await supabase
+            .from('listas_comunidad')
+            .insert([{ usuario, nombre, descripcion, tipo_lista }])
+            .single();
+
+        if (error) throw error;
+
+        res.status(201).json(data);
+    } catch (error) {
+        console.error("❌ Error al crear la lista:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+};
+
+// ✅ Obtener todas las listas
+exports.obtenerListas = async (req, res) => {
+    try {
+        const { data, error } = await supabase.from('listas_comunidad').select('*');
+
+        if (error) throw error;
+
+        res.json(data);
+    } catch (error) {
+        console.error("❌ Error al obtener listas:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+};
+
+// ✅ Obtener una lista por ID
+exports.obtenerListaPorId = async (req, res) => {
+    const { id } = req.params;
+    try {
+        const { data, error } = await supabase
+            .from('listas_comunidad')
+            .select('*')
+            .eq('ID_lista', id)
+            .single();
+
+        if (error) return res.status(404).json({ error: "Lista no encontrada" });
+
+        res.json(data);
+    } catch (error) {
+        console.error("❌ Error al obtener la lista:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+};
+
+// ✅ Actualizar una lista
+exports.actualizarLista = async (req, res) => {
+    const { id } = req.params;
+    const { nombre, descripcion, tipo_lista } = req.body;
+    try {
+        const { data, error } = await supabase
+            .from('listas_comunidad')
+            .update({ nombre, descripcion, tipo_lista })
+            .eq('ID_lista', id)
+            .single();
+
+        if (error) return res.status(404).json({ error: "Lista no encontrada" });
+
+        res.json(data);
+    } catch (error) {
+        console.error("❌ Error al actualizar la lista:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+};
+
+// ✅ Eliminar una lista
+exports.eliminarLista = async (req, res) => {
+    const { id } = req.params;
+    try {
+        const { data, error } = await supabase
+            .from('listas_comunidad')
+            .delete()
+            .eq('ID_lista', id)
+            .single();
+
+        if (error) return res.status(404).json({ error: "Lista no encontrada" });
+
+        res.json({ message: "Lista eliminada con éxito" });
+    } catch (error) {
+        console.error("❌ Error al eliminar la lista:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+};
+
+.\controllers\tendenciaController.js
+const supabase = require('../db');
+
+exports.registrarTendencia = async (req, res) => {
+    const { usuario, accion, entidad_tipo, entidad_id } = req.body;
+    try {
+        const { error } = await supabase
+            .from('tendencias')
+            .insert([{ usuario, accion, entidad_tipo, entidad_id }]);
+
+        if (error) throw error;
+
+        res.status(201).json({ mensaje: 'Tendencia registrada.' });
+    } catch (error) {
+        res.status(500).json({ error: 'Error al registrar la tendencia.' });
+    }
+};
+
+exports.obtenerTendenciasRecientes = async (req, res) => {
+    try {
+        const { data, error } = await supabase
+            .from('tendencias')
+            .select('*')
+            .order('registrado', { ascending: false })
+            .limit(20);
+
+        if (error) throw error;
+
+        res.status(200).json(data);
+    } catch (error) {
+        res.status(500).json({ error: 'Error al obtener tendencias.' });
+    }
+};
+
+// Obtener el feed de tendencias con detalles
+exports.obtenerFeedTendencias = async (req, res) => {
+  try {
+    const { data: tendencias, error } = await supabase
+      .from("tendencias")
+      .select(`
+        id_tendencia,
+        accion,
+        entidad_tipo,
+        entidad_id,
+        registrado,
+        usuarios (nombre, username),
+        album (titulo),
+        cancion (titulo),
+        artista (nombre)
+      `)
+      .order("registrado", { ascending: false })
+      .limit(10);
+
+    if (error) throw error;
+
+    res.status(200).json(tendencias);
+  } catch (error) {
+    console.error("Error al obtener el feed de tendencias:", error);
+    res.status(500).json({ error: "Error al obtener el feed de tendencias." });
+  }
+};
+
+.\controllers\userController.js
+const supabase = require("../db");
+
+// Obtener todos los usuarios
+const obtenerUsuarios = async (req, res) => {
+  try {
+    const { data, error } = await supabase.from("usuarios").select("*");
+    if (error) throw error;
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(500).json({ error: "Error al obtener usuarios." });
+  }
+};
+
+// Obtener el perfil del usuario autenticado
+const obtenerPerfil = async (req, res) => {
+  const userId = req.usuario.id;  // Cambiar de id_usuario a id
+
+  try {
+    const { data, error } = await supabase
+      .from("usuarios")
+      .select("id_usuario, nombre, email, username")
+      .eq("id_usuario", userId)
+      .single();  
+
+    if (error) throw error;
+    if (!data) {
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+    res.json(data);
+  } catch (error) {
+    console.error("Error al obtener perfil:", error);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
+};
+
+
+const obtenerUsuarioPorId = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const { data, error } = await supabase
+      .from("usuarios")
+      .select("id_usuario, nombre, email, username")
+      .eq("id_usuario", id)
+      .single(); // Solo un registro
+
+    if (error) throw error;
+
+    if (!data) {
+      return res.status(404).json({ error: "Usuario no encontrado" });
+    }
+
+    res.json(data);
+  } catch (error) {
+    console.error("Error al obtener usuario:", error);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
+};
+
+// Panel de administración (solo para admins)
+const panelAdmin = async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from("usuarios")
+      .select("id_usuario, nombre, email, username, rol");
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    console.error("Error en el panel de administración:", error);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
+};
+
+const eliminarUsuario = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const { error } = await supabase
+      .from("usuarios")
+      .delete()
+      .eq("id_usuario", id);
+
+    if (error) throw error;
+
+    res.status(200).json({ mensaje: "Usuario eliminado exitosamente." });
+  } catch (error) {
+    console.error("Error al eliminar usuario:", error);
+    res.status(500).json({ error: "Error al eliminar usuario." });
+  }
+};
+
+module.exports = {
+  obtenerUsuarios,
+  obtenerPerfil,
+  panelAdmin,
+  obtenerUsuarioPorId,
+  eliminarUsuario,
+};
+
+.\controllers\valoracionController.js
+const supabase = require("../db"); // Conexión a Supabase
+
+// ✅ Crear una valoración
+exports.crearValoracion = async (req, res) => {
+    const { usuario_id, calificacion, comentario, entidad_tipo, entidad_id, recomendable } = req.body;
+    try {
+        const { data, error } = await supabase
+            .from('valoraciones')
+            .insert([{ usuario_id, calificacion, comentario, entidad_tipo, entidad_id, recomendable }])
+            .single();
+
+        if (error) throw error;
+
+        res.status(201).json(data);
+    } catch (error) {
+        console.error("❌ Error al crear la valoración:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+};
+
+// ✅ Obtener todas las valoraciones
+exports.obtenerValoraciones = async (req, res) => {
+    try {
+        const { data, error } = await supabase.from('valoraciones').select('*');
+
+        if (error) throw error;
+
+        res.json(data);
+    } catch (error) {
+        console.error("❌ Error al obtener valoraciones:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+};
+
+// ✅ Obtener una valoración por ID
+exports.obtenerValoracionPorId = async (req, res) => {
+    const { id } = req.params;
+    try {
+        const { data, error } = await supabase
+            .from('valoraciones')
+            .select('*')
+            .eq('ID_valoracion', id)
+            .single();
+
+        if (error) return res.status(404).json({ error: "Valoración no encontrada" });
+
+        res.json(data);
+    } catch (error) {
+        console.error("❌ Error al obtener la valoración:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+};
+
+// ✅ Actualizar una valoración
+exports.actualizarValoracion = async (req, res) => {
+    const { id } = req.params;
+    const { calificacion, comentario, recomendable } = req.body;
+    try {
+        const { data, error } = await supabase
+            .from('valoraciones')
+            .update({ calificacion, comentario, recomendable })
+            .eq('ID_valoracion', id)
+            .single();
+
+        if (error) return res.status(404).json({ error: "Valoración no encontrada" });
+
+        res.json(data);
+    } catch (error) {
+        console.error("❌ Error al actualizar la valoración:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+};
+
+// ✅ Eliminar una valoración
+exports.eliminarValoracion = async (req, res) => {
+    const { id } = req.params;
+    try {
+        const { data, error } = await supabase
+            .from('valoraciones')
+            .delete()
+            .eq('ID_valoracion', id)
+            .single();
+
+        if (error) return res.status(404).json({ error: "Valoración no encontrada" });
+
+        res.json({ message: "Valoración eliminada con éxito" });
+    } catch (error) {
+        console.error("❌ Error al eliminar la valoración:", error);
+        res.status(500).json({ error: "Error en el servidor" });
+    }
+};
+
+.\controllers\votacionController.js
+const supabase = require('../db');
+
+exports.votar = async (req, res) => {
+    const { usuario, lista, voto } = req.body;
+    try {
+        const { error } = await supabase
+            .from('votaciones_rankings')
+            .insert([{ usuario, lista, voto }]);
+
+        if (error) throw error;
+
+        res.status(201).json({ mensaje: 'Voto registrado.' });
+    } catch (error) {
+        res.status(500).json({ error: 'Error al registrar el voto.' });
+    }
+};
+
+exports.obtenerResultadosVotacion = async (req, res) => {
+    const { listaId } = req.params;
+    try {
+        const { data, error } = await supabase
+            .from('votaciones_rankings')
+            .select('voto')
+            .eq('lista', listaId);
+
+        if (error) throw error;
+
+        const resultados = {
+            positivos: data.filter(v => v.voto === 1).length,
+            negativos: data.filter(v => v.voto === -1).length,
+        };
+
+        res.status(200).json(resultados);
+    } catch (error) {
+        res.status(500).json({ error: 'Error al obtener resultados.' });
+    }
+};
+
+.\frontend\.gitignore
+.\frontend\eslint.config.js
+.\frontend\index.html
+.\frontend\node_modules
+.\frontend\package-lock.json
+.\frontend\package.json
+.\frontend\public
+.\frontend\README.md
+.\frontend\src
+.\frontend\vite.config.js
+.\frontend\node_modules\...
+.\frontend\public\vite.svg
+.\frontend\src\AlbumRating.jsx
+import React, { useState } from 'react';
+import StarRating from './StarRating';
+import axios from 'axios';
+
+const AlbumView = ({ album }) => {
+    const [rating, setRating] = useState(0);
+
+    const handleRating = async (newRating) => {
+        setRating(newRating);
+        try {
+            await axios.post('http://localhost:5000/valoraciones/registrar', {
+                entidad_tipo: 'album',
+                entidad_id: album.id,
+                puntuacion: newRating
+            });
+            console.log('Valoración guardada');
+        } catch (error) {
+            console.error('Error al guardar la valoración:', error);
+        }
+    };
+
+    return (
+        <div className="p-4 border rounded shadow-md">
+            <h3 className="text-xl font-bold">{album.titulo}</h3>
+            <StarRating rating={rating} onRate={handleRating} />
+        </div>
+    );
+};
+
+export default AlbumView;
+
+.\frontend\src\api.js
+import axios from "axios";
+
+const API_URL = "http://localhost:5000";
+
+export const getUsuarios = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/usuarios`);
+      return response.data;
+    } catch (error) {
+      console.error("Error al obtener usuarios:", error);
+      return [];
+    }
+  };
+  
+.\frontend\src\App.css
+.\frontend\src\App.jsx
+// src/App.jsx
+import { useState, useEffect } from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import axios from "axios";
+import TendenciasFeed from './TendenciasFeed';
+import StarRating from './StarRating';
+import Login from "./Login";
+import ProtectedRoute from "./components/ProtectedRoute";
+import Unauthorized from "./components/Unauthorized";
+import PanelAdmin from "./components/PanelAdmin";
+import GestionarUsuarios from "./components/GestionarUsuarios";
+import Home from "./components/Home"; // Importa el nuevo componente
+
+const API_URL = "http://localhost:5000";
+
+function App() {
+  const [usuario, setUsuario] = useState(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        setUsuario({ id: payload.id, nombre: "Usuario", tipo_usuario: payload.tipo_usuario });
+  
+        axios.get(`${API_URL}/usuarios/${payload.id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+          }
+        })
+        .then((res) => {
+          setUsuario((prevUsuario) => ({
+            ...prevUsuario,
+            nombre: res.data.nombre,
+          }));
+        })
+        .catch((err) => {
+          console.error("Error al validar el token:", err.response?.data || err.message);
+          localStorage.removeItem('token');
+          setUsuario(null);
+        });
+      } catch (error) {
+        console.error("Error al decodificar el token:", error);
+        localStorage.removeItem('token');
+      }
+    }
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('token');
+    setUsuario(null);
+  };
+
+  return (
+    <Router>
+      <div className="p-4">
+        <h1 className="text-3xl font-bold">MusicTree</h1>
+
+        {usuario ? (
+          <div>
+            <h2>Bienvenido, {usuario.nombre}</h2>
+            <p>Rol: {usuario.tipo_usuario || "Sin Rol"}</p>
+            <button onClick={handleLogout} className="bg-red-400 text-white p-2 rounded">Cerrar Sesión</button>
+
+            {usuario.tipo_usuario === "admin" && (
+              <div>
+                <h3>Panel de Administración</h3>
+                <button className="bg-red-500 text-white p-2 rounded">Gestionar Usuarios</button>
+                <button className="bg-blue-500 text-white p-2 rounded ml-2">Moderación de Contenido</button>
+              </div>
+            )}
+
+            {usuario.tipo_usuario === "moderador" && (
+              <div>
+                <h3>Panel de Moderación</h3>
+                <button className="bg-yellow-500 text-white p-2 rounded">Revisar Reportes</button>
+              </div>
+            )}
+
+            {usuario.tipo_usuario === "usuario" && (
+              <div>
+                <h3>Explorar Música</h3>
+                <StarRating valoracionInicial={3} onRatingChange={() => {}} />
+              </div>
+            )}
+          </div>
+        ) : (
+          <Login onLoginExitoso={setUsuario} />
+        )}
+
+        <TendenciasFeed />
+
+        <Routes>
+          <Route path="/" element={<Home />} /> {/* Ruta principal */}
+
+          <Route path="/admin" element={
+            <ProtectedRoute user={usuario} roles={["admin"]}>
+              <PanelAdmin />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/usuarios" element={
+            <ProtectedRoute user={usuario} roles={["admin", "moderador"]}>
+              <GestionarUsuarios />
+            </ProtectedRoute>
+          } />
+
+          <Route path="/unauthorized" element={<Unauthorized />} />
+
+          {/* Redirigir a Home si la ruta no existe */}
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </div>
+    </Router>
+  );
+}
+
+export default App;
+
+.\frontend\src\assets
+.\frontend\src\components
+.\frontend\src\index.css
+.\frontend\src\Login.jsx
+import { useState } from "react";
+import axios from "axios";
+
+const Login = ({ onLoginExitoso }) => {
+  const [emailOrUsername, setEmailOrUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await axios.post('http://localhost:5000/auth/login', {
+        emailOrUsername, // Enviar email o username
+        password,        // Aquí ya está la coma que faltaba
+      });
+
+      console.log(response.data);
+      const { token, tipo_usuario } = response.data;
+
+      if (response.data.token) {
+        localStorage.setItem('token', token);
+        localStorage.setItem('tipo_usuario', tipo_usuario);
+        console.log('Token guardado:', response.data.token);
+        onLoginExitoso(response.data);
+      } else {
+        console.log('No se recibió un token.');
+      }
+    } catch (error) {
+      console.error('Error al iniciar sesión:', error.response ? error.response.data : error.message);
+      setError('Credenciales incorrectas');
+    }
+  };
+
+  return (
+    <div className="max-w-sm mx-auto p-4 border rounded shadow-md mt-10">
+      <h2 className="text-xl font-semibold mb-4 text-center">Iniciar Sesión</h2>
+
+      {error && <p className="text-red-500">{error}</p>}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium">Correo o Usuario:</label>
+          <input
+            type="text"
+            value={emailOrUsername}
+            onChange={(e) => setEmailOrUsername(e.target.value)}
+            required
+            className="w-full border rounded px-3 py-2"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium">Contraseña:</label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            className="w-full border rounded px-3 py-2"
+          />
+        </div>
+
+        <button
+          type="submit"
+          className="w-full bg-green-500 text-white py-2 rounded hover:bg-green-600"
+        >
+          Iniciar Sesión
+        </button>
+      </form>
+    </div>
+  );
+};
+
+export default Login;
+
+.\frontend\src\main.jsx
+.\frontend\src\StarRating.jsx
+import { useState } from 'react';
+import { Star, Circle } from 'lucide-react';
+
+const StarRating = ({ valoracionInicial = 0, onRatingChange }) => {
+  const [rating, setRating] = useState(valoracionInicial);
+  const [hovered, setHovered] = useState(null);
+
+  const handleRating = (newRating) => {
+    if (newRating >= 0 && newRating <= 5) {
+      setRating(newRating);
+      onRatingChange(newRating);
+    }
+  };
+
+  const handleMouseEnter = (value) => {
+    setHovered(value);
+  };
+
+  const handleMouseLeave = () => {
+    setHovered(null);
+  };
+
+  const handleClick = (event, value) => {
+    const rect = event.target.getBoundingClientRect();
+    const clickPosition = event.clientX - rect.left;
+    const isHalfStar = clickPosition < rect.width / 2;
+
+    if (value === 0) {
+      handleRating(0); // Clic en el círculo siempre da 0
+    } else {
+      const newRating = isHalfStar ? value - 0.5 : value;
+      handleRating(newRating);
+    }
+  };
+
+  const renderStar = (value) => {
+    const currentRating = hovered !== null ? hovered : rating;
+    const isFilled = value <= currentRating;
+    const isHalf = value - 0.5 === currentRating;
+    const isEmpty = value > currentRating;
+
+    if (value === 0) {
+      return (
+        <div
+          key={value}
+          onClick={(e) => handleClick(e, value)}
+          onMouseEnter={() => handleMouseEnter(value)}
+          onMouseLeave={handleMouseLeave}
+          style={{ cursor: 'pointer' }}
+        >
+          <Circle
+            fill={currentRating === 0 ? 'green' : 'none'}
+            stroke={currentRating === 0 ? 'green' : 'skyblue'}
+            style={{
+              width: '54px',
+              height: '54px',
+              transition: 'fill 0.3s ease, stroke 0.3s ease',
+            }}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <div
+        key={value}
+        onClick={(e) => handleClick(e, value)}
+        onMouseEnter={() => handleMouseEnter(value)}
+        onMouseLeave={handleMouseLeave}
+        style={{ cursor: 'pointer', position: 'relative' }}
+      >
+        {/* Estrella llena */}
+        {isFilled && (
+          <Star
+            fill="green"
+            stroke="green"
+            style={{
+              width: '54px',
+              height: '54px',
+              transition: 'fill 0.3s ease',
+            }}
+          />
+        )}
+
+        {/* Media estrella con animación de pulso */}
+        {isHalf && (
+          <Star
+            fill="none"
+            stroke="green"
+            style={{
+              width: '54px',
+              height: '54px',
+              position: 'absolute',
+              top: '0',
+              left: '0',
+              clipPath: 'inset(0 50% 0 0)',
+              animation: 'pulse 1s infinite ease-in-out',
+            }}
+          />
+        )}
+
+        {/* Estrella vacía */}
+        {isEmpty && (
+          <Star
+            fill="none"
+            stroke="skyblue"
+            style={{
+              width: '54px',
+              height: '54px',
+              transition: 'stroke 0.3s ease',
+            }}
+          />
+        )}
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+      {[0, 1, 2, 3, 4, 5].map(renderStar)}
+      <div style={{ marginLeft: '8px', color: '#4CAF50', fontWeight: 'bold' }}>
+        {rating} ⭐
+      </div>
+
+      {/* Animación CSS */}
+      <style>{`
+        @keyframes pulse {
+          0% { transform: scale(1); opacity: 0.8; }
+          50% { transform: scale(1.1); opacity: 1; }
+          100% { transform: scale(1); opacity: 0.8; }
+        }
+      `}</style>
+    </div>
+  );
+};
+
+export default StarRating;
+
+.\frontend\src\TendenciasFeed.jsx
+import React, { useEffect, useState } from "react";
+import axios from "axios";
+
+const TendenciasFeed = () => {
+  const [tendencias, setTendencias] = useState([]);
+
+  useEffect(() => {
+    const fetchTendencias = async () => {
+      try {
+        const response = await axios.get("http://localhost:5000/tendencias/feed");
+        setTendencias(response.data);
+      } catch (error) {
+        console.error("Error al obtener el feed de tendencias:", error);
+      }
+    };
+    fetchTendencias();
+  }, []);
+
+  return (
+    <div className="p-4">
+      <h2 className="text-xl font-bold mb-4">Tendencias Recientes</h2>
+      <ul>
+        {tendencias.map((tendencia) => (
+          <li key={tendencia.id_tendencia} className="mb-2">
+            {tendencia.usuarios?.nombre} {tendencia.accion} en{" "}
+            {tendencia.entidad_tipo === "album" && tendencia.album?.titulo}
+            {tendencia.entidad_tipo === "cancion" && tendencia.cancion?.titulo}
+            {tendencia.entidad_tipo === "artista" && tendencia.artista?.nombre}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+export default TendenciasFeed;
+
+.\frontend\src\assets\react.svg
+.\frontend\src\components\GestionarUsuarios.jsx
+// src/components/GestionarUsuarios.jsx
+import { useEffect, useState } from "react";
+import axios from "axios";
+
+const API_URL = "http://localhost:5000"; // Asegúrate de que esta URL sea correcta
+
+const GestionarUsuarios = () => {
+  const [usuarios, setUsuarios] = useState([]);
+
+  useEffect(() => {
+    obtenerUsuarios();
+  }, []);
+
+  const obtenerUsuarios = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await axios.get(`${API_URL}/usuarios`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setUsuarios(res.data);
+    } catch (error) {
+      console.error("Error al obtener usuarios:", error);
+    }
+  };
+
+  const eliminarUsuario = async (id) => {
+    try {
+      const token = localStorage.getItem("token");
+      await axios.delete(`${API_URL}/usuarios/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      alert("Usuario eliminado exitosamente.");
+      setUsuarios(usuarios.filter((usuario) => usuario.id_usuario !== id));
+    } catch (error) {
+      console.error("Error al eliminar usuario:", error);
+      alert("No se pudo eliminar el usuario.");
+    }
+  };
+
+  return (
+    <div className="p-4">
+      <h1 className="text-2xl font-bold">Gestión de Usuarios</h1>
+      <ul className="mt-4 space-y-2">
+        {usuarios.map((usuario) => (
+          <li key={usuario.id_usuario} className="border p-2 rounded shadow-md flex justify-between items-center">
+            <div>
+              <p className="font-semibold">{usuario.nombre}</p>
+              <p className="text-sm text-gray-500">Email: {usuario.email}</p>
+              <p className="text-sm text-gray-500">Rol: {usuario.tipo_usuario}</p>
+            </div>
+            <button
+              onClick={() => eliminarUsuario(usuario.id_usuario)}
+              className="bg-red-500 text-white px-3 py-1 rounded"
+            >
+              Eliminar
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+export default GestionarUsuarios;
+
+.\frontend\src\components\Home.jsx
+// src/components/Home.jsx
+import React from 'react';
+
+const Home = () => {
+  return (
+    <div>
+      <h2 className="text-2xl font-bold">Bienvenido a MusicTree</h2>
+      <p>Explora artistas, álbumes, canciones y más.</p>
+    </div>
+  );
+};
+
+export default Home;
+
+.\frontend\src\components\PanelAdmin.jsx
+// src/components/PanelAdmin.jsx
+import { Link } from "react-router-dom";
+
+const PanelAdmin = () => {
+  return (
+    <div className="p-4">
+      <h1 className="text-2xl font-bold">Panel de Administración</h1>
+      <div className="mt-4 space-y-4">
+        <Link to="/usuarios">
+          <button className="bg-blue-500 text-white px-4 py-2 rounded w-full">
+            Gestionar Usuarios
+          </button>
+        </Link>
+        <Link to="/moderacion">
+          <button className="bg-red-500 text-white px-4 py-2 rounded w-full">
+            Moderación de Contenido
+          </button>
+        </Link>
+      </div>
+    </div>
+  );
+};
+
+export default PanelAdmin;
+
+.\frontend\src\components\ProtectedRoute.jsx
+import { Navigate } from "react-router-dom";
+
+const ProtectedRoute = ({ user, roles, children }) => {
+  if (!user) return <Navigate to="/login" />;
+  if (roles && !roles.includes(user.rol)) return <Navigate to="/unauthorized" />;
+  return children;
+};
+
+export default ProtectedRoute;
+
+.\frontend\src\components\Unauthorized.jsx
+const Unauthorized = () => (
+    <div className="text-center mt-10">
+      <h1 className="text-3xl font-bold">🚫 Acceso Denegado</h1>
+      <p>No tienes permisos para ver esta página.</p>
+    </div>
+  );
+  
+  export default Unauthorized;
+  
+.\middleware\authMiddleware.js
+const jwt = require("jsonwebtoken");
+
+const token = jwt.sign(
+  { id: usuario.id, tipo_usuario: usuario.tipo_usuario }, 
+  process.env.JWT_SECRET, 
+  { expiresIn: '1h' }
+);
+
+
+const verificarToken = (req, res, next) => {
+  const token = req.header("Authorization");
+
+  if (!token) {
+    return res.status(401).json({ mensaje: "Acceso denegado. Token no proporcionado." });
+  }
+
+  try {
+    const tokenSinBearer = token.startsWith("Bearer ") ? token.slice(7) : token;
+    const decoded = jwt.verify(tokenSinBearer, process.env.JWT_SECRET);
+    req.usuario = decoded;
+    next();
+  } catch (error) {
+    res.status(400).json({ mensaje: "Token inválido." });
+  }
+};
+
+const verificarAdmin = (req, res, next) => {
+  if (req.usuario.tipo_usuario !== "admin") {
+    return res.status(403).json({ mensaje: "Acceso denegado. Se requiere rol de administrador." });
+  }
+  next();
+};
+
+const verificarModerador = (req, res, next) => {
+  if (req.usuario.tipo_usuario !== "moderador" && req.usuario.tipo_usuario !== "admin") {
+    return res.status(403).json({ mensaje: "Acceso denegado. Se requiere rol de moderador o administrador." });
+  }
+  next();
+};
+
+module.exports = { verificarToken, verificarAdmin, verificarModerador };
+
+.\node_modules\...
+.\routes\albumRoutes.js
+const express = require("express");
+const router = express.Router();
+const albumController = require("../controllers/albumController");
+
+// Rutas CRUD
+router.post("/", albumController.crearAlbum);
+router.get("/", albumController.obtenerAlbumes);
+router.get("/:id", albumController.obtenerAlbumPorId);
+router.put("/:id", albumController.actualizarAlbum);
+router.delete("/:id", albumController.eliminarAlbum);
+
+module.exports = router;
+
+.\routes\artistaRoutes.js
+const express = require("express");
+const router = express.Router();
+const artistaController = require("../controllers/artistaController");
+
+// Rutas CRUD
+router.post("/", artistaController.crearArtista);
+router.get("/", artistaController.obtenerArtistas);
+router.get("/:id", artistaController.obtenerArtistaPorId);
+router.put("/:id", artistaController.actualizarArtista);
+router.delete("/:id", artistaController.eliminarArtista);
+
+module.exports = router;
+
+.\routes\authRoutes.js
+const express = require("express");
+const { register, login } = require("../controllers/authController");
+
+const router = express.Router();
+
+router.post("/register", register);
+router.post("/login", login);
+
+module.exports = router;
+
+.\routes\cancionRoutes.js
+const express = require("express");
+const router = express.Router();
+const cancionController = require("../controllers/cancionController");
+
+// Rutas CRUD
+router.post("/", cancionController.crearCancion);
+router.get("/", cancionController.obtenerCanciones);
+router.get("/:id", cancionController.obtenerCancionPorId);
+router.put("/:id", cancionController.actualizarCancion);
+router.delete("/:id", cancionController.eliminarCancion);
+
+module.exports = router;
+
+.\routes\listaRoutes.js
+const express = require("express");
+const router = express.Router();
+const listaController = require("../controllers/listaController");
+
+// Rutas CRUD para Listas de Usuarios
+router.post("/", listaController.crearLista);
+router.get("/", listaController.obtenerListas);
+router.get("/:id", listaController.obtenerListaPorId);
+router.put("/:id", listaController.actualizarLista);
+router.delete("/:id", listaController.eliminarLista);
+
+module.exports = router;
+
+.\routes\tendenciaRoutes.js
+const express = require("express");
+const router = express.Router();
+const tendenciaController = require('../controllers/tendenciaController');
+const { obtenerTendenciasRecientes } = require("../controllers/tendenciaController");
+const { authenticateToken, authorizeRoles } = require("../middleware/authMiddleware");
+
+router.post('/registrar', authenticateToken, authorizeRoles("admin", "moderador"), tendenciaController.registrarTendencia);
+router.get('/recientes', tendenciaController.obtenerTendenciasRecientes);
+//router.get('/feed', tendenciaController.obtenerTendenciasRecientes);
+router.get("/feed", obtenerTendenciasRecientes); // Ruta correcta
+
+module.exports = router;
+
+.\routes\userRoutes.js
+const express = require("express");
+const router = express.Router();
+const userController = require("../controllers/userController");
+const { authenticateToken, authorizeRoles } = require("../middleware/authMiddleware");
+
+router.get("/perfil", authenticateToken, userController.obtenerPerfil);
+router.get("/admin", authenticateToken, authorizeRoles("admin"), userController.panelAdmin);
+router.get("/", authenticateToken, authorizeRoles("admin", "moderador"), userController.obtenerUsuarios);
+router.get("/:id", authenticateToken, authorizeRoles("admin", "moderador"), userController.obtenerUsuarioPorId);
+router.delete("/:id", authenticateToken, authorizeRoles("admin"), userController.eliminarUsuario);
+
+module.exports = router;
+
+.\routes\valoracionRoutes.js
+const express = require("express");
+const router = express.Router();
+const valoracionController = require("../controllers/valoracionController");
+const { authenticateToken } = require("../middleware/authMiddleware");
+
+// Rutas CRUD para Valoraciones
+router.post("/", authenticateToken, valoracionController.crearValoracion);
+router.get("/", valoracionController.obtenerValoraciones);
+router.get("/:id", valoracionController.obtenerValoracionPorId);
+router.put("/:id", valoracionController.actualizarValoracion);
+router.delete("/:id", valoracionController.eliminarValoracion);
+
+module.exports = router;
+
+.\routes\votacionRoutes.js
+const express = require("express");
+const router = express.Router();
+const votacionController = require('../controllers/votacionController');
+
+router.post('/votar', votacionController.votar);
+router.get('/resultados/:listaId', votacionController.obtenerResultadosVotacion);
+
+module.exports = router;
+
+.\supabase\.branches
+.\supabase\.temp
+.\supabase\config.toml
+.\supabase\.branches\_current_branch
+.\supabase\.temp\cli-latest
