@@ -33,17 +33,35 @@ const obtenerArtistaPorId = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const { data, error } = await supabase
+    const { data: artista, error: artistaError } = await supabase
       .from('artistas')
       .select('*')
-      .eq('ID_artista', id)
+      .eq('id_artista', id)
       .single();
 
-    if (error) {
+    if (artistaError) {
       return res.status(404).json({ error: "Artista no encontrado" });
     }
 
-    res.json(data);
+    const { data: albumes, error: albumesError } = await supabase
+  .from('albumes')
+  .select('*')
+  .eq('artista_id', id);
+
+// Verifica si albumes es nulo o vacío antes de intentar map()
+if (!albumes || albumes.length === 0) {
+  return res.json({ artista, albumes: [], canciones: [] });
+}
+
+const { data: canciones, error: cancionesError } = await supabase
+  .from('canciones')
+  .select('*')
+  .in('album', albumes.map(album => album.ID_album));
+
+if (cancionesError) {
+  return res.status(500).json({ error: "Error al obtener canciones" });
+}
+    res.json({ artista, albumes, canciones });
   } catch (error) {
     console.error("❌ Error al obtener artista:", error);
     res.status(500).json({ error: "Error en el servidor" });
@@ -58,7 +76,7 @@ const actualizarArtista = async (req, res) => {
     const { data, error } = await supabase
       .from('artistas')
       .update({ nombre_artista, biografia, foto_artista })
-      .eq('ID_artista', id)
+      .eq('id_artista', id)
       .single();
 
     if (error) {
@@ -79,7 +97,7 @@ const eliminarArtista = async (req, res) => {
     const { data, error } = await supabase
       .from('artistas')
       .delete()
-      .eq('ID_artista', id)
+      .eq('id_artista', id)
       .single();
 
     if (error) {

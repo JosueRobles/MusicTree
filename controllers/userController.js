@@ -11,7 +11,7 @@ const obtenerUsuarios = async (req, res) => {
 };
 
 const obtenerPerfil = async (req, res) => {
-  const userId = req.usuario.id;
+  const userId = req.user.id; // Asegúrate de obtener el ID del usuario autenticado
 
   try {
     const { data, error } = await supabase

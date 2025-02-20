@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import axios from 'axios';
+
+const API_URL = "http://localhost:5000";
 
 const Register = () => {
   const [nombre, setNombre] = useState('');
@@ -11,7 +13,7 @@ const Register = () => {
   const handleRegister = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post('http://localhost:5000/auth/register', {
+      const response = await axios.post(`${API_URL}/auth/register`, {
         nombre,
         email,
         username,
@@ -20,7 +22,7 @@ const Register = () => {
       console.log(response.data);
       // Redirigir a la página de inicio de sesión después del registro exitoso
       window.location.href = '/login';
-    } catch (error) {
+    } catch {
       setError('Error al registrar usuario');
     }
   };

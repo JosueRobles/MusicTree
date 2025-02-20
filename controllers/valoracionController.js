@@ -3,9 +3,24 @@ const supabase = require("../db");
 const crearValoracion = async (req, res) => {
   const { usuario_id, calificacion, comentario, entidad_tipo, entidad_id, recomendable } = req.body;
   try {
+    let tabla;
+    switch (entidad_tipo) {
+      case 'cancion':
+        tabla = 'valoraciones_canciones';
+        break;
+      case 'album':
+        tabla = 'valoraciones_albumes';
+        break;
+      case 'artista':
+        tabla = 'valoraciones_artistas';
+        break;
+      default:
+        return res.status(400).json({ error: "Tipo de entidad no válida" });
+    }
+
     const { data, error } = await supabase
-      .from('valoraciones')
-      .insert([{ usuario_id, calificacion, comentario, entidad_tipo, entidad_id, recomendable }])
+      .from(tabla)
+      .insert([{ usuario_id, entidad_id, calificacion, comentario, recomendable }])
       .single();
 
     if (error) throw error;

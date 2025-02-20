@@ -38,7 +38,7 @@ const obtenerCancionPorId = async (req, res) => {
     const { data, error } = await supabase
       .from('canciones')
       .select('*')
-      .eq('ID_cancion', id)
+      .eq('id_cancion', id)
       .single();
 
     if (error) {
@@ -60,7 +60,7 @@ const actualizarCancion = async (req, res) => {
     const { data, error } = await supabase
       .from('canciones')
       .update({ titulo, album_id, orden, duracion_segundos })
-      .eq('ID_cancion', id)
+      .eq('id_cancion', id)
       .single();
 
     if (error) {
@@ -81,7 +81,7 @@ const eliminarCancion = async (req, res) => {
     const { data, error } = await supabase
       .from('canciones')
       .delete()
-      .eq('ID_cancion', id)
+      .eq('id_cancion', id)
       .single();
 
     if (error) {

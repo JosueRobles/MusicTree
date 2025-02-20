@@ -4,14 +4,14 @@ const supabase = require("../db");
 require("dotenv").config();
 
 const register = async (req, res) => {
-  const { nombre, email, username, password, tipo_usuario = "regular" } = req.body;
+  const { nombre, email, username, password } = req.body;
 
   try {
     const password_hash = await bcrypt.hash(password, 10);
 
     const { data, error } = await supabase
       .from("usuarios")
-      .insert([{ nombre, email, username, password_hash, tipo_usuario }])
+      .insert([{ nombre, email, username, password_hash }])
       .select()
       .single();
 
@@ -51,7 +51,7 @@ const login = async (req, res) => {
       { expiresIn: '1h' }
     );    
 
-    res.json({ token });
+    res.json({ token, user: { id: data.id_usuario, nombre: data.nombre, tipo_usuario: data.tipo_usuario } });
   } catch (err) {
     console.error("Error en el login:", err);
     res.status(500).json({ message: "Error del servidor" });

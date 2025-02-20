@@ -1,14 +1,14 @@
-.=C:\Users\josue\musictree
-.\.env
+RUTA= E:\musictree
+\.env
 PORT=5000
 DATABASE_URL=postgresql://postgres:cruzazul@localhost:5432/postgres
 SUPABASE_URL=https://klpqgnuhcricvrwcieqq.supabase.co
 SUPABASE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImtscHFnbnVoY3JpY3Zyd2NpZXFxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzYyOTE3ODQsImV4cCI6MjA1MTg2Nzc4NH0.90jlfGfr74anxNYx5mMjwXOl_y2vDaTD8uJK1q6EN_U
 JWT_SECRET=musictree_secret_key_123
+SPOTIFY_CLIENT_ID=56c01ae69dbb4a1590b32d41b0982840
+SPOTIFY_CLIENT_SECRET=9168f79c417e4e898b83c3fec8c4dd19
 
-.\.vscode
-.\controllers
-.\db.js
+\db.js
 const { createClient } = require('@supabase/supabase-js');
 require('dotenv').config();
 
@@ -19,14 +19,20 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 module.exports = supabase;
 
-.\frontend
-.\index.js
+\index.js
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
+const saveData = require('./controllers/spotify/saveData');
+
 const app = express();
 const PORT = process.env.PORT || 5000;
-// Importar rutas
+
+dotenv.config();
+
+app.use(express.json());
+app.use(cors());
+
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const artistaRoutes = require("./routes/artistaRoutes");
@@ -36,14 +42,9 @@ const listaRoutes = require("./routes/listaRoutes");
 const valoracionRoutes = require("./routes/valoracionRoutes");
 const tendenciaRoutes = require("./routes/tendenciaRoutes");
 const votacionRoutes = require("./routes/votacionRoutes");
+const spotifyRoutes = require("./routes/spotifyRoutes");
+const albumArtistasRoutes = require("./routes/albumArtistasRoutes");
 
-dotenv.config();
-
-// Middleware para parsear JSON
-app.use(express.json());
-app.use(cors())
-
-// Usar rutas
 app.use("/auth", authRoutes);
 app.use("/usuarios", userRoutes);
 app.use("/artistas", artistaRoutes);
@@ -53,23 +54,31 @@ app.use("/listas", listaRoutes);
 app.use("/valoraciones", valoracionRoutes);
 app.use("/tendencias", tendenciaRoutes);
 app.use("/votaciones", votacionRoutes);
+app.use("/spotify", spotifyRoutes);
+app.use("/album_artistas", albumArtistasRoutes);
 
 app.get("/", (req, res) => {
   res.send("MusicTree API funcionando 🚀");
+});
+
+app.get('/populate', async (req, res) => {
+  try {
+    await saveData('pop');
+    res.send('Datos de artistas, álbumes y canciones almacenados correctamente');
+  } catch (error) {
+    console.error('Error al poblar la base de datos:', error);
+    res.status(500).send('Error al poblar la base de datos');
+  }
 });
 
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`);
 });
 
-.\middleware
-.\node_modules
-.\package-lock.json
-.\package.json
-.\README.md
-.\routes
-.\supabase
-.\supabaseClient.js
+\package-lock.json
+\package.json
+\README.md
+\supabaseClient.js
 require("dotenv").config(); // Asegura que las variables de entorno se carguen
 const { createClient } = require("@supabase/supabase-js");
 
@@ -80,237 +89,226 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 module.exports = supabase;
 
-.\.vscode\extensions.json
-.\.vscode\settings.json
-.\controllers\albumController.js
-const supabase = require("../db"); // Conexión a Supabase
+\.vscode
+\controllers
+\frontend
+\routes
+\supabase
+\node_modules
+\middleware
+\.vscode\extensions.json
+\.vscode\settings.json
+\controllers\albumController.js
+const supabase = require("../db");
 
-// 📌 Crear un álbum
 const crearAlbum = async (req, res) => {
-    const { titulo, anio, imagen_url, artista_id, numero_canciones, tipo_album, popularidad } = req.body;
+  const { titulo, anio, foto_album, artista_id, numero_canciones, tipo_album, popularidad_album } = req.body;
 
-    try {
-        const { data, error } = await supabase
-            .from('albumes')
-            .insert([
-                { titulo, anio, imagen_url, artista_id, numero_canciones, tipo_album, popularidad }
-            ])
-            .single();
+  try {
+    const { data, error } = await supabase
+      .from('albumes')
+      .insert([{ titulo, anio, foto_album, artista_id, numero_canciones, tipo_album, popularidad_album }])
+      .single();
 
-        if (error) throw error;
-        res.status(201).json(data);
-    } catch (error) {
-        console.error("❌ Error al crear álbum:", error);
-        res.status(500).json({ error: "Error en el servidor" });
-    }
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (error) {
+    console.error("❌ Error al crear álbum:", error);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
 };
 
-// 📌 Obtener todos los álbumes
 const obtenerAlbumes = async (req, res) => {
-    try {
-        const { data, error } = await supabase
-            .from('albumes')
-            .select('*');
+  try {
+    const { data, error } = await supabase.from('albumes').select('*');
 
-        if (error) throw error;
-        res.json(data);
-    } catch (error) {
-        console.error("❌ Error al obtener álbumes:", error);
-        res.status(500).json({ error: "Error en el servidor" });
-    }
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    console.error("❌ Error al obtener álbumes:", error);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
 };
 
-// 📌 Obtener un álbum por ID
 const obtenerAlbumPorId = async (req, res) => {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    try {
-        const { data, error } = await supabase
-            .from('albumes')
-            .select('*')
-            .eq('id_album', id)
-            .single();
+  try {
+    const { data, error } = await supabase
+      .from('albumes')
+      .select('*')
+      .eq('ID_album', id)
+      .single();
 
-        if (error) {
-            return res.status(404).json({ error: "Álbum no encontrado" });
-        }
-
-        res.json(data);
-    } catch (error) {
-        console.error("❌ Error al obtener álbum:", error);
-        res.status(500).json({ error: "Error en el servidor" });
+    if (error) {
+      return res.status(404).json({ error: "Álbum no encontrado" });
     }
+
+    res.json(data);
+  } catch (error) {
+    console.error("❌ Error al obtener álbum:", error);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
 };
 
-// 📌 Actualizar un álbum
 const actualizarAlbum = async (req, res) => {
-    const { id } = req.params;
-    const { titulo, anio, imagen_url, artista_id, numero_canciones, tipo_album, popularidad } = req.body;
+  const { id } = req.params;
+  const { titulo, anio, foto_album, artista_id, numero_canciones, tipo_album, popularidad_album } = req.body;
 
-    try {
-        const { data, error } = await supabase
-            .from('albumes')
-            .update({ titulo, anio, imagen_url, artista_id, numero_canciones, tipo_album, popularidad })
-            .eq('id_album', id)
-            .single();
+  try {
+    const { data, error } = await supabase
+      .from('albumes')
+      .update({ titulo, anio, foto_album, artista_id, numero_canciones, tipo_album, popularidad_album })
+      .eq('ID_album', id)
+      .single();
 
-        if (error) {
-            return res.status(404).json({ error: "Álbum no encontrado" });
-        }
-
-        res.json(data);
-    } catch (error) {
-        console.error("❌ Error al actualizar álbum:", error);
-        res.status(500).json({ error: "Error en el servidor" });
+    if (error) {
+      return res.status(404).json({ error: "Álbum no encontrado" });
     }
+
+    res.json(data);
+  } catch (error) {
+    console.error("❌ Error al actualizar álbum:", error);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
 };
 
-// 📌 Eliminar un álbum
 const eliminarAlbum = async (req, res) => {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    try {
-        const { data, error } = await supabase
-            .from('albumes')
-            .delete()
-            .eq('id_album', id)
-            .single();
+  try {
+    const { data, error } = await supabase
+      .from('albumes')
+      .delete()
+      .eq('ID_album', id)
+      .single();
 
-        if (error) {
-            return res.status(404).json({ error: "Álbum no encontrado" });
-        }
-
-        res.json({ message: "Álbum eliminado con éxito" });
-    } catch (error) {
-        console.error("❌ Error al eliminar álbum:", error);
-        res.status(500).json({ error: "Error en el servidor" });
+    if (error) {
+      return res.status(404).json({ error: "Álbum no encontrado" });
     }
+
+    res.json({ message: "Álbum eliminado con éxito" });
+  } catch (error) {
+    console.error("❌ Error al eliminar álbum:", error);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
 };
 
 module.exports = { crearAlbum, obtenerAlbumes, obtenerAlbumPorId, actualizarAlbum, eliminarAlbum };
 
-.\controllers\artistaController.js
-const supabase = require("../db"); // Conexión a Supabase
+\controllers\artistaController.js
+const supabase = require("../db");
 
-// 📌 Crear un artista
 const crearArtista = async (req, res) => {
-    const { nombre_artista, biografia, foto_artista } = req.body;
+  const { nombre_artista, biografia, foto_artista } = req.body;
 
-    try {
-        const { data, error } = await supabase
-            .from('artistas')
-            .insert([
-                { nombre_artista, biografia, foto_artista }
-            ])
-            .single();
+  try {
+    const { data, error } = await supabase
+      .from('artistas')
+      .insert([{ nombre_artista, biografia, foto_artista }])
+      .single();
 
-        if (error) throw error;
-        res.status(201).json(data);
-    } catch (error) {
-        console.error("❌ Error al crear artista:", error);
-        res.status(500).json({ error: "Error en el servidor" });
-    }
+    if (error) throw error;
+    res.status(201).json(data);
+  } catch (error) {
+    console.error("❌ Error al crear artista:", error);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
 };
 
-// 📌 Obtener todos los artistas
 const obtenerArtistas = async (req, res) => {
-    try {
-        const { data, error } = await supabase
-            .from('artistas')
-            .select('*');
+  try {
+    const { data, error } = await supabase.from('artistas').select('*');
 
-        if (error) throw error;
-        res.json(data);
-    } catch (error) {
-        console.error("❌ Error al obtener artistas:", error);
-        res.status(500).json({ error: "Error en el servidor" });
-    }
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    console.error("❌ Error al obtener artistas:", error);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
 };
 
-// 📌 Obtener un artista por ID
 const obtenerArtistaPorId = async (req, res) => {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    try {
-        const { data, error } = await supabase
-            .from('artistas')
-            .select('*')
-            .eq('ID_artista', id)
-            .single();
+  try {
+    const { data, error } = await supabase
+      .from('artistas')
+      .select('*')
+      .eq('id_artista', id)
+      .single();
 
-        if (error) {
-            return res.status(404).json({ error: "Artista no encontrado" });
-        }
-
-        res.json(data);
-    } catch (error) {
-        console.error("❌ Error al obtener artista:", error);
-        res.status(500).json({ error: "Error en el servidor" });
+    if (error) {
+      return res.status(404).json({ error: "Artista no encontrado" });
     }
+
+    res.json(data);
+  } catch (error) {
+    console.error("❌ Error al obtener artista:", error);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
 };
 
-// 📌 Actualizar un artista
 const actualizarArtista = async (req, res) => {
-    const { id } = req.params;
-    const { nombre_artista, biografia, foto_artista } = req.body;
+  const { id } = req.params;
+  const { nombre_artista, biografia, foto_artista } = req.body;
 
-    try {
-        const { data, error } = await supabase
-            .from('artistas')
-            .update({ nombre_artista, biografia, foto_artista })
-            .eq('ID_artista', id)
-            .single();
+  try {
+    const { data, error } = await supabase
+      .from('artistas')
+      .update({ nombre_artista, biografia, foto_artista })
+      .eq('id_artista', id)
+      .single();
 
-        if (error) {
-            return res.status(404).json({ error: "Artista no encontrado" });
-        }
-
-        res.json(data);
-    } catch (error) {
-        console.error("❌ Error al actualizar artista:", error);
-        res.status(500).json({ error: "Error en el servidor" });
+    if (error) {
+      return res.status(404).json({ error: "Artista no encontrado" });
     }
+
+    res.json(data);
+  } catch (error) {
+    console.error("❌ Error al actualizar artista:", error);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
 };
 
-// 📌 Eliminar un artista
 const eliminarArtista = async (req, res) => {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    try {
-        const { data, error } = await supabase
-            .from('artistas')
-            .delete()
-            .eq('ID_artista', id)
-            .single();
+  try {
+    const { data, error } = await supabase
+      .from('artistas')
+      .delete()
+      .eq('id_artista', id)
+      .single();
 
-        if (error) {
-            return res.status(404).json({ error: "Artista no encontrado" });
-        }
-
-        res.json({ message: "Artista eliminado con éxito" });
-    } catch (error) {
-        console.error("❌ Error al eliminar artista:", error);
-        res.status(500).json({ error: "Error en el servidor" });
+    if (error) {
+      return res.status(404).json({ error: "Artista no encontrado" });
     }
+
+    res.json({ message: "Artista eliminado con éxito" });
+  } catch (error) {
+    console.error("❌ Error al eliminar artista:", error);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
 };
 
 module.exports = { crearArtista, obtenerArtistas, obtenerArtistaPorId, actualizarArtista, eliminarArtista };
 
-.\controllers\authController.js
+\controllers\authController.js
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const supabase = require("../db");
 require("dotenv").config();
 
 const register = async (req, res) => {
-  const { nombre, email, username, password, tipo_usuario = "regular" } = req.body;
+  const { nombre, email, username, password } = req.body;
 
   try {
     const password_hash = await bcrypt.hash(password, 10);
 
     const { data, error } = await supabase
       .from("usuarios")
-      .insert([{ nombre, email, username, password_hash, tipo_usuario }])
+      .insert([{ nombre, email, username, password_hash }])
       .select()
       .single();
 
@@ -345,12 +343,12 @@ const login = async (req, res) => {
     }
 
     const token = jwt.sign(
-      { id: data.id_usuario, tipo_usuario: data.tipo_usuario }, // ✅ Ahora coincide con el middleware
+      { id: data.id_usuario, tipo_usuario: data.tipo_usuario },
       process.env.JWT_SECRET,
       { expiresIn: '1h' }
     );    
 
-    res.json({ token });
+    res.json({ token, user: { id: data.id_usuario, nombre: data.nombre, tipo_usuario: data.tipo_usuario } });
   } catch (err) {
     console.error("Error en el login:", err);
     res.status(500).json({ message: "Error del servidor" });
@@ -359,240 +357,231 @@ const login = async (req, res) => {
 
 module.exports = { register, login };
 
-.\controllers\cancionController.js
-const supabase = require("../db"); // Conexión a Supabase
+\controllers\cancionController.js
+const supabase = require("../db");
 
-// 📌 Crear una canción
 const crearCancion = async (req, res) => {
-    const { titulo, album_id, orden, duracion_segundos } = req.body;
+  const { titulo, album_id, orden, duracion_segundos } = req.body;
 
-    try {
-        const { data, error } = await supabase
-            .from('canciones')
-            .insert([{ titulo, album_id, orden, duracion_segundos }])
-            .single();
+  try {
+    const { data, error } = await supabase
+      .from('canciones')
+      .insert([{ titulo, album_id, orden, duracion_segundos }])
+      .single();
 
-        if (error) throw error;
+    if (error) throw error;
 
-        res.status(201).json(data);
-    } catch (error) {
-        console.error("❌ Error al crear canción:", error);
-        res.status(500).json({ error: "Error en el servidor" });
-    }
+    res.status(201).json(data);
+  } catch (error) {
+    console.error("❌ Error al crear canción:", error);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
 };
 
-// 📌 Obtener todas las canciones
 const obtenerCanciones = async (req, res) => {
-    try {
-        const { data, error } = await supabase.from('canciones').select('*');
+  try {
+    const { data, error } = await supabase.from('canciones').select('*');
 
-        if (error) throw error;
+    if (error) throw error;
 
-        res.json(data);
-    } catch (error) {
-        console.error("❌ Error al obtener canciones:", error);
-        res.status(500).json({ error: "Error en el servidor" });
-    }
+    res.json(data);
+  } catch (error) {
+    console.error("❌ Error al obtener canciones:", error);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
 };
 
-// 📌 Obtener una canción por ID
 const obtenerCancionPorId = async (req, res) => {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    try {
-        const { data, error } = await supabase
-            .from('canciones')
-            .select('*')
-            .eq('id_cancion', id)
-            .single();
+  try {
+    const { data, error } = await supabase
+      .from('canciones')
+      .select('*')
+      .eq('id_cancion', id)
+      .single();
 
-        if (error) {
-            return res.status(404).json({ error: "Canción no encontrada" });
-        }
-
-        res.json(data);
-    } catch (error) {
-        console.error("❌ Error al obtener canción:", error);
-        res.status(500).json({ error: "Error en el servidor" });
+    if (error) {
+      return res.status(404).json({ error: "Canción no encontrada" });
     }
+
+    res.json(data);
+  } catch (error) {
+    console.error("❌ Error al obtener canción:", error);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
 };
 
-// 📌 Actualizar una canción
 const actualizarCancion = async (req, res) => {
-    const { id } = req.params;
-    const { titulo, album_id, orden, duracion_segundos } = req.body;
+  const { id } = req.params;
+  const { titulo, album_id, orden, duracion_segundos } = req.body;
 
-    try {
-        const { data, error } = await supabase
-            .from('canciones')
-            .update({ titulo, album_id, orden, duracion_segundos })
-            .eq('id_cancion', id)
-            .single();
+  try {
+    const { data, error } = await supabase
+      .from('canciones')
+      .update({ titulo, album_id, orden, duracion_segundos })
+      .eq('id_cancion', id)
+      .single();
 
-        if (error) {
-            return res.status(404).json({ error: "Canción no encontrada" });
-        }
-
-        res.json(data);
-    } catch (error) {
-        console.error("❌ Error al actualizar canción:", error);
-        res.status(500).json({ error: "Error en el servidor" });
+    if (error) {
+      return res.status(404).json({ error: "Canción no encontrada" });
     }
+
+    res.json(data);
+  } catch (error) {
+    console.error("❌ Error al actualizar canción:", error);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
 };
 
-// 📌 Eliminar una canción
 const eliminarCancion = async (req, res) => {
-    const { id } = req.params;
+  const { id } = req.params;
 
-    try {
-        const { data, error } = await supabase
-            .from('canciones')
-            .delete()
-            .eq('id_cancion', id)
-            .single();
+  try {
+    const { data, error } = await supabase
+      .from('canciones')
+      .delete()
+      .eq('id_cancion', id)
+      .single();
 
-        if (error) {
-            return res.status(404).json({ error: "Canción no encontrada" });
-        }
-
-        res.json({ message: "Canción eliminada con éxito" });
-    } catch (error) {
-        console.error("❌ Error al eliminar canción:", error);
-        res.status(500).json({ error: "Error en el servidor" });
+    if (error) {
+      return res.status(404).json({ error: "Canción no encontrada" });
     }
+
+    res.json({ message: "Canción eliminada con éxito" });
+  } catch (error) {
+    console.error("❌ Error al eliminar canción:", error);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
 };
 
 module.exports = { crearCancion, obtenerCanciones, obtenerCancionPorId, actualizarCancion, eliminarCancion };
 
-.\controllers\listaController.js
-const supabase = require("../db"); // Conexión a Supabase
+\controllers\listaController.js
+const supabase = require("../db");
 
-// ✅ Crear una lista
-exports.crearLista = async (req, res) => {
-    const { usuario, nombre, descripcion, tipo_lista } = req.body;
-    try {
-        const { data, error } = await supabase
-            .from('listas_comunidad')
-            .insert([{ usuario, nombre, descripcion, tipo_lista }])
-            .single();
+const crearLista = async (req, res) => {
+  const { usuario, nombre, descripcion, tipo_lista } = req.body;
+  try {
+    const { data, error } = await supabase
+      .from('listas_comunidad')
+      .insert([{ usuario, nombre, descripcion, tipo_lista }])
+      .single();
 
-        if (error) throw error;
+    if (error) throw error;
 
-        res.status(201).json(data);
-    } catch (error) {
-        console.error("❌ Error al crear la lista:", error);
-        res.status(500).json({ error: "Error en el servidor" });
-    }
+    res.status(201).json(data);
+  } catch (error) {
+    console.error("❌ Error al crear la lista:", error);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
 };
 
-// ✅ Obtener todas las listas
-exports.obtenerListas = async (req, res) => {
-    try {
-        const { data, error } = await supabase.from('listas_comunidad').select('*');
+const obtenerListas = async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('listas_comunidad').select('*');
 
-        if (error) throw error;
+    if (error) throw error;
 
-        res.json(data);
-    } catch (error) {
-        console.error("❌ Error al obtener listas:", error);
-        res.status(500).json({ error: "Error en el servidor" });
-    }
+    res.json(data);
+  } catch (error) {
+    console.error("❌ Error al obtener listas:", error);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
 };
 
-// ✅ Obtener una lista por ID
-exports.obtenerListaPorId = async (req, res) => {
-    const { id } = req.params;
-    try {
-        const { data, error } = await supabase
-            .from('listas_comunidad')
-            .select('*')
-            .eq('ID_lista', id)
-            .single();
+const obtenerListaPorId = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { data, error } = await supabase
+      .from('listas_comunidad')
+      .select('*')
+      .eq('ID_lista', id)
+      .single();
 
-        if (error) return res.status(404).json({ error: "Lista no encontrada" });
+    if (error) return res.status(404).json({ error: "Lista no encontrada" });
 
-        res.json(data);
-    } catch (error) {
-        console.error("❌ Error al obtener la lista:", error);
-        res.status(500).json({ error: "Error en el servidor" });
-    }
+    res.json(data);
+  } catch (error) {
+    console.error("❌ Error al obtener la lista:", error);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
 };
 
-// ✅ Actualizar una lista
-exports.actualizarLista = async (req, res) => {
-    const { id } = req.params;
-    const { nombre, descripcion, tipo_lista } = req.body;
-    try {
-        const { data, error } = await supabase
-            .from('listas_comunidad')
-            .update({ nombre, descripcion, tipo_lista })
-            .eq('ID_lista', id)
-            .single();
+const actualizarLista = async (req, res) => {
+  const { id } = req.params;
+  const { nombre, descripcion, tipo_lista } = req.body;
+  try {
+    const { data, error } = await supabase
+      .from('listas_comunidad')
+      .update({ nombre, descripcion, tipo_lista })
+      .eq('ID_lista', id)
+      .single();
 
-        if (error) return res.status(404).json({ error: "Lista no encontrada" });
+    if (error) return res.status(404).json({ error: "Lista no encontrada" });
 
-        res.json(data);
-    } catch (error) {
-        console.error("❌ Error al actualizar la lista:", error);
-        res.status(500).json({ error: "Error en el servidor" });
-    }
+    res.json(data);
+  } catch (error) {
+    console.error("❌ Error al actualizar la lista:", error);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
 };
 
-// ✅ Eliminar una lista
-exports.eliminarLista = async (req, res) => {
-    const { id } = req.params;
-    try {
-        const { data, error } = await supabase
-            .from('listas_comunidad')
-            .delete()
-            .eq('ID_lista', id)
-            .single();
+const eliminarLista = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { data, error } = await supabase
+      .from('listas_comunidad')
+      .delete()
+      .eq('ID_lista', id)
+      .single();
 
-        if (error) return res.status(404).json({ error: "Lista no encontrada" });
+    if (error) return res.status(404).json({ error: "Lista no encontrada" });
 
-        res.json({ message: "Lista eliminada con éxito" });
-    } catch (error) {
-        console.error("❌ Error al eliminar la lista:", error);
-        res.status(500).json({ error: "Error en el servidor" });
-    }
+    res.json({ message: "Lista eliminada con éxito" });
+  } catch (error) {
+    console.error("❌ Error al eliminar la lista:", error);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
 };
 
-.\controllers\tendenciaController.js
-const supabase = require('../db');
+module.exports = { crearLista, obtenerListas, obtenerListaPorId, actualizarLista, eliminarLista };
 
-exports.registrarTendencia = async (req, res) => {
-    const { usuario, accion, entidad_tipo, entidad_id } = req.body;
-    try {
-        const { error } = await supabase
-            .from('tendencias')
-            .insert([{ usuario, accion, entidad_tipo, entidad_id }]);
+\controllers\tendenciaController.js
+const supabase = require("../db");
 
-        if (error) throw error;
+const registrarTendencia = async (req, res) => {
+  const { usuario_id, accion, entidad_tipo, entidad_id } = req.body;
+  try {
+    const { data, error } = await supabase
+      .from('tendencias')
+      .insert([{ usuario_id, accion, entidad_tipo, entidad_id }]);
 
-        res.status(201).json({ mensaje: 'Tendencia registrada.' });
-    } catch (error) {
-        res.status(500).json({ error: 'Error al registrar la tendencia.' });
-    }
+    if (error) throw error;
+
+    res.status(201).json({ mensaje: 'Tendencia registrada.' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al registrar la tendencia.' });
+  }
 };
 
-exports.obtenerTendenciasRecientes = async (req, res) => {
-    try {
-        const { data, error } = await supabase
-            .from('tendencias')
-            .select('*')
-            .order('registrado', { ascending: false })
-            .limit(20);
+const obtenerTendenciasRecientes = async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('tendencias')
+      .select('*')
+      .order('registrado', { ascending: false })
+      .limit(20);
 
-        if (error) throw error;
+    if (error) throw error;
 
-        res.status(200).json(data);
-    } catch (error) {
-        res.status(500).json({ error: 'Error al obtener tendencias.' });
-    }
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener tendencias.' });
+  }
 };
 
-// Obtener el feed de tendencias con detalles
-exports.obtenerFeedTendencias = async (req, res) => {
+const obtenerFeedTendencias = async (req, res) => {
   try {
     const { data: tendencias, error } = await supabase
       .from("tendencias")
@@ -619,10 +608,11 @@ exports.obtenerFeedTendencias = async (req, res) => {
   }
 };
 
-.\controllers\userController.js
+module.exports = { registrarTendencia, obtenerTendenciasRecientes, obtenerFeedTendencias };
+
+\controllers\userController.js
 const supabase = require("../db");
 
-// Obtener todos los usuarios
 const obtenerUsuarios = async (req, res) => {
   try {
     const { data, error } = await supabase.from("usuarios").select("*");
@@ -633,9 +623,8 @@ const obtenerUsuarios = async (req, res) => {
   }
 };
 
-// Obtener el perfil del usuario autenticado
 const obtenerPerfil = async (req, res) => {
-  const userId = req.usuario.id;  // Cambiar de id_usuario a id
+  const userId = req.user.id; // Asegúrate de obtener el ID del usuario autenticado
 
   try {
     const { data, error } = await supabase
@@ -655,7 +644,6 @@ const obtenerPerfil = async (req, res) => {
   }
 };
 
-
 const obtenerUsuarioPorId = async (req, res) => {
   const { id } = req.params;
 
@@ -664,7 +652,7 @@ const obtenerUsuarioPorId = async (req, res) => {
       .from("usuarios")
       .select("id_usuario, nombre, email, username")
       .eq("id_usuario", id)
-      .single(); // Solo un registro
+      .single();
 
     if (error) throw error;
 
@@ -679,12 +667,11 @@ const obtenerUsuarioPorId = async (req, res) => {
   }
 };
 
-// Panel de administración (solo para admins)
 const panelAdmin = async (req, res) => {
   try {
     const { data, error } = await supabase
       .from("usuarios")
-      .select("id_usuario, nombre, email, username, rol");
+      .select("id_usuario, nombre, email, username, tipo_usuario");
 
     if (error) throw error;
     res.json(data);
@@ -720,183 +707,679 @@ module.exports = {
   eliminarUsuario,
 };
 
-.\controllers\valoracionController.js
-const supabase = require("../db"); // Conexión a Supabase
+\controllers\valoracionController.js
+const supabase = require("../db");
 
-// ✅ Crear una valoración
-exports.crearValoracion = async (req, res) => {
-    const { usuario_id, calificacion, comentario, entidad_tipo, entidad_id, recomendable } = req.body;
-    try {
-        const { data, error } = await supabase
-            .from('valoraciones')
-            .insert([{ usuario_id, calificacion, comentario, entidad_tipo, entidad_id, recomendable }])
-            .single();
+const crearValoracion = async (req, res) => {
+  const { usuario_id, calificacion, comentario, entidad_tipo, entidad_id, recomendable } = req.body;
+  try {
+    const { data, error } = await supabase
+      .from('valoraciones')
+      .insert([{ usuario_id, calificacion, comentario, entidad_tipo, entidad_id, recomendable }])
+      .single();
 
-        if (error) throw error;
+    if (error) throw error;
 
-        res.status(201).json(data);
-    } catch (error) {
-        console.error("❌ Error al crear la valoración:", error);
-        res.status(500).json({ error: "Error en el servidor" });
-    }
+    res.status(201).json(data);
+  } catch (error) {
+    console.error("❌ Error al crear la valoración:", error);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
 };
 
-// ✅ Obtener todas las valoraciones
-exports.obtenerValoraciones = async (req, res) => {
-    try {
-        const { data, error } = await supabase.from('valoraciones').select('*');
+const obtenerValoraciones = async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('valoraciones').select('*');
 
-        if (error) throw error;
+    if (error) throw error;
 
-        res.json(data);
-    } catch (error) {
-        console.error("❌ Error al obtener valoraciones:", error);
-        res.status(500).json({ error: "Error en el servidor" });
-    }
+    res.json(data);
+  } catch (error) {
+    console.error("❌ Error al obtener valoraciones:", error);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
 };
 
-// ✅ Obtener una valoración por ID
-exports.obtenerValoracionPorId = async (req, res) => {
-    const { id } = req.params;
-    try {
-        const { data, error } = await supabase
-            .from('valoraciones')
-            .select('*')
-            .eq('ID_valoracion', id)
-            .single();
+const obtenerValoracionPorId = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { data, error } = await supabase
+      .from('valoraciones')
+      .select('*')
+      .eq('ID_valoracion', id)
+      .single();
 
-        if (error) return res.status(404).json({ error: "Valoración no encontrada" });
+    if (error) return res.status(404).json({ error: "Valoración no encontrada" });
 
-        res.json(data);
-    } catch (error) {
-        console.error("❌ Error al obtener la valoración:", error);
-        res.status(500).json({ error: "Error en el servidor" });
-    }
+    res.json(data);
+  } catch (error) {
+    console.error("❌ Error al obtener la valoración:", error);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
 };
 
-// ✅ Actualizar una valoración
-exports.actualizarValoracion = async (req, res) => {
-    const { id } = req.params;
-    const { calificacion, comentario, recomendable } = req.body;
-    try {
-        const { data, error } = await supabase
-            .from('valoraciones')
-            .update({ calificacion, comentario, recomendable })
-            .eq('ID_valoracion', id)
-            .single();
+const actualizarValoracion = async (req, res) => {
+  const { id } = req.params;
+  const { calificacion, comentario, recomendable } = req.body;
+  try {
+    const { data, error } = await supabase
+      .from('valoraciones')
+      .update({ calificacion, comentario, recomendable })
+      .eq('ID_valoracion', id)
+      .single();
 
-        if (error) return res.status(404).json({ error: "Valoración no encontrada" });
+    if (error) return res.status(404).json({ error: "Valoración no encontrada" });
 
-        res.json(data);
-    } catch (error) {
-        console.error("❌ Error al actualizar la valoración:", error);
-        res.status(500).json({ error: "Error en el servidor" });
-    }
+    res.json(data);
+  } catch (error) {
+    console.error("❌ Error al actualizar la valoración:", error);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
 };
 
-// ✅ Eliminar una valoración
-exports.eliminarValoracion = async (req, res) => {
-    const { id } = req.params;
-    try {
-        const { data, error } = await supabase
-            .from('valoraciones')
-            .delete()
-            .eq('ID_valoracion', id)
-            .single();
+const eliminarValoracion = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { data, error } = await supabase
+      .from('valoraciones')
+      .delete()
+      .eq('ID_valoracion', id)
+      .single();
 
-        if (error) return res.status(404).json({ error: "Valoración no encontrada" });
+    if (error) return res.status(404).json({ error: "Valoración no encontrada" });
 
-        res.json({ message: "Valoración eliminada con éxito" });
-    } catch (error) {
-        console.error("❌ Error al eliminar la valoración:", error);
-        res.status(500).json({ error: "Error en el servidor" });
-    }
+    res.json({ message: "Valoración eliminada con éxito" });
+  } catch (error) {
+    console.error("❌ Error al eliminar la valoración:", error);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
 };
 
-.\controllers\votacionController.js
-const supabase = require('../db');
+module.exports = { crearValoracion, obtenerValoraciones, obtenerValoracionPorId, actualizarValoracion, eliminarValoracion };
 
-exports.votar = async (req, res) => {
-    const { usuario, lista, voto } = req.body;
-    try {
-        const { error } = await supabase
-            .from('votaciones_rankings')
-            .insert([{ usuario, lista, voto }]);
+\controllers\votacionController.js
+const supabase = require("../db");
 
-        if (error) throw error;
+const votar = async (req, res) => {
+  const { usuario, lista, voto } = req.body;
+  try {
+    const { error } = await supabase
+      .from('votaciones_rankings')
+      .insert([{ usuario, lista, voto }]);
 
-        res.status(201).json({ mensaje: 'Voto registrado.' });
-    } catch (error) {
-        res.status(500).json({ error: 'Error al registrar el voto.' });
-    }
+    if (error) throw error;
+
+    res.status(201).json({ mensaje: 'Voto registrado.' });
+  } catch (error) {
+    res.status(500).json({ error: 'Error al registrar el voto.' });
+  }
 };
 
-exports.obtenerResultadosVotacion = async (req, res) => {
-    const { listaId } = req.params;
-    try {
-        const { data, error } = await supabase
-            .from('votaciones_rankings')
-            .select('voto')
-            .eq('lista', listaId);
+const obtenerResultadosVotacion = async (req, res) => {
+  const { listaId } = req.params;
+  try {
+    const { data, error } = await supabase
+      .from('votaciones_rankings')
+      .select('voto')
+      .eq('lista', listaId);
 
-        if (error) throw error;
+    if (error) throw error;
 
-        const resultados = {
-            positivos: data.filter(v => v.voto === 1).length,
-            negativos: data.filter(v => v.voto === -1).length,
-        };
-
-        res.status(200).json(resultados);
-    } catch (error) {
-        res.status(500).json({ error: 'Error al obtener resultados.' });
-    }
-};
-
-.\frontend\.gitignore
-.\frontend\eslint.config.js
-.\frontend\index.html
-.\frontend\node_modules
-.\frontend\package-lock.json
-.\frontend\package.json
-.\frontend\public
-.\frontend\README.md
-.\frontend\src
-.\frontend\vite.config.js
-.\frontend\node_modules\...
-.\frontend\public\vite.svg
-.\frontend\src\AlbumRating.jsx
-import React, { useState } from 'react';
-import StarRating from './StarRating';
-import axios from 'axios';
-
-const AlbumView = ({ album }) => {
-    const [rating, setRating] = useState(0);
-
-    const handleRating = async (newRating) => {
-        setRating(newRating);
-        try {
-            await axios.post('http://localhost:5000/valoraciones/registrar', {
-                entidad_tipo: 'album',
-                entidad_id: album.id,
-                puntuacion: newRating
-            });
-            console.log('Valoración guardada');
-        } catch (error) {
-            console.error('Error al guardar la valoración:', error);
-        }
+    const resultados = {
+      positivos: data.filter(v => v.voto === 1).length,
+      negativos: data.filter(v => v.voto === -1).length,
     };
 
-    return (
-        <div className="p-4 border rounded shadow-md">
-            <h3 className="text-xl font-bold">{album.titulo}</h3>
-            <StarRating rating={rating} onRate={handleRating} />
-        </div>
-    );
+    res.status(200).json(resultados);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener resultados.' });
+  }
 };
 
-export default AlbumView;
+module.exports = { votar, obtenerResultadosVotacion };
 
-.\frontend\src\api.js
+\controllers\spotifyController.js
+const axios = require('axios');
+const supabase = require('../db');
+require('dotenv').config();
+
+const getSpotifyToken = async () => {
+  const response = await axios.post('https://accounts.spotify.com/api/token', 'grant_type=client_credentials', {
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Authorization': `Basic ${Buffer.from(`${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`).toString('base64')}`,
+    },
+  });
+  return response.data.access_token;
+};
+
+const getArtistAlbums = async (artistId, token) => {
+  try {
+    const response = await axios.get(`https://api.spotify.com/v1/artists/${artistId}/albums`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      params: {
+        include_groups: 'album,single',
+        limit: 50,
+      },
+    });
+    return response.data.items;
+  } catch (error) {
+    console.error('Error al obtener álbumes del artista:', error);
+    return [];
+  }
+};
+
+const getAlbumTracks = async (albumId, token) => {
+  try {
+    const response = await axios.get(`https://api.spotify.com/v1/albums/${albumId}/tracks`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      params: {
+        limit: 50,
+      },
+    });
+    return response.data.items;
+  } catch (error) {
+    console.error('Error al obtener pistas del álbum:', error);
+    return [];
+  }
+};
+
+const saveArtist = async (artist) => {
+  const artistData = {
+    spotify_id: artist.id,
+    nombre_artista: artist.name,
+    biografia: '', // La API de Spotify no proporciona biografía directamente
+    foto_artista: artist.images[0]?.url || '',
+    popularidad_artista: artist.popularity,
+    numero_albumes: 0,
+    numero_canciones: 0,
+  };
+
+  const { data: insertedArtist, error: artistError } = await supabase
+    .from('artistas')
+    .upsert(artistData)
+    .select();
+
+  if (artistError) {
+    console.error('Error al insertar artista:', artistError);
+    return null;
+  }
+
+  return insertedArtist[0];
+};
+
+const saveAlbum = async (album, artistId) => {
+  const albumData = {
+    spotify_id: album.id,
+    titulo: album.name,
+    anio: new Date(album.release_date).getFullYear(),
+    foto_album: album.images[0]?.url || '',
+    numero_canciones: album.total_tracks,
+    tipo_album: album.album_type,
+    popularidad_album: album.popularity,
+  };
+
+  const { data: insertedAlbum, error: albumError } = await supabase
+    .from('albumes')
+    .upsert(albumData)
+    .select();
+
+  if (albumError) {
+    console.error('Error al insertar álbum:', albumError);
+    return null;
+  }
+
+  await supabase
+    .from('album_artistas')
+    .upsert({ album_id: insertedAlbum[0].id_album, artista_id: artistId });
+
+  return insertedAlbum[0];
+};
+
+const saveTrack = async (track, albumId) => {
+  const trackData = {
+    spotify_id: track.id,
+    titulo: track.name,
+    album: albumId,
+    orden: track.track_number,
+    duracion_ms: track.duration_ms,
+    popularidad: track.popularity,
+    preview_url: track.preview_url,
+  };
+
+  const { data: insertedTrack, error: trackError } = await supabase
+    .from('canciones')
+    .upsert(trackData)
+    .select();
+
+  if (trackError) {
+    console.error('Error al insertar canción:', trackError);
+    return null;
+  }
+
+  return insertedTrack[0];
+};
+
+const linkTrackArtists = async (trackId, artists) => {
+  for (const artist of artists) {
+    const savedArtist = await saveArtist(artist);
+    if (savedArtist) {
+      await supabase
+        .from('cancion_artistas')
+        .upsert({ cancion_id: trackId, artista_id: savedArtist.id_artista });
+    }
+  }
+};
+
+const searchArtists = async (req, res) => {
+  const { query } = req.query;
+  try {
+    const token = await getSpotifyToken();
+    const response = await axios.get(`https://api.spotify.com/v1/search`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+      params: {
+        q: query,
+        type: 'artist',
+        limit: 50,
+      },
+    });
+
+    const artists = response.data.artists.items.filter(artist => artist.followers.total > 10000000);
+
+    for (const artist of artists) {
+      const savedArtist = await saveArtist(artist);
+      if (!savedArtist) continue;
+
+      const albums = await getArtistAlbums(artist.id, token);
+
+      for (const album of albums) {
+        const savedAlbum = await saveAlbum(album, savedArtist.id_artista);
+        if (!savedAlbum) continue;
+
+        const tracks = await getAlbumTracks(album.id, token);
+
+        for (const track of tracks) {
+          const savedTrack = await saveTrack(track, savedAlbum.id_album);
+          if (savedTrack) {
+            await linkTrackArtists(savedTrack.id_cancion, track.artists);
+          }
+        }
+      }
+    }
+
+    res.json({ message: 'Datos de artistas, álbumes y canciones almacenados correctamente' });
+  } catch (error) {
+    console.error('Error al buscar artistas en Spotify:', error);
+    res.status(500).json({ error: 'Error al buscar artistas en Spotify' });
+  }
+};
+
+const searchFamousArtists = async (req, res) => {
+  const famousArtists = ['Drake', 'Taylor Swift', 'Ariana Grande', 'Ed Sheeran', 'Billie Eilish'];
+  try {
+    const token = await getSpotifyToken();
+    for (const artist of famousArtists) {
+      const response = await axios.get(`https://api.spotify.com/v1/search`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+        params: {
+          q: artist,
+          type: 'artist',
+          limit: 50,
+        },
+      });
+
+      const artists = response.data.artists.items.filter(artist => artist.followers.total > 10000000);
+
+      for (const artist of artists) {
+        const savedArtist = await saveArtist(artist);
+        if (!savedArtist) continue;
+
+        const albums = await getArtistAlbums(artist.id, token);
+
+        for (const album of albums) {
+          const savedAlbum = await saveAlbum(album, savedArtist.id_artista);
+          if (!savedAlbum) continue;
+
+          const tracks = await getAlbumTracks(album.id, token);
+
+          for (const track of tracks) {
+            const savedTrack = await saveTrack(track, savedAlbum.id_album);
+            if (savedTrack) {
+              await linkTrackArtists(savedTrack.id_cancion, track.artists);
+            }
+          }
+        }
+      }
+    }
+
+    res.json({ message: 'Datos de artistas, álbumes y canciones almacenados correctamente' });
+  } catch (error) {
+    console.error('Error al buscar artistas famosos en Spotify:', error);
+    res.status(500).json({ error: 'Error al buscar artistas famosos en Spotify' });
+  }
+};
+
+module.exports = { searchArtists, searchFamousArtists };
+
+\controllers\albumArtistasController.js
+const supabase = require('../db');
+
+const obtenerAlbumArtistas = async (req, res) => {
+  try {
+    const { data, error } = await supabase.from('album_artistas').select('*');
+    
+    if (error) throw error;
+
+    res.status(200).json(data);
+  } catch (error) {
+    console.error("❌ Error al obtener álbum_artistas:", error);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
+};
+
+module.exports = { obtenerAlbumArtistas };
+
+\controllers\spotify
+\controllers\spotify\getSpotifyToken.js
+const axios = require('axios');
+require('dotenv').config();
+
+const getSpotifyToken = async () => {
+  const response = await axios.post('https://accounts.spotify.com/api/token', 'grant_type=client_credentials', {
+    headers: {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Authorization': `Basic ${Buffer.from(`${process.env.SPOTIFY_CLIENT_ID}:${process.env.SPOTIFY_CLIENT_SECRET}`).toString('base64')}`,
+    },
+  });
+  return response.data.access_token;
+};
+
+module.exports = getSpotifyToken;
+
+\controllers\spotify\searchArtists.js
+const axios = require('axios');
+const getSpotifyToken = require('./getSpotifyToken');
+
+const searchArtists = async (query) => {
+  const token = await getSpotifyToken();
+  const response = await axios.get('https://api.spotify.com/v1/search', {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+    params: {
+      q: query,
+      type: 'artist',
+      limit: 50,
+    },
+  });
+  return response.data.artists.items.filter(artist => artist.followers.total > 10000000);
+};
+
+module.exports = searchArtists;
+
+\controllers\spotify\getAlbumTracks.js
+const axios = require('axios');
+const getSpotifyToken = require('./getSpotifyToken');
+
+const getAlbumTracks = async (albumId) => {
+  const token = await getSpotifyToken();
+  const response = await axios.get(`https://api.spotify.com/v1/albums/${albumId}/tracks`, {
+    headers: {
+      'Authorization': `Bearer ${token}`,
+    },
+    params: {
+      limit: 50,
+    },
+  });
+  return response.data.items;
+};
+
+module.exports = getAlbumTracks;
+
+\controllers\spotify\saveData.js
+const supabase = require('../../db');
+const searchArtists = require('./searchArtists');
+const getArtistAlbums = require('./getArtistAlbums');
+const getAlbumTracks = require('./getAlbumTracks');
+
+const clearDatabase = async () => {
+  await supabase.from('cancion_artistas').delete().neq('id', 0);
+  await supabase.from('album_artistas').delete().neq('id', 0);
+  await supabase.from('canciones').delete().neq('id', 0);
+  await supabase.from('albumes').delete().neq('id', 0);
+  await supabase.from('artistas').delete().neq('id', 0);
+};
+
+const saveArtist = async (artist) => {
+  const artistData = {
+    spotify_id: artist.id,
+    nombre_artista: artist.name,
+    biografia: artist.biography || '',
+    foto_artista: artist.images?.[0]?.url || '',
+    popularidad_artista: artist.popularity || 0,
+    numero_albumes: 0,
+    numero_canciones: 0,
+  };
+
+  const { data: insertedArtist, error: artistError } = await supabase
+    .from('artistas')
+    .upsert(artistData)
+    .select();
+
+  if (artistError || !insertedArtist || insertedArtist.length === 0) {
+    if (artistError.code === '23505') {
+      // Ignorar errores de duplicado
+      return await supabase
+        .from('artistas')
+        .select('*')
+        .eq('spotify_id', artist.id)
+        .single();
+    } else {
+      console.error('Error al insertar o actualizar artista:', artistError);
+      return null;
+    }
+  }
+
+  return insertedArtist[0];
+};
+
+const saveAlbum = async (album, artistId) => {
+  const albumData = {
+    spotify_id: album.id,
+    titulo: album.name,
+    anio: new Date(album.release_date).getFullYear(),
+    foto_album: album.images?.[0]?.url || '',
+    numero_canciones: album.total_tracks,
+    tipo_album: album.album_type,
+    popularidad_album: album.popularity || 0,
+  };
+
+  const { data: insertedAlbum, error: albumError } = await supabase
+    .from('albumes')
+    .upsert(albumData)
+    .select();
+
+  if (albumError || !insertedAlbum || insertedAlbum.length === 0) {
+    if (albumError.code === '23505') {
+      // Ignorar errores de duplicado
+      return await supabase
+        .from('albumes')
+        .select('*')
+        .eq('spotify_id', album.id)
+        .single();
+    } else {
+      console.error('Error al insertar o actualizar álbum:', albumError);
+      return null;
+    }
+  }
+
+  await supabase
+    .from('album_artistas')
+    .upsert({ album_id: insertedAlbum[0].id_album, artista_id: artistId });
+
+  return insertedAlbum[0];
+};
+
+const saveTrack = async (track, albumId) => {
+  const trackData = {
+    spotify_id: track.id,
+    titulo: track.name,
+    album: albumId,
+    orden: track.track_number,
+    duracion_ms: track.duration_ms,
+    popularidad: track.popularity || 0,
+    preview_url: track.preview_url || '',
+  };
+
+  const { data: insertedTrack, error: trackError } = await supabase
+    .from('canciones')
+    .upsert(trackData)
+    .select();
+
+  if (trackError || !insertedTrack || insertedTrack.length === 0) {
+    if (trackError.code === '23505') {
+      // Ignorar errores de duplicado
+      return await supabase
+        .from('canciones')
+        .select('*')
+        .eq('spotify_id', track.id)
+        .single();
+    } else {
+      console.error('Error al insertar o actualizar canción:', trackError);
+      return null;
+    }
+  }
+
+  return insertedTrack[0];
+};
+
+const linkTrackArtists = async (trackId, artists) => {
+  for (const artist of artists) {
+    const savedArtist = await saveArtist(artist);
+    if (savedArtist) {
+      await supabase
+        .from('cancion_artistas')
+        .upsert({ cancion_id: trackId, artista_id: savedArtist.id_artista });
+    }
+  }
+};
+
+const saveData = async (query) => {
+  await clearDatabase();
+
+  const artists = await searchArtists(query);
+
+  for (const artist of artists) {
+    const savedArtist = await saveArtist(artist);
+    if (!savedArtist) continue;
+
+    const albums = await getArtistAlbums(artist.id);
+
+    for (const album of albums) {
+      const savedAlbum = await saveAlbum(album, savedArtist.id_artista);
+      if (!savedAlbum) continue;
+
+      const tracks = await getAlbumTracks(album.id);
+
+      for (const track of tracks) {
+        const savedTrack = await saveTrack(track, savedAlbum.id_album);
+        if (savedTrack) {
+          await linkTrackArtists(savedTrack.id_cancion, track.artists);
+        }
+      }
+    }
+  }
+
+  console.log('Datos de artistas, álbumes y canciones almacenados correctamente');
+};
+
+module.exports = saveData;
+
+\frontend\.gitignore
+\frontend\eslint.config.js
+\frontend\index.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MusicTree</title>
+  <link rel="stylesheet" href="/src/index.css">
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/index.jsx"></script>
+</body>
+</html>
+
+\frontend\package-lock.json
+\frontend\package.json
+\frontend\README.md
+\frontend\vite.config.js
+\frontend\public
+\frontend\src
+\frontend\node_modules
+\frontend\public\index.html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MusicTree</title>
+  <link rel="stylesheet" href="/src/index.css">
+</head>
+<body>
+  <div id="root"></div>
+  <script type="module" src="/src/index.jsx"></script>
+</body>
+</html>
+
+\frontend\public\vite.svg
+\frontend\src\AlbumRating.jsx
+import PropTypes from 'prop-types';
+import { useState, useEffect } from 'react';
+import StarRating from './StarRating';
+
+const AlbumRating = ({ album }) => {
+  const [rating, setRating] = useState(0);
+
+  useEffect(() => {
+    // Fetch rating from the server or calculate it
+    setRating(album.rating || 0);
+  }, [album]);
+
+  const handleRatingChange = (newRating) => {
+    setRating(newRating);
+    // Send the new rating to the server
+  };
+
+  return (
+    <div>
+      <h2>{album.titulo}</h2>
+      <StarRating valoracionInicial={rating} onRatingChange={handleRatingChange} />
+    </div>
+  );
+};
+
+AlbumRating.propTypes = {
+  album: PropTypes.shape({
+    id: PropTypes.number.isRequired,
+    titulo: PropTypes.string.isRequired,
+    rating: PropTypes.number,
+  }).isRequired,
+};
+
+export default AlbumRating;
+
+\frontend\src\api.js
 import axios from "axios";
 
 const API_URL = "http://localhost:5000";
@@ -911,20 +1394,195 @@ export const getUsuarios = async () => {
     }
   };
   
-.\frontend\src\App.css
-.\frontend\src\App.jsx
-// src/App.jsx
-import { useState, useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
-import axios from "axios";
-import TendenciasFeed from './TendenciasFeed';
-import StarRating from './StarRating';
-import Login from "./Login";
-import ProtectedRoute from "./components/ProtectedRoute";
-import Unauthorized from "./components/Unauthorized";
-import PanelAdmin from "./components/PanelAdmin";
-import GestionarUsuarios from "./components/GestionarUsuarios";
-import Home from "./components/Home"; // Importa el nuevo componente
+\frontend\src\App.css
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+body {
+  background-color: #0d1117; /* Negro azulado */
+  color: #c9d1d9; /* Texto en color claro */
+  margin: 0;
+  font-family: 'Arial', sans-serif;
+}
+
+header, footer {
+  background-color: #004d40; /* Negro verdoso */
+}
+
+a {
+  color: #58a6ff;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:focus {
+  outline: none;
+}
+
+#root {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 2rem;
+  text-align: center;
+}
+
+body {
+  background-color: #0d1117; /* Negro azulado */
+  color: #c9d1d9; /* Texto en color claro */
+  margin: 0;
+  font-family: 'Arial', sans-serif;
+}
+
+header, footer {
+  background-color: #004d40; /* Negro verdoso */
+}
+
+a {
+  color: #58a6ff;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:focus {
+  outline: none;
+}
+
+.App {
+  text-align: center;
+}
+
+header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: #f8f9fa;
+  padding: 20px;
+}
+
+.banner img {
+  height: 80px;
+}
+
+nav ul {
+  list-style: none;
+  display: flex;
+  padding: 0;
+}
+
+nav li {
+  margin: 0 15px;
+}
+
+nav a {
+  text-decoration: none;
+  color: #333;
+  font-weight: bold;
+}
+
+.section {
+  margin: 20px;
+}
+
+ul {
+  list-style-type: none;
+  padding: 0;
+}
+
+li {
+  margin: 10px 0;
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+}
+
+img {
+  margin-right: 10px;
+}
+
+li > ul {
+  margin-left: 20px;
+  list-style-type: none;
+  padding: 0;
+}
+
+li > ul > li {
+  display: flex;
+  align-items: center;
+}
+
+footer {
+  display: flex;
+  justify-content: space-around;
+  background-color: #f8f9fa;
+  padding: 20px;
+}
+
+.footer-section {
+  text-align: left;
+}
+
+.footer-section h4 {
+  margin-bottom: 10px;
+}
+
+.footer-section ul {
+  list-style: none;
+  padding: 0;
+}
+
+.footer-section li {
+  margin-bottom: 5px;
+}
+
+.footer-section a {
+  text-decoration: none;
+  color: #333;
+}
+
+.footer-section p {
+  margin: 0;
+}
+
+\frontend\src\App.jsx
+import { useState, useEffect } from 'react';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import axios from 'axios';
+import Home from './pages/Home';
+import Music from './pages/Music';
+import Members from './pages/Members';
+import Lists from './pages/Lists';
+import Badges from './pages/Badges';
+import About from './pages/About';
+import Login from './pages/Login';
+import Register from './pages/Register';
+import AlbumPage from './pages/AlbumPage';
+import Unauthorized from './pages/Unauthorized';
+import ArtistPage from './pages/ArtistPage';
+import SongPage from './pages/SongPage';
+import Navbar from './components/Navbar';
+import Encabezado from './components/Encabezado';
+import PieDePagina from './components/PieDePagina';
+import ProtectedRoute from './components/ProtectedRoute';
+
+import './App.css';
 
 const API_URL = "http://localhost:5000";
 
@@ -932,34 +1590,23 @@ function App() {
   const [usuario, setUsuario] = useState(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      try {
-        const payload = JSON.parse(atob(token.split('.')[1]));
-        setUsuario({ id: payload.id, nombre: "Usuario", tipo_usuario: payload.tipo_usuario });
-  
-        axios.get(`${API_URL}/usuarios/${payload.id}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json"
-          }
-        })
-        .then((res) => {
-          setUsuario((prevUsuario) => ({
-            ...prevUsuario,
-            nombre: res.data.nombre,
-          }));
-        })
-        .catch((err) => {
-          console.error("Error al validar el token:", err.response?.data || err.message);
-          localStorage.removeItem('token');
-          setUsuario(null);
-        });
-      } catch (error) {
-        console.error("Error al decodificar el token:", error);
-        localStorage.removeItem('token');
+    const fetchUsuario = async () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        try {
+          const response = await axios.get(`${API_URL}/usuarios/1`, {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json"
+            }
+          });
+          setUsuario(response.data);
+        } catch (error) {
+          console.error("Error al obtener los datos del usuario:", error);
+        }
       }
-    }
+    };
+    fetchUsuario();
   }, []);
 
   const handleLogout = () => {
@@ -968,335 +1615,235 @@ function App() {
   };
 
   return (
-    <Router>
-      <div className="p-4">
-        <h1 className="text-3xl font-bold">MusicTree</h1>
-
-        {usuario ? (
-          <div>
-            <h2>Bienvenido, {usuario.nombre}</h2>
-            <p>Rol: {usuario.tipo_usuario || "Sin Rol"}</p>
-            <button onClick={handleLogout} className="bg-red-400 text-white p-2 rounded">Cerrar Sesión</button>
-
-            {usuario.tipo_usuario === "admin" && (
-              <div>
-                <h3>Panel de Administración</h3>
-                <button className="bg-red-500 text-white p-2 rounded">Gestionar Usuarios</button>
-                <button className="bg-blue-500 text-white p-2 rounded ml-2">Moderación de Contenido</button>
-              </div>
-            )}
-
-            {usuario.tipo_usuario === "moderador" && (
-              <div>
-                <h3>Panel de Moderación</h3>
-                <button className="bg-yellow-500 text-white p-2 rounded">Revisar Reportes</button>
-              </div>
-            )}
-
-            {usuario.tipo_usuario === "usuario" && (
-              <div>
-                <h3>Explorar Música</h3>
-                <StarRating valoracionInicial={3} onRatingChange={() => {}} />
-              </div>
-            )}
-          </div>
-        ) : (
-          <Login onLoginExitoso={setUsuario} />
-        )}
-
-        <TendenciasFeed />
-
-        <Routes>
-          <Route path="/" element={<Home />} /> {/* Ruta principal */}
-
-          <Route path="/admin" element={
-            <ProtectedRoute user={usuario} roles={["admin"]}>
-              <PanelAdmin />
-            </ProtectedRoute>
-          } />
-
-          <Route path="/usuarios" element={
-            <ProtectedRoute user={usuario} roles={["admin", "moderador"]}>
-              <GestionarUsuarios />
-            </ProtectedRoute>
-          } />
-
-          <Route path="/unauthorized" element={<Unauthorized />} />
-
-          {/* Redirigir a Home si la ruta no existe */}
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
-      </div>
-    </Router>
+    <div>
+      <Encabezado usuario={usuario} onLogout={handleLogout} />
+      <Navbar />
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/login" element={<Login onLoginExitoso={setUsuario} />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/music" element={<Music />} />
+        <Route path="/members" element={<Members />} />
+        <Route path="/lists" element={<Lists />} />
+        <Route path="/badges" element={<Badges />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/album/:id" element={<AlbumPage usuario={usuario} />} />
+        <Route path="/contribute" element={<div>Contribuir</div>} />
+        <Route path="/terms" element={<div>Términos de uso</div>} />
+        <Route path="/privacy" element={<div>Política de privacidad</div>} />
+        <Route path="/community-rules" element={<div>Normas de la comunidad</div>} />
+        <Route path="/unauthorized" element={<Unauthorized />} />
+        <Route path="/artist/:id" element={<ArtistPage usuario={usuario} />} />
+        <Route path="/song/:id" element={<SongPage usuario={usuario} />} />
+        <Route path="/admin" element={
+          <ProtectedRoute user={usuario} roles={["admin"]}>
+            <div>Panel de Administración</div>
+          </ProtectedRoute>
+        } />
+        <Route path="/moderation" element={
+          <ProtectedRoute user={usuario} roles={["admin"]}>
+            <div>Moderación de Contenido</div>
+          </ProtectedRoute>
+        } />
+        <Route path="*" element={<Navigate to="/" />} />
+      </Routes>
+      <PieDePagina />
+    </div>
   );
 }
 
 export default App;
 
-.\frontend\src\assets
-.\frontend\src\components
-.\frontend\src\index.css
-.\frontend\src\Login.jsx
-import { useState } from "react";
-import axios from "axios";
+\frontend\src\index.css
+:root {
+  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
+  line-height: 1.5;
+  font-weight: 400;
 
-const Login = ({ onLoginExitoso }) => {
-  const [emailOrUsername, setEmailOrUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  color-scheme: light dark;
+  color: rgba(255, 255, 255, 0.87);
+  background-color: #242424;
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      const response = await axios.post('http://localhost:5000/auth/login', {
-        emailOrUsername, // Enviar email o username
-        password,        // Aquí ya está la coma que faltaba
-      });
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
 
-      console.log(response.data);
-      const { token, tipo_usuario } = response.data;
+a {
+  font-weight: 500;
+  color: #646cff;
+  text-decoration: inherit;
+}
+a:hover {
+  color: #535bf2;
+}
 
-      if (response.data.token) {
-        localStorage.setItem('token', token);
-        localStorage.setItem('tipo_usuario', tipo_usuario);
-        console.log('Token guardado:', response.data.token);
-        onLoginExitoso(response.data);
-      } else {
-        console.log('No se recibió un token.');
-      }
-    } catch (error) {
-      console.error('Error al iniciar sesión:', error.response ? error.response.data : error.message);
-      setError('Credenciales incorrectas');
-    }
-  };
+body {
+  margin: 0;
+  display: flex;
+  place-items: center;
+  min-width: 320px;
+  min-height: 100vh;
+}
 
-  return (
-    <div className="max-w-sm mx-auto p-4 border rounded shadow-md mt-10">
-      <h2 className="text-xl font-semibold mb-4 text-center">Iniciar Sesión</h2>
+h1 {
+  font-size: 3.2em;
+  line-height: 1.1;
+}
 
-      {error && <p className="text-red-500">{error}</p>}
+button {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  padding: 0.6em 1.2em;
+  font-size: 1em;
+  font-weight: 500;
+  font-family: inherit;
+  background-color: #1a1a1a;
+  cursor: pointer;
+  transition: border-color 0.25s;
+}
+button:hover {
+  border-color: #646cff;
+}
+button:focus,
+button:focus-visible {
+  outline: 4px auto -webkit-focus-ring-color;
+}
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium">Correo o Usuario:</label>
-          <input
-            type="text"
-            value={emailOrUsername}
-            onChange={(e) => setEmailOrUsername(e.target.value)}
-            required
-            className="w-full border rounded px-3 py-2"
-          />
-        </div>
+@media (prefers-color-scheme: light) {
+  :root {
+    color: #213547;
+    background-color: #ffffff;
+  }
+  a:hover {
+    color: #747bff;
+  }
+  button {
+    background-color: #f9f9f9;
+  }
+}
 
-        <div>
-          <label className="block text-sm font-medium">Contraseña:</label>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            className="w-full border rounded px-3 py-2"
-          />
-        </div>
+\frontend\src\index.jsx
+import ReactDOM from 'react-dom/client';
+import './styles/index.css';
+import App from './App';
+import { BrowserRouter as Router } from 'react-router-dom';
 
-        <button
-          type="submit"
-          className="w-full bg-green-500 text-white py-2 rounded hover:bg-green-600"
-        >
-          Iniciar Sesión
-        </button>
-      </form>
-    </div>
-  );
-};
+const root = ReactDOM.createRoot(document.getElementById('root'));
+root.render(
+  <Router>
+    <App />
+  </Router>
+);
 
-export default Login;
+\frontend\src\main.jsx
+import { StrictMode } from 'react'
+import { createRoot } from 'react-dom/client'
+import './index.css'
+import App from './App.jsx'
 
-.\frontend\src\main.jsx
-.\frontend\src\StarRating.jsx
+createRoot(document.getElementById('root')).render(
+  <StrictMode>
+    <App />
+  </StrictMode>,
+)
+
+\frontend\src\assets
+\frontend\src\components
+\frontend\src\pages
+\frontend\src\services
+\frontend\src\styles
+\frontend\src\assets\react.svg
+\frontend\src\assets\tree_empty.png
+\frontend\src\assets\tree_filled.png
+\frontend\src\assets\star_empty.png
+\frontend\src\assets\star_half.png
+\frontend\src\assets\star_filled.png
+\frontend\src\assets\logo.png
+\frontend\src\components\BarraDeBusqueda.jsx
 import { useState } from 'react';
-import { Star, Circle } from 'lucide-react';
+import PropTypes from 'prop-types';
 
-const StarRating = ({ valoracionInicial = 0, onRatingChange }) => {
-  const [rating, setRating] = useState(valoracionInicial);
-  const [hovered, setHovered] = useState(null);
+const BarraDeBusqueda = ({ onSearch }) => {
+  const [query, setQuery] = useState('');
 
-  const handleRating = (newRating) => {
-    if (newRating >= 0 && newRating <= 5) {
-      setRating(newRating);
-      onRatingChange(newRating);
-    }
+  const handleInputChange = (event) => {
+    setQuery(event.target.value);
   };
 
-  const handleMouseEnter = (value) => {
-    setHovered(value);
-  };
-
-  const handleMouseLeave = () => {
-    setHovered(null);
-  };
-
-  const handleClick = (event, value) => {
-    const rect = event.target.getBoundingClientRect();
-    const clickPosition = event.clientX - rect.left;
-    const isHalfStar = clickPosition < rect.width / 2;
-
-    if (value === 0) {
-      handleRating(0); // Clic en el círculo siempre da 0
-    } else {
-      const newRating = isHalfStar ? value - 0.5 : value;
-      handleRating(newRating);
-    }
-  };
-
-  const renderStar = (value) => {
-    const currentRating = hovered !== null ? hovered : rating;
-    const isFilled = value <= currentRating;
-    const isHalf = value - 0.5 === currentRating;
-    const isEmpty = value > currentRating;
-
-    if (value === 0) {
-      return (
-        <div
-          key={value}
-          onClick={(e) => handleClick(e, value)}
-          onMouseEnter={() => handleMouseEnter(value)}
-          onMouseLeave={handleMouseLeave}
-          style={{ cursor: 'pointer' }}
-        >
-          <Circle
-            fill={currentRating === 0 ? 'green' : 'none'}
-            stroke={currentRating === 0 ? 'green' : 'skyblue'}
-            style={{
-              width: '54px',
-              height: '54px',
-              transition: 'fill 0.3s ease, stroke 0.3s ease',
-            }}
-          />
-        </div>
-      );
-    }
-
-    return (
-      <div
-        key={value}
-        onClick={(e) => handleClick(e, value)}
-        onMouseEnter={() => handleMouseEnter(value)}
-        onMouseLeave={handleMouseLeave}
-        style={{ cursor: 'pointer', position: 'relative' }}
-      >
-        {/* Estrella llena */}
-        {isFilled && (
-          <Star
-            fill="green"
-            stroke="green"
-            style={{
-              width: '54px',
-              height: '54px',
-              transition: 'fill 0.3s ease',
-            }}
-          />
-        )}
-
-        {/* Media estrella con animación de pulso */}
-        {isHalf && (
-          <Star
-            fill="none"
-            stroke="green"
-            style={{
-              width: '54px',
-              height: '54px',
-              position: 'absolute',
-              top: '0',
-              left: '0',
-              clipPath: 'inset(0 50% 0 0)',
-              animation: 'pulse 1s infinite ease-in-out',
-            }}
-          />
-        )}
-
-        {/* Estrella vacía */}
-        {isEmpty && (
-          <Star
-            fill="none"
-            stroke="skyblue"
-            style={{
-              width: '54px',
-              height: '54px',
-              transition: 'stroke 0.3s ease',
-            }}
-          />
-        )}
-      </div>
-    );
+  const handleSearch = () => {
+    onSearch(query);
   };
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-      {[0, 1, 2, 3, 4, 5].map(renderStar)}
-      <div style={{ marginLeft: '8px', color: '#4CAF50', fontWeight: 'bold' }}>
-        {rating} ⭐
-      </div>
-
-      {/* Animación CSS */}
-      <style>{`
-        @keyframes pulse {
-          0% { transform: scale(1); opacity: 0.8; }
-          50% { transform: scale(1.1); opacity: 1; }
-          100% { transform: scale(1); opacity: 0.8; }
-        }
-      `}</style>
+    <div className="flex items-center">
+      <input
+        type="text"
+        value={query}
+        onChange={handleInputChange}
+        className="border rounded-l px-4 py-2"
+        placeholder="Buscar música, artistas, álbumes..."
+      />
+      <button onClick={handleSearch} className="bg-blue-500 text-white px-4 py-2 rounded-r">
+        Buscar
+      </button>
     </div>
   );
 };
 
-export default StarRating;
+BarraDeBusqueda.propTypes = {
+  onSearch: PropTypes.func.isRequired,
+};
 
-.\frontend\src\TendenciasFeed.jsx
-import React, { useEffect, useState } from "react";
-import axios from "axios";
+export default BarraDeBusqueda;
 
-const TendenciasFeed = () => {
-  const [tendencias, setTendencias] = useState([]);
+\frontend\src\components\Encabezado.jsx
+import { Link } from 'react-router-dom';
+import PropTypes from 'prop-types';
+import logo from '../assets/logo.png';
 
-  useEffect(() => {
-    const fetchTendencias = async () => {
-      try {
-        const response = await axios.get("http://localhost:5000/tendencias/feed");
-        setTendencias(response.data);
-      } catch (error) {
-        console.error("Error al obtener el feed de tendencias:", error);
-      }
-    };
-    fetchTendencias();
-  }, []);
-
+const Encabezado = ({ usuario, onLogout }) => {
   return (
-    <div className="p-4">
-      <h2 className="text-xl font-bold mb-4">Tendencias Recientes</h2>
-      <ul>
-        {tendencias.map((tendencia) => (
-          <li key={tendencia.id_tendencia} className="mb-2">
-            {tendencia.usuarios?.nombre} {tendencia.accion} en{" "}
-            {tendencia.entidad_tipo === "album" && tendencia.album?.titulo}
-            {tendencia.entidad_tipo === "cancion" && tendencia.cancion?.titulo}
-            {tendencia.entidad_tipo === "artista" && tendencia.artista?.nombre}
-          </li>
-        ))}
-      </ul>
-    </div>
+    <header style={{ backgroundColor: '#064E3B', color: 'white', padding: '1rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', position: 'fixed', top: 0, left: 0, zIndex: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        <Link to="/">
+          <img src={logo} alt="MusicTree Logo" height={32} width={32} />
+        </Link>
+        <nav style={{ display: 'flex', gap: '1rem' }}>
+          <Link to="/music" style={{ textDecoration: 'none', color: 'white' }}>Música</Link>
+          <Link to="/members" style={{ textDecoration: 'none', color: 'white' }}>Miembros</Link>
+          <Link to="/lists" style={{ textDecoration: 'none', color: 'white' }}>Listas</Link>
+          <Link to="/badges" style={{ textDecoration: 'none', color: 'white' }}>Insignias</Link>
+          <Link to="/about" style={{ textDecoration: 'none', color: 'white' }}>Acerca de</Link>
+        </nav>
+      </div>
+      <div style={{ display: 'flex', gap: '0.5rem' }}>
+        {usuario ? (
+          <button onClick={onLogout} style={{ backgroundColor: '#EF4444', padding: '0.5rem 1rem', borderRadius: '0.375rem', color: 'white', textDecoration: 'none', border: 'none' }}>Cerrar sesión</button>
+        ) : (
+          <>
+            <Link to="/login" style={{ backgroundColor: '#3B82F6', padding: '0.5rem 1rem', borderRadius: '0.375rem', color: 'white', textDecoration: 'none' }}>Iniciar sesión</Link>
+            <Link to="/register" style={{ backgroundColor: '#10B981', padding: '0.5rem 1rem', borderRadius: '0.375rem', color: 'white', textDecoration: 'none' }}>Registrarse</Link>
+          </>
+        )}
+      </div>
+    </header>
   );
 };
 
-export default TendenciasFeed;
+Encabezado.propTypes = {
+  usuario: PropTypes.object,
+  onLogout: PropTypes.func.isRequired,
+};
 
-.\frontend\src\assets\react.svg
-.\frontend\src\components\GestionarUsuarios.jsx
-// src/components/GestionarUsuarios.jsx
+export default Encabezado;
+
+\frontend\src\components\GestionarUsuarios.jsx
 import { useEffect, useState } from "react";
 import axios from "axios";
 
-const API_URL = "http://localhost:5000"; // Asegúrate de que esta URL sea correcta
+const API_URL = "http://localhost:5000";
 
 const GestionarUsuarios = () => {
   const [usuarios, setUsuarios] = useState([]);
@@ -1357,23 +1904,7 @@ const GestionarUsuarios = () => {
 
 export default GestionarUsuarios;
 
-.\frontend\src\components\Home.jsx
-// src/components/Home.jsx
-import React from 'react';
-
-const Home = () => {
-  return (
-    <div>
-      <h2 className="text-2xl font-bold">Bienvenido a MusicTree</h2>
-      <p>Explora artistas, álbumes, canciones y más.</p>
-    </div>
-  );
-};
-
-export default Home;
-
-.\frontend\src\components\PanelAdmin.jsx
-// src/components/PanelAdmin.jsx
+\frontend\src\components\PanelAdmin.jsx
 import { Link } from "react-router-dom";
 
 const PanelAdmin = () => {
@@ -1398,72 +1929,897 @@ const PanelAdmin = () => {
 
 export default PanelAdmin;
 
-.\frontend\src\components\ProtectedRoute.jsx
-import { Navigate } from "react-router-dom";
+\frontend\src\components\PieDePagina.jsx
+import { Link } from 'react-router-dom';
+
+const PieDePagina = () => {
+  return (
+    <footer style={{ backgroundColor: '#065F46', color: 'white', padding: '1rem', marginTop: '2.5rem', width: '100%' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+        <div>
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>MusicTree</h3>
+          <ul>
+            <li><Link to="/" style={{ color: 'white', textDecoration: 'none' }}>Inicio</Link></li>
+            <li><Link to="/about" style={{ color: 'white', textDecoration: 'none' }}>Acerca de</Link></li>
+            <li><Link to="/contribute" style={{ color: 'white', textDecoration: 'none' }}>Contribuir</Link></li>
+          </ul>
+        </div>
+        <div>
+          <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>Legal</h3>
+          <ul>
+            <li><Link to="/terms" style={{ color: 'white', textDecoration: 'none' }}>Términos de uso</Link></li>
+            <li><Link to="/privacy" style={{ color: 'white', textDecoration: 'none' }}>Política de privacidad</Link></li>
+            <li><Link to="/community" style={{ color: 'white', textDecoration: 'none' }}>Normas de la comunidad</Link></li>
+          </ul>
+        </div>
+      </div>
+      <p style={{ textAlign: 'center', marginTop: '1rem' }}>© 2025 CUCEI. Todos los derechos reservados.</p>
+    </footer>
+  );
+};
+
+export default PieDePagina;
+
+\frontend\src\components\ProtectedRoute.jsx
+import { Navigate } from 'react-router-dom';
+import PropTypes from 'prop-types';
 
 const ProtectedRoute = ({ user, roles, children }) => {
-  if (!user) return <Navigate to="/login" />;
-  if (roles && !roles.includes(user.rol)) return <Navigate to="/unauthorized" />;
+  if (!user) {
+    return <Navigate to="/login" />;
+  }
+
+  // Verificar si tipo_usuario está definido
+  if (roles && (!user.tipo_usuario || !roles.includes(user.tipo_usuario))) {
+    return <Navigate to="/unauthorized" />;
+  }
+
   return children;
+};
+
+ProtectedRoute.propTypes = {
+  user: PropTypes.shape({
+    tipo_usuario: PropTypes.string,
+  }),
+  roles: PropTypes.arrayOf(PropTypes.string),
+  children: PropTypes.node.isRequired,
 };
 
 export default ProtectedRoute;
 
-.\frontend\src\components\Unauthorized.jsx
-const Unauthorized = () => (
-    <div className="text-center mt-10">
-      <h1 className="text-3xl font-bold">🚫 Acceso Denegado</h1>
-      <p>No tienes permisos para ver esta página.</p>
+\frontend\src\components\star.svg
+\frontend\src\components\StarRating.jsx
+import { useState } from 'react';
+import PropTypes from 'prop-types';
+import treeEmpty from '../assets/tree_empty.png';
+import treeFilled from '../assets/tree_filled.png';
+import starEmpty from '../assets/star_empty.png';
+import starHalf from '../assets/star_half.png';
+import starFilled from '../assets/star_filled.png';
+
+const StarRating = ({ valoracionInicial = 0, onRatingChange }) => {
+  const [rating, setRating] = useState(valoracionInicial);
+  const [hovered, setHovered] = useState(null);
+
+  const handleRating = (newRating) => {
+    if (newRating >= 0 && newRating <= 5) {
+      setRating(newRating);
+      onRatingChange(newRating);
+    }
+  };
+
+  const handleMouseEnter = (value) => {
+    setHovered(value);
+  };
+
+  const handleMouseLeave = () => {
+    setHovered(null);
+  };
+
+  const handleClick = (event, value) => {
+    const rect = event.target.getBoundingClientRect();
+    const clickPosition = event.clientX - rect.left;
+    const isHalfStar = clickPosition < rect.width / 2;
+
+    const newRating = isHalfStar ? value - 0.5 : value;
+    handleRating(newRating);
+  };
+
+  const renderIcon = (value) => {
+    const currentRating = hovered !== null ? hovered : rating;
+    let iconSrc;
+
+    if (value === 0) {
+      iconSrc = currentRating === 0 ? treeFilled : treeEmpty;
+    } else {
+      if (value <= currentRating) {
+        iconSrc = starFilled;
+      } else if (value - 0.5 === currentRating) {
+        iconSrc = starHalf;
+      } else {
+        iconSrc = starEmpty;
+      }
+    }
+
+    return (
+      <div
+        key={value}
+        onClick={(e) => handleClick(e, value)}
+        onMouseEnter={() => handleMouseEnter(value)}
+        onMouseLeave={handleMouseLeave}
+        className="cursor-pointer"
+        style={{ width: '24px', height: '24px', display: 'inline-block' }}
+      >
+        <img src={iconSrc} alt={value === 0 ? 'Tree' : 'Star'} style={{ width: '100%', height: '100%' }} />
+      </div>
+    );
+  };
+
+  return (
+    <div className="flex items-center">
+      {[0, 1, 2, 3, 4, 5].map(renderIcon)}
+      <div className="ml-2 text-green-500 font-bold">
+        {rating} ⭐
+      </div>
     </div>
   );
-  
-  export default Unauthorized;
-  
-.\middleware\authMiddleware.js
-const jwt = require("jsonwebtoken");
+};
 
-const token = jwt.sign(
-  { id: usuario.id, tipo_usuario: usuario.tipo_usuario }, 
-  process.env.JWT_SECRET, 
-  { expiresIn: '1h' }
+StarRating.propTypes = {
+  valoracionInicial: PropTypes.number,
+  onRatingChange: PropTypes.func.isRequired,
+};
+
+export default StarRating;
+
+\frontend\src\components\TendenciasFeed.jsx
+import { useEffect, useState } from "react";
+import axios from "axios";
+
+const TendenciasFeed = () => {
+  const [tendencias, setTendencias] = useState([]);
+
+  useEffect(() => {
+    const fetchTendencias = async () => {
+      try {
+        const response = await axios.get("http://localhost:5000/tendencias/feed");
+        setTendencias(response.data);
+      } catch (error) {
+        console.error("Error al obtener el feed de tendencias:", error);
+      }
+    };
+    fetchTendencias();
+  }, []);
+
+  return (
+    <div className="p-4">
+      <h2 className="text-xl font-bold mb-4">Tendencias Recientes</h2>
+      <ul>
+        {tendencias.map((tendencia) => (
+          <li key={tendencia.id_tendencia} className="mb-2">
+            {tendencia.usuarios?.nombre} {tendencia.accion} en{" "}
+            {tendencia.entidad_tipo === "album" && tendencia.album?.titulo}
+            {tendencia.entidad_tipo === "cancion" && tendencia.cancion?.titulo}
+            {tendencia.entidad_tipo === "artista" && tendencia.artista?.nombre}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+export default TendenciasFeed;
+
+\frontend\src\components\TendenciasSemanal.jsx
+import { useEffect, useState } from 'react';
+import axios from 'axios';
+
+const TendenciasSemanal = () => {
+  const [tendencias, setTendencias] = useState([]);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchTendencias = async () => {
+      try {
+        const response = await axios.get('http://localhost:5000/tendencias/recientes');
+        setTendencias(response.data);
+      } catch {
+        setError('Error al obtener tendencias');
+      }
+    };
+    fetchTendencias();
+  }, []);
+
+  return (
+    <div>
+      <h2 className="text-2xl font-bold mb-4">Tendencias de la semana</h2>
+      {error && <p className="text-red-500">{error}</p>}
+      <ul>
+        {tendencias.map((tendencia, index) => (
+          <li key={index} className="mb-2">
+            {tendencia.accion} en {tendencia.entidad_tipo === 'album' ? tendencia.album?.titulo : tendencia.cancion?.titulo}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+export default TendenciasSemanal;
+
+\frontend\src\components\tree.svg
+\frontend\src\components\logo.png
+\frontend\src\components\Unauthorized.jsx
+const Unauthorized = () => (
+  <div className="text-center mt-10">
+    <h1 className="text-3xl font-bold">🚫 Acceso Denegado</h1>
+    <p>No tienes permisos para ver esta página.</p>
+  </div>
 );
 
+export default Unauthorized;
 
-const verificarToken = (req, res, next) => {
-  const token = req.header("Authorization");
+\frontend\src\components\Navbar.jsx
+import { Link } from 'react-router-dom';
 
-  if (!token) {
-    return res.status(401).json({ mensaje: "Acceso denegado. Token no proporcionado." });
-  }
-
-  try {
-    const tokenSinBearer = token.startsWith("Bearer ") ? token.slice(7) : token;
-    const decoded = jwt.verify(tokenSinBearer, process.env.JWT_SECRET);
-    req.usuario = decoded;
-    next();
-  } catch (error) {
-    res.status(400).json({ mensaje: "Token inválido." });
-  }
+const Navbar = () => {
+  return (
+    <nav className="navbar">
+      <div className="navbar-logo">
+        <Link to="/">MusicTree</Link>
+      </div>
+      <div className="navbar-menu">
+        <Link to="/music">Música</Link>
+        <Link to="/members">Miembros</Link>
+        <Link to="/lists">Listas</Link>
+        <Link to="/badges">Insignias</Link>
+        <Link to="/about">Acerca de</Link>
+      </div>
+      <div className="navbar-auth">
+        <Link to="/login">Iniciar sesión</Link>
+        <Link to="/register">Registrarse</Link>
+      </div>
+    </nav>
+  );
 };
 
-const verificarAdmin = (req, res, next) => {
-  if (req.usuario.tipo_usuario !== "admin") {
-    return res.status(403).json({ mensaje: "Acceso denegado. Se requiere rol de administrador." });
-  }
-  next();
+export default Navbar;
+
+\frontend\src\pages\About.jsx
+const About = () => {
+  return (
+    <div className="pt-16 p-4">
+      <h2 className="text-4xl font-bold my-4">Acerca de MusicTree</h2>
+      <p>
+        MusicTree es una plataforma para amantes de la música donde puedes descubrir, valorar y compartir tus artistas, álbumes y canciones favoritos.
+      </p>
+      <section className="mt-4">
+        <h3 className="text-2xl font-bold mb-2">Nuestra Misión</h3>
+        <p>
+          Conectar a personas de todo el mundo a través de su amor por la música y proporcionar una plataforma para descubrir y compartir nueva música.
+        </p>
+      </section>
+      <section className="mt-4">
+        <h3 className="text-2xl font-bold mb-2">Visión</h3>
+        <p>
+          Ser la comunidad de referencia para los entusiastas de la música, ofreciendo herramientas y contenido de calidad para enriquecer su experiencia musical.
+        </p>
+      </section>
+    </div>
+  );
 };
 
-const verificarModerador = (req, res, next) => {
-  if (req.usuario.tipo_usuario !== "moderador" && req.usuario.tipo_usuario !== "admin") {
-    return res.status(403).json({ mensaje: "Acceso denegado. Se requiere rol de moderador o administrador." });
-  }
-  next();
+export default About;
+
+\frontend\src\pages\AlbumPage.jsx
+import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import axios from 'axios';
+import PropTypes from 'prop-types';
+import StarRating from '../components/StarRating';
+
+const API_URL = "http://localhost:5000";
+
+const AlbumPage = ({ usuario }) => {
+  const { id } = useParams();
+  const [album, setAlbum] = useState(null);
+  const [rating, setRating] = useState(0);
+
+  useEffect(() => {
+    const fetchAlbumData = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/albumes/${id}`);
+        setAlbum(response.data);
+      } catch (error) {
+        console.error('Error fetching album data:', error);
+      }
+    };
+
+    fetchAlbumData();
+  }, [id]);
+
+  const handleRatingChange = async (newRating) => {
+    setRating(newRating);
+    if (usuario) {
+      try {
+        await axios.post(`${API_URL}/valoraciones`, {
+          usuario_id: usuario.id,
+          album_id: id,
+          valoracion: newRating,
+        });
+        console.log('Rating saved:', newRating);
+      } catch (error) {
+        console.error('Error saving rating:', error);
+      }
+    }
+  };
+
+  return (
+    <div className="pt-16 p-4">
+      {album && (
+        <>
+          <h2 className="text-4xl font-bold my-4">{album.titulo}</h2>
+          <img src={album.foto_album} alt={album.titulo} className="w-64 h-64 object-cover rounded" />
+          {usuario ? (
+            <StarRating valoracionInicial={rating} onRatingChange={handleRatingChange} />
+          ) : (
+            <p>Inicia sesión para valorar</p>
+          )}
+        </>
+      )}
+    </div>
+  );
 };
 
-module.exports = { verificarToken, verificarAdmin, verificarModerador };
+AlbumPage.propTypes = {
+  usuario: PropTypes.object,
+};
 
-.\node_modules\...
-.\routes\albumRoutes.js
+export default AlbumPage;
+
+\frontend\src\pages\Badges.jsx
+const Badges = () => {
+  return (
+    <div>
+      <main className="p-4">
+        <h2 className="text-4xl font-bold my-4">Insignias</h2>
+        {/* Implementación de sistema de logros e insignias */}
+      </main>
+    </div>
+  );
+};
+
+export default Badges;
+
+\frontend\src\pages\Home.jsx
+import { Link } from 'react-router-dom';
+import TendenciasSemanal from '../components/TendenciasSemanal';
+
+const Home = () => {
+  return (
+    <div className="pt-16">
+      <main className="p-4">
+        <h2 className="text-4xl font-bold my-4">Bienvenido a MusicTree</h2>
+        <p>Explora artistas, álbumes, canciones y más.</p>
+        <TendenciasSemanal />
+        <div className="mt-4">
+          <h3 className="text-2xl font-bold mb-2">Crea tu cuenta ahora</h3>
+          <Link to="/register">
+            <button className="bg-green-500 text-white py-2 px-4 rounded">Registrarse</button>
+          </Link>
+        </div>
+      </main>
+    </div>
+  );
+};
+
+export default Home;
+
+\frontend\src\pages\Lists.jsx
+const Lists = () => {
+  return (
+    <div>
+      <main className="p-4">
+        <h2 className="text-4xl font-bold my-4">Listas</h2>
+        {/* Implementación de creación y visualización de listas */}
+      </main>
+    </div>
+  );
+};
+
+export default Lists;
+
+\frontend\src\pages\Login.jsx
+import { useState } from 'react';
+import PropTypes from 'prop-types';
+import axios from 'axios';
+
+const API_URL = "http://localhost:5000";
+
+const Login = ({ onLoginExitoso }) => {
+  const [emailOrUsername, setEmailOrUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await axios.post(`${API_URL}/auth/login`, { emailOrUsername, password });
+      const { token, user } = response.data; // Obtener la información del usuario además del token
+      if (token) {
+        localStorage.setItem('token', token);
+        onLoginExitoso(user); // Pasar la información del usuario
+        console.log('Token guardado:', token); // Confirmar que el token se guarda
+      } else {
+        setError('No se recibió un token.');
+      }
+    } catch (err) {
+      setError('Credenciales incorrectas');
+    }
+  };
+
+  return (
+    <div className="max-w-sm mx-auto p-4 border rounded shadow-md mt-10">
+      <h2 className="text-xl font-semibold mb-4 text-center">Iniciar Sesión</h2>
+
+      {error && <p className="text-red-500">{error}</p>}
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium">Correo o Usuario:</label>
+          <input
+            type="text"
+            value={emailOrUsername}
+            onChange={(e) => setEmailOrUsername(e.target.value)}
+            required
+            className="w-full border rounded px-3 py-2"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium">Contraseña:</label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            className="w-full border rounded px-3 py-2"
+          />
+        </div>
+
+        <button type="submit" className="w-full bg-green-500 text-white py-2 rounded hover:bg-green-600">
+          Iniciar Sesión
+        </button>
+      </form>
+    </div>
+  );
+};
+
+Login.propTypes = {
+  onLoginExitoso: PropTypes.func.isRequired,
+};
+
+export default Login;
+
+\frontend\src\pages\Members.jsx
+const Members = () => {
+  return (
+    <div>
+      <main className="p-4">
+        <h2 className="text-4xl font-bold my-4">Miembros</h2>
+        {/* Implementación de rankings de usuarios */}
+      </main>
+    </div>
+  );
+};
+
+export default Members;
+
+\frontend\src\pages\Music.jsx
+import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import axios from 'axios';
+import BarraDeBusqueda from '../components/BarraDeBusqueda';
+
+const API_URL = "http://localhost:5000";
+
+const Music = () => {
+  const [artists, setArtists] = useState([]);
+  const [albums, setAlbums] = useState([]);
+  const [songs, setSongs] = useState([]);
+  const [albumArtists, setAlbumArtists] = useState([]);
+  const [query, setQuery] = useState('');
+
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const artistsResponse = await axios.get(`${API_URL}/artistas`);
+        setArtists(artistsResponse.data);
+
+        const albumsResponse = await axios.get(`${API_URL}/albumes`);
+        setAlbums(albumsResponse.data);
+
+        const songsResponse = await axios.get(`${API_URL}/canciones`);
+        setSongs(songsResponse.data);
+
+        const albumArtistsResponse = await axios.get(`${API_URL}/album_artistas`);
+        setAlbumArtists(albumArtistsResponse.data);
+      } catch (error) {
+        console.error('Error fetching data:', error);
+      }
+    };
+
+    fetchData();
+  }, []);
+
+  const handleSearch = (searchQuery) => {
+    setQuery(searchQuery);
+  };
+
+  const filteredArtists = artists.filter(artist =>
+    artist.nombre_artista.toLowerCase().includes(query.toLowerCase())
+  );
+
+  const filteredSongs = songs.filter(song =>
+    song.titulo.toLowerCase().includes(query.toLowerCase())
+  );
+
+  const getAlbumsByArtist = (artistId) => {
+    return albumArtists
+      .filter(aa => aa.artista_id === artistId)
+      .map(aa => albums.find(album => album.id_album === aa.album_id))
+      .filter(album => album !== undefined);
+  };
+
+  const getSongsByAlbum = (albumId) => {
+    return filteredSongs.filter(song => song.album === albumId);
+  };
+
+  return (
+    <div>
+      <main className="p-4">
+        <h2 className="text-4xl font-bold my-4">Música</h2>
+        <BarraDeBusqueda onSearch={handleSearch} />
+        <div className="section">
+          <h2>Artistas</h2>
+          <ul>
+            {filteredArtists.map(artist => (
+              <li key={artist.id_artista}>
+                <Link to={`/artist/${artist.id_artista}`}>
+                  <img src={artist.foto_artista} alt={artist.nombre_artista} width="50" />
+                  {artist.nombre_artista}
+                </Link>
+                <ul>
+                  {getAlbumsByArtist(artist.id_artista).map(album => (
+                    <li key={album.id_album}>
+                      <Link to={`/album/${album.id_album}`}>
+                        <img src={album.foto_album} alt={album.titulo} width="50" />
+                        {album.titulo}
+                      </Link>
+                      <ul>
+                        {getSongsByAlbum(album.id_album).map(song => (
+                          <li key={song.id_cancion}>
+                            <Link to={`/song/${song.id_cancion}`}>{song.titulo}</Link>
+                          </li>
+                        ))}
+                      </ul>
+                    </li>
+                  ))}
+                </ul>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </main>
+    </div>
+  );
+};
+
+export default Music;
+
+\frontend\src\pages\Register.jsx
+import { useState } from 'react';
+import axios from 'axios';
+
+const API_URL = "http://localhost:5000";
+
+const Register = () => {
+  const [nombre, setNombre] = useState('');
+  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await axios.post(`${API_URL}/auth/register`, {
+        nombre,
+        email,
+        username,
+        password,
+      });
+      console.log(response.data);
+      // Redirigir a la página de inicio de sesión después del registro exitoso
+      window.location.href = '/login';
+    } catch {
+      setError('Error al registrar usuario');
+    }
+  };
+
+  return (
+    <div className="max-w-sm mx-auto p-4 border rounded shadow-md mt-10">
+      <h2 className="text-xl font-semibold mb-4 text-center">Registrarse</h2>
+
+      {error && <p className="text-red-500">{error}</p>}
+
+      <form onSubmit={handleRegister} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium">Nombre:</label>
+          <input
+            type="text"
+            value={nombre}
+            onChange={(e) => setNombre(e.target.value)}
+            required
+            className="w-full border rounded px-3 py-2"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium">Correo:</label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="w-full border rounded px-3 py-2"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium">Nombre de Usuario:</label>
+          <input
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            required
+            className="w-full border rounded px-3 py-2"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium">Contraseña:</label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            className="w-full border rounded px-3 py-2"
+          />
+        </div>
+
+        <button type="submit" className="w-full bg-green-500 text-white py-2 rounded hover:bg-green-600">
+          Registrarse
+        </button>
+      </form>
+    </div>
+  );
+};
+
+export default Register;
+
+\frontend\src\pages\Unauthorized.jsx
+const Unauthorized = () => (
+  <div className="text-center mt-10">
+    <h1 className="text-3xl font-bold">🚫 Acceso Denegado</h1>
+    <p>No tienes permisos para ver esta página.</p>
+  </div>
+);
+
+export default Unauthorized;
+
+\frontend\src\pages\ArtistPage.jsx
+import { useState, useEffect } from 'react';
+import { useParams, Link } from 'react-router-dom';
+import axios from 'axios';
+import PropTypes from 'prop-types';
+import StarRating from '../components/StarRating';
+
+const API_URL = "http://localhost:5000";
+
+const ArtistPage = ({ usuario }) => {
+  const { id } = useParams();
+  const [artist, setArtist] = useState(null);
+  const [albums, setAlbums] = useState([]);
+  const [songs, setSongs] = useState([]);
+  const [rating, setRating] = useState(0);
+
+  useEffect(() => {
+    const fetchArtistData = async () => {
+      try {
+        const artistResponse = await axios.get(`${API_URL}/artistas/${id}`);
+        setArtist(artistResponse.data);
+
+        const albumsResponse = await axios.get(`${API_URL}/albumes`);
+        const artistAlbums = albumsResponse.data.filter(album => album.artista_id === parseInt(id));
+        setAlbums(artistAlbums);
+
+        const songsResponse = await axios.get(`${API_URL}/canciones`);
+        const artistSongs = songsResponse.data.filter(song => artistAlbums.some(album => album.id_album === song.album));
+        setSongs(artistSongs);
+      } catch (error) {
+        console.error('Error fetching artist data:', error);
+      }
+    };
+
+    fetchArtistData();
+  }, [id]);
+
+  const handleRatingChange = async (newRating) => {
+    setRating(newRating);
+    if (usuario) {
+      try {
+        await axios.post(`${API_URL}/valoraciones`, {
+          usuario_id: usuario.id,
+          artista_id: id,
+          valoracion: newRating,
+        });
+        console.log('Rating saved:', newRating);
+      } catch (error) {
+        console.error('Error saving rating:', error);
+      }
+    }
+  };
+
+  return (
+    <div className="pt-16 p-4">
+      {artist && (
+        <>
+          <h2 className="text-4xl font-bold my-4">{artist.nombre_artista}</h2>
+          <img src={artist.foto_artista} alt={artist.nombre_artista} className="w-64 h-64 object-cover rounded-full" />
+          <p className="mt-4">{artist.biografia}</p>
+          {usuario ? (
+            <StarRating valoracionInicial={rating} onRatingChange={handleRatingChange} />
+          ) : (
+            <p>Inicia sesión para valorar</p>
+          )}
+          <h3 className="text-2xl font-bold mt-8">Álbumes</h3>
+          <ul>
+            {albums.map(album => (
+              <li key={album.id_album}>
+                <Link to={`/album/${album.id_album}`}>
+                  <img src={album.foto_album} alt={album.titulo} className="w-32 h-32 object-cover" />
+                  {album.titulo}
+                </Link>
+              </li>
+            ))}
+          </ul>
+          <h3 className="text-2xl font-bold mt-8">Canciones</h3>
+          <ul>
+            {songs.map(song => (
+              <li key={song.id_cancion}>
+                <Link to={`/song/${song.id_cancion}`}>{song.titulo}</Link>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
+  );
+};
+
+ArtistPage.propTypes = {
+  usuario: PropTypes.object,
+};
+
+export default ArtistPage;
+
+\frontend\src\pages\SongPage.jsx
+import { useState, useEffect } from 'react';
+import { useParams } from 'react-router-dom';
+import axios from 'axios';
+import PropTypes from 'prop-types';
+import StarRating from '../components/StarRating';
+
+const API_URL = "http://localhost:5000";
+
+const SongPage = ({ usuario }) => {
+  const { id } = useParams();
+  const [song, setSong] = useState(null);
+  const [rating, setRating] = useState(0);
+
+  useEffect(() => {
+    const fetchSongData = async () => {
+      try {
+        const response = await axios.get(`${API_URL}/canciones/${id}`);
+        setSong(response.data);
+      } catch (error) {
+        console.error('Error fetching song data:', error);
+      }
+    };
+
+    fetchSongData();
+  }, [id]);
+
+  const handleRatingChange = async (newRating) => {
+    setRating(newRating);
+    if (usuario) {
+      try {
+        await axios.post(`${API_URL}/valoraciones`, {
+          usuario_id: usuario.id,
+          cancion_id: id,
+          valoracion: newRating,
+        });
+        console.log('Rating saved:', newRating);
+      } catch (error) {
+        console.error('Error saving rating:', error);
+      }
+    }
+  };
+
+  return (
+    <div className="pt-16 p-4">
+      {song && (
+        <>
+          <h2 className="text-4xl font-bold my-4">{song.titulo}</h2>
+          <p>Duración: {Math.floor(song.duracion_ms / 60000)}:{((song.duracion_ms % 60000) / 1000).toFixed(0).padStart(2, '0')} minutos</p>
+          <p>Popularidad: {song.popularidad}</p>
+          <p>Preview: <a href={song.preview_url} target="_blank" rel="noopener noreferrer">{song.preview_url}</a></p>
+          {usuario ? (
+            <StarRating valoracionInicial={rating} onRatingChange={handleRatingChange} />
+          ) : (
+            <p>Inicia sesión para valorar</p>
+          )}
+        </>
+      )}
+    </div>
+  );
+};
+
+SongPage.propTypes = {
+  usuario: PropTypes.object,
+};
+
+export default SongPage;
+
+\frontend\src\styles\index.css
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  background-color: #f9f9f9;
+  color: #333;
+}
+
+header, footer {
+  background-color: #065F46;
+  color: white;
+}
+
+header a, footer a {
+  color: white;
+  text-decoration: none;
+}
+
+header a:hover, footer a:hover {
+  text-decoration: underline;
+}
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+button {
+  cursor: pointer;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+\frontend\node_modules\...
+\routes\albumRoutes.js
 const express = require("express");
 const router = express.Router();
 const albumController = require("../controllers/albumController");
@@ -1477,7 +2833,7 @@ router.delete("/:id", albumController.eliminarAlbum);
 
 module.exports = router;
 
-.\routes\artistaRoutes.js
+\routes\artistaRoutes.js
 const express = require("express");
 const router = express.Router();
 const artistaController = require("../controllers/artistaController");
@@ -1491,7 +2847,7 @@ router.delete("/:id", artistaController.eliminarArtista);
 
 module.exports = router;
 
-.\routes\authRoutes.js
+\routes\authRoutes.js
 const express = require("express");
 const { register, login } = require("../controllers/authController");
 
@@ -1502,7 +2858,7 @@ router.post("/login", login);
 
 module.exports = router;
 
-.\routes\cancionRoutes.js
+\routes\cancionRoutes.js
 const express = require("express");
 const router = express.Router();
 const cancionController = require("../controllers/cancionController");
@@ -1516,7 +2872,7 @@ router.delete("/:id", cancionController.eliminarCancion);
 
 module.exports = router;
 
-.\routes\listaRoutes.js
+\routes\listaRoutes.js
 const express = require("express");
 const router = express.Router();
 const listaController = require("../controllers/listaController");
@@ -1530,42 +2886,42 @@ router.delete("/:id", listaController.eliminarLista);
 
 module.exports = router;
 
-.\routes\tendenciaRoutes.js
+\routes\tendenciaRoutes.js
 const express = require("express");
 const router = express.Router();
 const tendenciaController = require('../controllers/tendenciaController');
 const { obtenerTendenciasRecientes } = require("../controllers/tendenciaController");
-const { authenticateToken, authorizeRoles } = require("../middleware/authMiddleware");
+const { verificarToken, verificarAdmin, verificarModerador } = require("../middleware/authMiddleware");
 
-router.post('/registrar', authenticateToken, authorizeRoles("admin", "moderador"), tendenciaController.registrarTendencia);
+router.post('/registrar', verificarToken, verificarAdmin, verificarModerador, tendenciaController.registrarTendencia);
 router.get('/recientes', tendenciaController.obtenerTendenciasRecientes);
 //router.get('/feed', tendenciaController.obtenerTendenciasRecientes);
 router.get("/feed", obtenerTendenciasRecientes); // Ruta correcta
 
 module.exports = router;
 
-.\routes\userRoutes.js
+\routes\userRoutes.js
 const express = require("express");
 const router = express.Router();
 const userController = require("../controllers/userController");
-const { authenticateToken, authorizeRoles } = require("../middleware/authMiddleware");
+const { verificarToken, verificarAdmin } = require("../middleware/authMiddleware");
 
-router.get("/perfil", authenticateToken, userController.obtenerPerfil);
-router.get("/admin", authenticateToken, authorizeRoles("admin"), userController.panelAdmin);
-router.get("/", authenticateToken, authorizeRoles("admin", "moderador"), userController.obtenerUsuarios);
-router.get("/:id", authenticateToken, authorizeRoles("admin", "moderador"), userController.obtenerUsuarioPorId);
-router.delete("/:id", authenticateToken, authorizeRoles("admin"), userController.eliminarUsuario);
+router.get("/perfil", verificarToken, userController.obtenerPerfil);
+router.get("/admin", verificarToken, verificarAdmin, userController.panelAdmin);
+router.get("/", userController.obtenerUsuarios);
+router.get("/:id", verificarToken, userController.obtenerUsuarioPorId);
+router.delete("/:id", verificarToken, verificarAdmin, userController.eliminarUsuario);
 
 module.exports = router;
 
-.\routes\valoracionRoutes.js
+\routes\valoracionRoutes.js
 const express = require("express");
 const router = express.Router();
 const valoracionController = require("../controllers/valoracionController");
-const { authenticateToken } = require("../middleware/authMiddleware");
+const { verificarToken } = require("../middleware/authMiddleware");
 
 // Rutas CRUD para Valoraciones
-router.post("/", authenticateToken, valoracionController.crearValoracion);
+router.post("/", verificarToken, valoracionController.crearValoracion);
 router.get("/", valoracionController.obtenerValoraciones);
 router.get("/:id", valoracionController.obtenerValoracionPorId);
 router.put("/:id", valoracionController.actualizarValoracion);
@@ -1573,7 +2929,7 @@ router.delete("/:id", valoracionController.eliminarValoracion);
 
 module.exports = router;
 
-.\routes\votacionRoutes.js
+\routes\votacionRoutes.js
 const express = require("express");
 const router = express.Router();
 const votacionController = require('../controllers/votacionController');
@@ -1583,8 +2939,73 @@ router.get('/resultados/:listaId', votacionController.obtenerResultadosVotacion)
 
 module.exports = router;
 
-.\supabase\.branches
-.\supabase\.temp
-.\supabase\config.toml
-.\supabase\.branches\_current_branch
-.\supabase\.temp\cli-latest
+\routes\spotifyRoutes.js
+const express = require('express');
+const router = express.Router();
+const spotifyController = require('../controllers/spotifyController');
+
+router.get('/search', spotifyController.searchArtists);
+router.get('/search/famous', spotifyController.searchFamousArtists);
+
+module.exports = router;
+
+\routes\albumArtistasRoutes.js
+const express = require('express');
+const router = express.Router();
+const supabase = require('../db');
+
+router.get('/', async (req, res) => {
+  try {
+    const { data: album_artistas, error } = await supabase
+      .from('album_artistas')
+      .select('*');
+
+    if (error) {
+      throw error;
+    }
+
+    res.json(album_artistas);
+  } catch (error) {
+    console.error('Error al obtener album_artistas:', error);
+    res.status(500).json({ error: 'Error al obtener album_artistas' });
+  }
+});
+
+module.exports = router;
+
+\supabase\config.toml
+\supabase\.branches
+\supabase\.temp
+\supabase\.branches\_current_branch
+\supabase\.temp\cli-latest
+\node_modules\...
+\middleware\authMiddleware.js
+const jwt = require('jsonwebtoken');
+
+const verificarToken = (req, res, next) => {
+  const authHeader = req.header('Authorization');
+  if (!authHeader) return res.status(401).json({ mensaje: 'Acceso denegado. Token no proporcionado.' });
+
+  const token = authHeader.split(' ')[1];
+  if (!token) return res.status(401).json({ mensaje: 'Acceso denegado. Token no proporcionado.' });
+
+  try {
+    const verified = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = verified;
+    next();
+  } catch (err) {
+    res.status(400).json({ mensaje: 'Token inválido.' });
+  }
+};
+
+const verificarAdmin = (req, res, next) => {
+  if (req.user.tipo_usuario !== 'admin') return res.status(403).json({ mensaje: 'Acceso denegado. No eres administrador.' });
+  next();
+};
+
+const verificarModerador = (req, res, next) => {
+  if (req.user.tipo_usuario !== 'moderador' && req.user.tipo_usuario !== 'admin') return res.status(403).json({ mensaje: 'Acceso denegado. No eres moderador.' });
+  next();
+};
+
+module.exports = { verificarToken, verificarAdmin, verificarModerador };

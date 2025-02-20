@@ -1,30 +1,34 @@
-import React, { useState } from 'react';
+import PropTypes from 'prop-types';
+import { useState, useEffect } from 'react';
 import StarRating from './StarRating';
-import axios from 'axios';
 
-const AlbumView = ({ album }) => {
-    const [rating, setRating] = useState(0);
+const AlbumRating = ({ album }) => {
+  const [rating, setRating] = useState(0);
 
-    const handleRating = async (newRating) => {
-        setRating(newRating);
-        try {
-            await axios.post('http://localhost:5000/valoraciones/registrar', {
-                entidad_tipo: 'album',
-                entidad_id: album.id,
-                puntuacion: newRating
-            });
-            console.log('Valoración guardada');
-        } catch (error) {
-            console.error('Error al guardar la valoración:', error);
-        }
-    };
+  useEffect(() => {
+    // Fetch rating from the server or calculate it
+    setRating(album.rating || 0);
+  }, [album]);
 
-    return (
-        <div className="p-4 border rounded shadow-md">
-            <h3 className="text-xl font-bold">{album.titulo}</h3>
-            <StarRating rating={rating} onRate={handleRating} />
-        </div>
-    );
+  const handleRatingChange = (newRating) => {
+    setRating(newRating);
+    // Send the new rating to the server
+  };
+
+  return (
+    <div>
+      <h2>{album.titulo}</h2>
+      <StarRating valoracionInicial={rating} onRatingChange={handleRatingChange} />
+    </div>
+  );
 };
 
-export default AlbumView;
+AlbumRating.propTypes = {
+  album: PropTypes.shape({
+    id: PropTypes.number.isRequired,
+    titulo: PropTypes.string.isRequired,
+    rating: PropTypes.number,
+  }).isRequired,
+};
+
+export default AlbumRating;

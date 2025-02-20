@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import axios from 'axios';
 
 const TendenciasSemanal = () => {
@@ -10,9 +10,8 @@ const TendenciasSemanal = () => {
       try {
         const response = await axios.get('http://localhost:5000/tendencias/recientes');
         setTendencias(response.data);
-      } catch (error) {
+      } catch {
         setError('Error al obtener tendencias');
-        console.error('Error al obtener tendencias:', error);
       }
     };
     fetchTendencias();

@@ -33,17 +33,26 @@ const obtenerAlbumPorId = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const { data, error } = await supabase
+    const { data: album, error: albumError } = await supabase
       .from('albumes')
       .select('*')
       .eq('ID_album', id)
       .single();
 
-    if (error) {
+    if (albumError) {
       return res.status(404).json({ error: "Álbum no encontrado" });
     }
 
-    res.json(data);
+    const { data: canciones, error: cancionesError } = await supabase
+      .from('canciones')
+      .select('*')
+      .eq('album', id);
+
+    if (cancionesError) {
+      return res.status(500).json({ error: "Error al obtener canciones" });
+    }
+
+    res.json({ album, canciones });
   } catch (error) {
     console.error("❌ Error al obtener álbum:", error);
     res.status(500).json({ error: "Error en el servidor" });

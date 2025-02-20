@@ -1,27 +1,27 @@
-import { useState } from "react";
-import axios from "axios";
+import { useState } from 'react';
+import PropTypes from 'prop-types';
+import axios from 'axios';
+
+const API_URL = "http://localhost:5000";
 
 const Login = ({ onLoginExitoso }) => {
-  const [emailOrUsername, setEmailOrUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [emailOrUsername, setEmailOrUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      const response = await axios.post('http://localhost:5000/auth/login', {
-        emailOrUsername,
-        password,
-      });
-
-      const { token } = response.data;
+      const response = await axios.post(`${API_URL}/auth/login`, { emailOrUsername, password });
+      const { token, user } = response.data; // Obtener la información del usuario además del token
       if (token) {
         localStorage.setItem('token', token);
-        onLoginExitoso(response.data);
+        onLoginExitoso(user); // Pasar la información del usuario
+        console.log('Token guardado:', token); // Confirmar que el token se guarda
       } else {
         setError('No se recibió un token.');
       }
-    } catch (error) {
+    } catch (err) {
       setError('Credenciales incorrectas');
     }
   };
@@ -61,6 +61,10 @@ const Login = ({ onLoginExitoso }) => {
       </form>
     </div>
   );
+};
+
+Login.propTypes = {
+  onLoginExitoso: PropTypes.func.isRequired,
 };
 
 export default Login;

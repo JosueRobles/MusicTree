@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
+import PropTypes from 'prop-types';
 
-const BarraDeBusqueda = () => {
+const BarraDeBusqueda = ({ onSearch }) => {
   const [query, setQuery] = useState('');
 
   const handleInputChange = (event) => {
@@ -8,8 +9,7 @@ const BarraDeBusqueda = () => {
   };
 
   const handleSearch = () => {
-    // Lógica de búsqueda (por implementar)
-    console.log(`Buscando: ${query}`);
+    onSearch(query);
   };
 
   return (
@@ -26,6 +26,10 @@ const BarraDeBusqueda = () => {
       </button>
     </div>
   );
+};
+
+BarraDeBusqueda.propTypes = {
+  onSearch: PropTypes.func.isRequired,
 };
 
 export default BarraDeBusqueda;
