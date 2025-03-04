@@ -1,103 +1,132 @@
 const supabase = require("../db");
+const { registrarTendencia } = require("./tendenciaController");
 
 const crearValoracion = async (req, res) => {
-  const { usuario_id, calificacion, comentario, entidad_tipo, entidad_id, recomendable } = req.body;
+  const { usuario, entidad_tipo, entidad_id, calificacion, comentario } = req.body;
+
   try {
-    let tabla;
+    let tableName;
+    let referenciaId;
+
     switch (entidad_tipo) {
-      case 'cancion':
-        tabla = 'valoraciones_canciones';
+      case 'artista':
+        tableName = 'valoraciones_artistas';
+        referenciaId = 'artista';
         break;
       case 'album':
-        tabla = 'valoraciones_albumes';
+        tableName = 'valoraciones_albumes';
+        referenciaId = 'album';
         break;
-      case 'artista':
-        tabla = 'valoraciones_artistas';
+      case 'cancion':
+        tableName = 'valoraciones_canciones';
+        referenciaId = 'cancion';
+        break;
+      case 'video':
+        tableName = 'valoraciones_videos_musicales';
+        referenciaId = 'video';
         break;
       default:
-        return res.status(400).json({ error: "Tipo de entidad no válida" });
+        return res.status(400).json({ error: "Tipo de entidad no válido" });
     }
 
-    const { data, error } = await supabase
-      .from(tabla)
-      .insert([{ usuario_id, entidad_id, calificacion, comentario, recomendable }])
-      .single();
+    if (!usuario || !entidad_id || !calificacion) {
+      return res.status(400).json({ error: "Parámetros faltantes" });
+    }
 
-    if (error) throw error;
+    // Verificar si ya existe una valoración para esta entidad y usuario
+    const { data: valoracionExistente, error: errorExistente } = await supabase
+      .from(tableName)
+      .select('*')
+      .eq('usuario', usuario)
+      .eq(referenciaId, entidad_id);
 
-    res.status(201).json(data);
+    if (errorExistente && errorExistente.details !== "Results contain 0 rows") {
+      throw errorExistente;
+    }
+
+    let data;
+    if (valoracionExistente.length > 0) {
+      // Actualizar la valoración existente
+      const { data: updatedData, error } = await supabase
+        .from(tableName)
+        .update({ calificacion, comentario })
+        .eq('usuario', usuario)
+        .eq(referenciaId, entidad_id)
+        .single();
+
+      if (error) throw error;
+      data = updatedData;
+    } else {
+      // Crear una nueva valoración
+      const { data: newData, error } = await supabase
+        .from(tableName)
+        .insert([{ usuario, [referenciaId]: entidad_id, calificacion, comentario }])
+        .single();
+
+      if (error) throw error;
+      data = newData;
+    }
+
+    // Registrar tendencia
+    await registrarTendencia(req.body);
+
+    // Devolver la respuesta con la valoración guardada
+    res.status(200).json(data);
   } catch (error) {
     console.error("❌ Error al crear la valoración:", error);
     res.status(500).json({ error: "Error en el servidor" });
   }
 };
 
-const obtenerValoraciones = async (req, res) => {
+const obtenerValoracion = async (req, res) => {
+  const { usuario, entidad_tipo, entidad_id } = req.query;
+
   try {
-    const { data, error } = await supabase.from('valoraciones').select('*');
+    let tableName;
+    let referenciaId;
+
+    switch (entidad_tipo) {
+      case 'artista':
+        tableName = 'valoraciones_artistas';
+        referenciaId = 'artista';
+        break;
+      case 'album':
+        tableName = 'valoraciones_albumes';
+        referenciaId = 'album';
+        break;
+      case 'cancion':
+        tableName = 'valoraciones_canciones';
+        referenciaId = 'cancion';
+        break;
+      case 'video':
+        tableName = 'valoraciones_videos_musicales';
+        referenciaId = 'video';
+        break;
+      default:
+        return res.status(400).json({ error: "Tipo de entidad no válido" });
+    }
+
+    if (!usuario || !entidad_id) {
+      return res.status(400).json({ error: "Parámetros faltantes" });
+    }
+
+    const { data, error } = await supabase
+      .from(tableName)
+      .select('*')
+      .eq('usuario', usuario)
+      .eq(referenciaId, entidad_id);
 
     if (error) throw error;
 
-    res.json(data);
-  } catch (error) {
-    console.error("❌ Error al obtener valoraciones:", error);
-    res.status(500).json({ error: "Error en el servidor" });
-  }
-};
-
-const obtenerValoracionPorId = async (req, res) => {
-  const { id } = req.params;
-  try {
-    const { data, error } = await supabase
-      .from('valoraciones')
-      .select('*')
-      .eq('ID_valoracion', id)
-      .single();
-
-    if (error) return res.status(404).json({ error: "Valoración no encontrada" });
-
-    res.json(data);
+    if (data.length === 1) {
+      res.status(200).json(data[0]);
+    } else {
+      res.status(200).json({ calificacion: 0 }); // Devuelve un valor predeterminado
+    }
   } catch (error) {
     console.error("❌ Error al obtener la valoración:", error);
     res.status(500).json({ error: "Error en el servidor" });
   }
 };
 
-const actualizarValoracion = async (req, res) => {
-  const { id } = req.params;
-  const { calificacion, comentario, recomendable } = req.body;
-  try {
-    const { data, error } = await supabase
-      .from('valoraciones')
-      .update({ calificacion, comentario, recomendable })
-      .eq('ID_valoracion', id)
-      .single();
-
-    if (error) return res.status(404).json({ error: "Valoración no encontrada" });
-
-    res.json(data);
-  } catch (error) {
-    console.error("❌ Error al actualizar la valoración:", error);
-    res.status(500).json({ error: "Error en el servidor" });
-  }
-};
-
-const eliminarValoracion = async (req, res) => {
-  const { id } = req.params;
-  try {
-    const { data, error } = await supabase
-      .from('valoraciones')
-      .delete()
-      .eq('ID_valoracion', id)
-      .single();
-
-    if (error) return res.status(404).json({ error: "Valoración no encontrada" });
-
-    res.json({ message: "Valoración eliminada con éxito" });
-  } catch (error) {
-    console.error("❌ Error al eliminar la valoración:", error);
-    res.status(500).json({ error: "Error en el servidor" });
-  }
-};
-
-module.exports = { crearValoracion, obtenerValoraciones, obtenerValoracionPorId, actualizarValoracion, eliminarValoracion };
+module.exports = { crearValoracion, obtenerValoracion };

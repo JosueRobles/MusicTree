@@ -11,14 +11,14 @@ const obtenerUsuarios = async (req, res) => {
 };
 
 const obtenerPerfil = async (req, res) => {
-  const userId = req.user.id; // Asegúrate de obtener el ID del usuario autenticado
+  const userId = req.user.id; // Obtén el ID del usuario autenticado desde el token
 
   try {
     const { data, error } = await supabase
       .from("usuarios")
-      .select("id_usuario, nombre, email, username")
+      .select("id_usuario, nombre, email, username, tipo_usuario") // Asegúrate de incluir todos los campos necesarios
       .eq("id_usuario", userId)
-      .single();  
+      .single();
 
     if (error) throw error;
     if (!data) {

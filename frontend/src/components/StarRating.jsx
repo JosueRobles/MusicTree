@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import treeEmpty from '../assets/tree_empty.png';
 import treeFilled from '../assets/tree_filled.png';
@@ -10,6 +10,11 @@ const StarRating = ({ valoracionInicial = 0, onRatingChange }) => {
   const [rating, setRating] = useState(valoracionInicial);
   const [hovered, setHovered] = useState(null);
 
+  // ✅ Sincroniza el estado cuando valoracionInicial cambie
+  useEffect(() => {
+    setRating(valoracionInicial);
+  }, [valoracionInicial]);
+
   const handleRating = (newRating) => {
     if (newRating >= 0 && newRating <= 5) {
       setRating(newRating);
@@ -17,19 +22,13 @@ const StarRating = ({ valoracionInicial = 0, onRatingChange }) => {
     }
   };
 
-  const handleMouseEnter = (value) => {
-    setHovered(value);
-  };
-
-  const handleMouseLeave = () => {
-    setHovered(null);
-  };
+  const handleMouseEnter = (value) => setHovered(value);
+  const handleMouseLeave = () => setHovered(null);
 
   const handleClick = (event, value) => {
     const rect = event.target.getBoundingClientRect();
     const clickPosition = event.clientX - rect.left;
     const isHalfStar = clickPosition < rect.width / 2;
-
     const newRating = isHalfStar ? value - 0.5 : value;
     handleRating(newRating);
   };
@@ -66,7 +65,8 @@ const StarRating = ({ valoracionInicial = 0, onRatingChange }) => {
 
   return (
     <div className="flex items-center">
-      {[0, 1, 2, 3, 4, 5].map(renderIcon)}
+      {renderIcon(0)}
+      {[1, 2, 3, 4, 5].map(renderIcon)}
       <div className="ml-2 text-green-500 font-bold">
         {rating} ⭐
       </div>

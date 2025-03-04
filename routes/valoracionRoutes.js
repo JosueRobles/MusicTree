@@ -1,13 +1,8 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
-const valoracionController = require("../controllers/valoracionController");
-const { verificarToken } = require("../middleware/authMiddleware");
+const valoracionController = require('../controllers/valoracionController');
 
-// Rutas CRUD para Valoraciones
-router.post("/", verificarToken, valoracionController.crearValoracion);
-router.get("/", valoracionController.obtenerValoraciones);
-router.get("/:id", valoracionController.obtenerValoracionPorId);
-router.put("/:id", valoracionController.actualizarValoracion);
-router.delete("/:id", valoracionController.eliminarValoracion);
+router.post('/', valoracionController.crearValoracion);
+router.get('/', valoracionController.obtenerValoracion);
 
 module.exports = router;

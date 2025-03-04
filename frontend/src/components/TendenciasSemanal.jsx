@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import axios from 'axios';
 
+const API_URL = "https://organic-space-cod-7j9pgvq44qp36q9-5000.app.github.dev";
+
 const TendenciasSemanal = () => {
   const [tendencias, setTendencias] = useState([]);
   const [error, setError] = useState('');
@@ -8,7 +10,7 @@ const TendenciasSemanal = () => {
   useEffect(() => {
     const fetchTendencias = async () => {
       try {
-        const response = await axios.get('http://localhost:5000/tendencias/recientes');
+        const response = await axios.get(`${API_URL}/tendencias/recientes`);
         setTendencias(response.data);
       } catch {
         setError('Error al obtener tendencias');

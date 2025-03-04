@@ -36,7 +36,7 @@ const obtenerAlbumPorId = async (req, res) => {
     const { data: album, error: albumError } = await supabase
       .from('albumes')
       .select('*')
-      .eq('ID_album', id)
+      .eq('id_album', id)
       .single();
 
     if (albumError) {
@@ -67,7 +67,7 @@ const actualizarAlbum = async (req, res) => {
     const { data, error } = await supabase
       .from('albumes')
       .update({ titulo, anio, foto_album, artista_id, numero_canciones, tipo_album, popularidad_album })
-      .eq('ID_album', id)
+      .eq('id_album', id)
       .single();
 
     if (error) {
@@ -88,7 +88,7 @@ const eliminarAlbum = async (req, res) => {
     const { data, error } = await supabase
       .from('albumes')
       .delete()
-      .eq('ID_album', id)
+      .eq('id_album', id)
       .single();
 
     if (error) {

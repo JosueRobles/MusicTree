@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import BarraDeBusqueda from '../components/BarraDeBusqueda';
 
-const API_URL = "http://localhost:5000";
+const API_URL = "https://organic-space-cod-7j9pgvq44qp36q9-5000.app.github.dev";
 
 const Music = () => {
   const [artists, setArtists] = useState([]);
@@ -25,7 +25,7 @@ const Music = () => {
         setSongs(songsResponse.data);
 
         const albumArtistsResponse = await axios.get(`${API_URL}/album_artistas`);
-        setAlbumArtists(albumArtistsResponse.data);
+        setAlbumArtists(Array.isArray(albumArtistsResponse.data) ? albumArtistsResponse.data : []);
       } catch (error) {
         console.error('Error fetching data:', error);
       }
@@ -50,11 +50,11 @@ const Music = () => {
     return albumArtists
       .filter(aa => aa.artista_id === artistId)
       .map(aa => albums.find(album => album.id_album === aa.album_id))
-      .filter(album => album !== undefined);
+      .filter(album => album); // Asegurar que no haya undefined
   };
-
+  
   const getSongsByAlbum = (albumId) => {
-    return filteredSongs.filter(song => song.album === albumId);
+    return songs.filter(song => song.id_album === albumId); // Asegurar que se filtra correctamente
   };
 
   return (
