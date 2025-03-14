@@ -1,8 +1,8 @@
 const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
-const saveData = require('./controllers/spotify/saveData');
 const bodyParser = require('body-parser');
+const saveData = require('./controllers/spotify/saveData');
 
 dotenv.config();
 
@@ -11,8 +11,8 @@ const PORT = process.env.PORT || 5000;
 
 // Configuración de CORS
 app.use(cors({
-  origin: '*', // Para pruebas, pero en producción usa la URL específica de tu frontend
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  origin: '*', // Permitir cualquier origen temporalmente
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
@@ -38,6 +38,7 @@ const artistasAlbumRoutes = require('./routes/artistasAlbumRoutes');
 const cancionArtistasRoutes = require('./routes/cancionArtistasRoutes');
 const artistasVideoRoutes = require('./routes/artistasVideoRoutes');
 const listaPersonalizadaRoutes = require('./routes/listaPersonalizadaRoutes');
+const recommendRoutes = require('./src/routes/recommendRoutes');
 
 app.use("/auth", authRoutes);
 app.use("/usuarios", userRoutes);
@@ -58,6 +59,7 @@ app.use('/artistas_album', artistasAlbumRoutes);
 app.use('/cancion_artistas', cancionArtistasRoutes);
 app.use('/artistas_video', artistasVideoRoutes);
 app.use('/listas-personalizadas', listaPersonalizadaRoutes);
+app.use("/recommend", recommendRoutes);  // Conectar las rutas de recomendación
 
 app.get("/", (req, res) => {
   res.send("MusicTree API funcionando 🚀");

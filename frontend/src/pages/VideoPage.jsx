@@ -15,6 +15,7 @@ const VideoPage = ({ usuario }) => {
   const [listas, setListas] = useState([]);
   const [selectedLista, setSelectedLista] = useState('');
   const [alreadyInList, setAlreadyInList] = useState(false);
+  const [recommendation, setRecommendation] = useState(null);
 
   useEffect(() => {
     const fetchVideoData = async () => {
@@ -54,6 +55,15 @@ const VideoPage = ({ usuario }) => {
             entidad_tipo: 'video'
           });
           setAlreadyInList(existsResponse.data.exists);
+
+          // Obtener recomendación para el video
+          const recommendationResponse = await axios.get(`${API_URL}/recommend`, {
+            params: {
+              id_usuario: usuario.id_usuario
+            }
+          });
+          const videoRecommendation = recommendationResponse.data.find(rec => rec.entidad_id === parseInt(id));
+          setRecommendation(videoRecommendation ? videoRecommendation.estimacion : null);
         }
       } catch (error) {
         console.error('Error fetching video data:', error);
@@ -147,6 +157,7 @@ const VideoPage = ({ usuario }) => {
           ></iframe>
           <p>Duración: {Math.floor(video.duracion / 60)}:{(video.duracion % 60).toString().padStart(2, '0')} minutos</p>
           <p>Popularidad: {video.popularidad}</p>
+          {recommendation && <p>Recomendación: {recommendation}%</p>}
           {usuario ? (
             <StarRating valoracionInicial={rating} onRatingChange={handleRatingChange} />
           ) : (

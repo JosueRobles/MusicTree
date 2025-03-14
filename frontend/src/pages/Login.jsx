@@ -13,11 +13,11 @@ const Login = ({ onLoginExitoso }) => {
     e.preventDefault();
     try {
       const response = await axios.post(`${API_URL}/auth/login`, { emailOrUsername, password });
-      const { token, user } = response.data; // Obtener la información del usuario además del token
+      const { token, user } = response.data;
       if (token) {
         localStorage.setItem('token', token);
-        onLoginExitoso(user); // Pasar la información del usuario
-        console.log('Token guardado:', token); // Confirmar que el token se guarda
+        onLoginExitoso(user);
+        console.log('Token guardado:', token);
       } else {
         setError('No se recibió un token.');
       }

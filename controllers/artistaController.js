@@ -31,59 +31,71 @@ const obtenerArtistas = async (req, res) => {
 
 const obtenerArtistaPorId = async (req, res) => {
   const { id } = req.params;
-
   try {
+    // Obtener información del artista
     const { data: artista, error: artistaError } = await supabase
       .from('artistas')
       .select('*')
       .eq('id_artista', id)
       .single();
-
+    
     if (artistaError) {
       return res.status(404).json({ error: "Artista no encontrado" });
     }
-
+    
+    // Obtener álbumes relacionados con el artista
     const { data: albumesIDs, error: albumesIDsError } = await supabase
       .from('album_artistas')
       .select('album_id')
       .eq('artista_id', id);
-
+    
     if (albumesIDsError) {
       return res.status(500).json({ error: "Error al obtener álbumes" });
     }
-
-    const albumIds = albumesIDs.map(item => item.album_id);
-
-    const { data: albumes, error: albumesError } = await supabase
-      .from('albumes')
-      .select('id_album, titulo, foto_album')
-      .in('id_album', albumIds);
-
-    if (albumesError) {
-      return res.status(500).json({ error: "Error al obtener álbumes" });
+    
+    let albumes = [];
+    if (albumesIDs && albumesIDs.length > 0) {
+      const albumIds = albumesIDs.map(item => item.album_id);
+      const { data: albumesData, error: albumesError } = await supabase
+        .from('albumes')
+        .select('id_album, titulo, anio, foto_album')
+        .in('id_album', albumIds);
+      
+      if (!albumesError && albumesData) {
+        albumes = albumesData;
+      }
     }
-
+    
+    // Obtener canciones del artista
     const { data: cancionesIDs, error: cancionesIDsError } = await supabase
       .from('cancion_artistas')
       .select('cancion_id')
       .eq('artista_id', id);
-
+    
     if (cancionesIDsError) {
       return res.status(500).json({ error: "Error al obtener canciones" });
     }
-
-    const cancionIds = cancionesIDs.map(item => item.cancion_id);
-
-    const { data: canciones, error: cancionesError } = await supabase
-      .from('canciones')
-      .select('id_cancion, titulo')
-      .in('id_cancion', cancionIds);
-
-    if (cancionesError) {
-      return res.status(500).json({ error: "Error al obtener canciones" });
+    
+    let canciones = [];
+    if (cancionesIDs && cancionesIDs.length > 0) {
+      const cancionIds = cancionesIDs.map(item => item.cancion_id);
+      const { data: cancionesData, error: cancionesError } = await supabase
+        .from('canciones')
+        .select('id_cancion, titulo')
+        .in('id_cancion', cancionIds);
+      
+      if (!cancionesError && cancionesData) {
+        canciones = cancionesData;
+      }
     }
-
-    res.json({ artista, albumes, canciones });
+    
+    // Enviar respuesta con el formato esperado por el frontend
+    res.json({ 
+      artista, 
+      albumes, 
+      canciones 
+    });
+    
   } catch (error) {
     console.error("❌ Error al obtener artista:", error);
     res.status(500).json({ error: "Error en el servidor" });

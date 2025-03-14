@@ -16,19 +16,26 @@ const AlbumPage = ({ usuario }) => {
   const [listas, setListas] = useState([]);
   const [selectedLista, setSelectedLista] = useState('');
   const [alreadyInList, setAlreadyInList] = useState(false);
+  const [recommendations, setRecommendations] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [albumRecommendation, setAlbumRecommendation] = useState(null);
 
   useEffect(() => {
+    console.log("Ejecutando fetchAlbumData con id:", id);
+    
     const fetchAlbumData = async () => {
       try {
         const albumResponse = await axios.get(`${API_URL}/albumes/${id}`);
+        console.log("Seteando álbum:", albumResponse.data.album);
         setAlbum(albumResponse.data.album);
-  
+        console.log("Estado de album actualizado:", album);
+        
         const songsResponse = await axios.get(`${API_URL}/canciones_album/${id}`);
-        setSongs(songsResponse.data.songs);
-  
+        setSongs(Array.isArray(songsResponse.data.songs) ? songsResponse.data.songs : []);
+
         const artistsResponse = await axios.get(`${API_URL}/artistas_album/${id}`);
-        setArtists(artistsResponse.data.artists || []);
-  
+        setArtists(Array.isArray(artistsResponse.data.artists) ? artistsResponse.data.artists : []);
+
         if (usuario) {
           // Obtener valoración (opcional)
           try {
@@ -44,13 +51,13 @@ const AlbumPage = ({ usuario }) => {
             console.error('Error al obtener valoración:', error);
             setRating(0); // Inicializa con 0 si hay un error
           }
-  
+
           // Obtener solo las listas de tipo "album"
           const listasResponse = await axios.get(`${API_URL}/listas-personalizadas/${usuario.id_usuario}`);
           const listasFiltradas = listasResponse.data.filter(lista => lista.tipo_lista === 'album');
           console.log("Listas del usuario (filtradas):", listasFiltradas);
-          setListas(listasFiltradas);
-  
+          setListas(Array.isArray(listasFiltradas) ? listasFiltradas : []);
+
           // Verificar si la entidad ya está en una lista
           const existsResponse = await axios.post(`${API_URL}/listas-personalizadas/verificar`, {
             userId: usuario.id_usuario,
@@ -58,12 +65,25 @@ const AlbumPage = ({ usuario }) => {
             entidad_tipo: 'album'
           });
           setAlreadyInList(existsResponse.data.exists);
+
+          // Obtener recomendaciones
+          const recommendationResponse = await axios.get(`${API_URL}/recommend`, {
+            params: { id_usuario: usuario.id_usuario }
+          });
+          const allRecommendations = Array.isArray(recommendationResponse.data) ? recommendationResponse.data : [];
+          setRecommendations(allRecommendations);
+
+          // Obtener la recomendación específica para el álbum actual
+          const albumRec = allRecommendations.find(rec => rec.entidad_id === parseInt(id) && rec.tipo === 'album');
+          setAlbumRecommendation(albumRec ? Math.round(albumRec.estimacion) : null);
         }
       } catch (error) {
         console.error('Error fetching album data:', error);
+      } finally {
+        setLoading(false);
       }
     };
-  
+
     fetchAlbumData();
   }, [id, usuario]);
 
@@ -108,6 +128,7 @@ const AlbumPage = ({ usuario }) => {
       alert('Seleccione una lista o cree una nueva');
     }
   };
+  console.log("Renderizando AlbumPage con album:", album);
 
   return (
     <div className="pt-16 p-4">
@@ -118,6 +139,9 @@ const AlbumPage = ({ usuario }) => {
           <p>Año: {album.anio}</p>
           <p>Número de canciones: {album.numero_canciones}</p>
           <p>Popularidad: {album.popularidad_album}</p>
+          {albumRecommendation !== null && (
+            <p>Recomendación: {albumRecommendation}%</p>
+          )}
           {usuario ? (
             <StarRating valoracionInicial={rating} onRatingChange={handleRatingChange} />
           ) : (

@@ -17,6 +17,7 @@ const ArtistPage = ({ usuario }) => {
   const [listas, setListas] = useState([]);
   const [selectedLista, setSelectedLista] = useState('');
   const [alreadyInList, setAlreadyInList] = useState(false);
+  const [recommendation, setRecommendation] = useState(null);
 
   useEffect(() => {
     const fetchArtistData = async () => {
@@ -58,6 +59,15 @@ const ArtistPage = ({ usuario }) => {
             entidad_tipo: 'artista'
           });
           setAlreadyInList(existsResponse.data.exists);
+
+          // Obtener recomendación para el artista
+          const recommendationResponse = await axios.get(`${API_URL}/recommend`, {
+            params: {
+              id_usuario: usuario.id_usuario
+            }
+          });
+          const artistRecommendation = recommendationResponse.data.find(rec => rec.entidad_id === parseInt(id) && rec.tipo === 'artista');
+          setRecommendation(artistRecommendation ? Math.round(artistRecommendation.estimacion) : null);
         }
       } catch (error) {
         console.error('Error fetching artist data:', error);
@@ -116,6 +126,7 @@ const ArtistPage = ({ usuario }) => {
           <h2 className="text-4xl font-bold my-4">{artist.nombre_artista}</h2>
           <img src={artist.foto_artista} alt={artist.nombre_artista} className="w-64 h-64 object-cover rounded-full" />
           <p className="mt-4">{artist.biografia}</p>
+          {recommendation !== null && <p>Recomendación: {recommendation}%</p>}
           {usuario ? (
             <StarRating valoracionInicial={rating} onRatingChange={handleRatingChange} />
           ) : (

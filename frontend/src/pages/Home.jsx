@@ -1,12 +1,9 @@
 import { Link } from 'react-router-dom';
 import TendenciasFeed from '../components/TendenciasFeed';
-import Encabezado from '../components/Encabezado';
-import PieDePagina from '../components/PieDePagina';
 
 const Home = ({ usuario, onLogout }) => {
   return (
     <div className="flex flex-col min-h-screen">
-      <Encabezado usuario={usuario} onLogout={onLogout} />
       <main className="p-4 flex-grow mt-16">
         <h2 className="text-4xl font-bold my-4">Bienvenido a MusicTree</h2>
         <p>Explora artistas, álbumes, canciones y más.</p>
@@ -25,7 +22,6 @@ const Home = ({ usuario, onLogout }) => {
           </div>
         )}
       </main>
-      <PieDePagina />
     </div>
   );
 };

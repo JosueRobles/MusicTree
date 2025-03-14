@@ -11,14 +11,16 @@
   "description": "",
   "dependencies": {
     "@supabase/supabase-js": "^2.48.1",
-    "axios": "^1.7.9",
+    "axios": "^1.8.3",
     "bcrypt": "^5.1.1",
     "bcryptjs": "^2.4.3",
+    "compute-cosine-similarity": "^1.1.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
     "pg": "^8.13.1",
+    "python-shell": "^5.0.0",
     "react-multi-carousel": "^2.8.5"
   },
   "devDependencies": {

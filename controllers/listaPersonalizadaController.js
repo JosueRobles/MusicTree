@@ -101,7 +101,7 @@ const obtenerElementosDeLista = async (req, res) => {
     res.status(200).json(data);
   } catch (error) {
     console.error('Error al obtener elementos de lista personalizada:', error);
-    res.status(500).json({ error: 'Error al obtener elementos de lista personalizada.' });
+    res.status500.json({ error: 'Error al obtener elementos de lista personalizada.' });
   }
 };
 

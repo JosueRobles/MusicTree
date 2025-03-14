@@ -1,17 +1,31 @@
 .:
 README.md
+__pycache__
 a.txt
 controllers
+data
 db.js
+debug.log
 frontend
+generate_recommendations.py
 index.js
 middleware
 node_modules
 package-lock.json
 package.json
+queries.js
+recommendation_service.js
+recommender_model.pkl
+requirements.txt
 routes
+src
 supabase
 supabaseClient.js
+train_recommendation_model.py
+venv
+
+./__pycache__:
+train_model.cpython-312.pyc
 
 ./controllers:
 albumArtistasController.js
@@ -26,6 +40,7 @@ cancionAlbumController.js
 cancionArtistasController.js
 cancionController.js
 listaController.js
+listaPersonalizadaController.js
 spotify
 spotifyController.js
 tendenciaController.js
@@ -41,6 +56,21 @@ getSpotifyToken.js
 saveData.js
 searchArtists.js
 
+./data:
+valoraciones
+valoraciones_albumes.csv
+valoraciones_artistas.csv
+valoraciones_canciones.csv
+valoraciones_combinadas.csv
+valoraciones_videos.csv
+
+./data/valoraciones:
+valoraciones_albumes.csv
+valoraciones_artistas.csv
+valoraciones_canciones.csv
+valoraciones_combinadas.csv
+valoraciones_videos.csv
+
 ./frontend:
 README.md
 eslint.config.js
@@ -53,7 +83,7 @@ src
 vite.config.js
 
 ./frontend/node_modules:
-...
+(...)
 
 ./frontend/public:
 index.html
@@ -103,10 +133,12 @@ AlbumPage.jsx
 ArtistPage.jsx
 Badges.jsx
 Home.jsx
+ListPage.jsx
 Lists.jsx
 Login.jsx
 Members.jsx
 Music.jsx
+Recommendations.jsx
 Register.jsx
 SongPage.jsx
 Unauthorized.jsx
@@ -120,7 +152,7 @@ index.css
 authMiddleware.js
 
 ./node_modules:
-...
+(...)
 
 ./routes:
 albumArtistasRoutes.js
@@ -134,6 +166,7 @@ authRoutes.js
 cancionAlbumRoutes.js
 cancionArtistasRoutes.js
 cancionRoutes.js
+listaPersonalizadaRoutes.js
 listaRoutes.js
 spotifyRoutes.js
 tendenciaRoutes.js
@@ -142,5 +175,24 @@ valoracionRoutes.js
 videoRoutes.js
 votacionRoutes.js
 
+./src:
+combinar_valoraciones.py
+controllers
+extraer_valoraciones.py
+routes
+services
+
+./src/controllers:
+recommendController.js
+
+./src/routes:
+recommendRoutes.js
+
+./src/services:
+recommendation.js
+
 ./supabase:
 config.toml
+
+./venv:
+(...)

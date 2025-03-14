@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import PropTypes from 'prop-types';
 import logo from '../assets/logo.png';
+import BusquedaEncabezado from './BusquedaEncabezado';
 
 const Encabezado = ({ usuario, onLogout }) => {
   return (
@@ -15,8 +16,15 @@ const Encabezado = ({ usuario, onLogout }) => {
           <Link to="/lists" style={{ textDecoration: 'none', color: 'white' }}>Listas</Link>
           <Link to="/badges" style={{ textDecoration: 'none', color: 'white' }}>Insignias</Link>
           <Link to="/about" style={{ textDecoration: 'none', color: 'white' }}>Acerca de</Link>
+          <Link to="/recommendations" style={{ textDecoration: 'none', color: 'white' }}>Recomendaciones</Link>
         </nav>
       </div>
+      
+      {/* Componente de búsqueda con autocompletado */}
+      <div style={{ marginLeft: 'auto', marginRight: '1rem' }}>
+        <BusquedaEncabezado />
+      </div>
+      
       <div style={{ display: 'flex', gap: '0.5rem' }}>
         {usuario ? (
           <button onClick={onLogout} style={{ backgroundColor: '#EF4444', padding: '0.5rem 1rem', borderRadius: '0.375rem', color: 'white', textDecoration: 'none', border: 'none' }}>Cerrar sesión</button>

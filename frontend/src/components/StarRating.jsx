@@ -22,7 +22,12 @@ const StarRating = ({ valoracionInicial = 0, onRatingChange }) => {
     }
   };
 
-  const handleMouseEnter = (value) => setHovered(value);
+  const handleMouseEnter = (event, value) => {
+    const rect = event.target.getBoundingClientRect();
+    const hoverPosition = event.clientX - rect.left;
+    const isHalfStar = hoverPosition < rect.width / 2;
+    setHovered(isHalfStar ? value - 0.5 : value);
+  };  
   const handleMouseLeave = () => setHovered(null);
 
   const handleClick = (event, value) => {
@@ -33,6 +38,13 @@ const StarRating = ({ valoracionInicial = 0, onRatingChange }) => {
     handleRating(newRating);
   };
 
+  const handleMouseMove = (event, value) => {
+    const rect = event.target.getBoundingClientRect();
+    const hoverPosition = event.clientX - rect.left;
+    const isHalfStar = hoverPosition < rect.width / 2;
+    setHovered(isHalfStar ? value - 0.5 : value);
+  };  
+
   const renderIcon = (value) => {
     const currentRating = hovered !== null ? hovered : rating;
     let iconSrc;
@@ -42,8 +54,8 @@ const StarRating = ({ valoracionInicial = 0, onRatingChange }) => {
     } else {
       if (value <= currentRating) {
         iconSrc = starFilled;
-      } else if (value - 0.5 === currentRating) {
-        iconSrc = starHalf;
+      } else if (currentRating > value - 1 && currentRating < value) {
+        iconSrc = starHalf;      
       } else {
         iconSrc = starEmpty;
       }
@@ -53,7 +65,7 @@ const StarRating = ({ valoracionInicial = 0, onRatingChange }) => {
       <div
         key={value}
         onClick={(e) => handleClick(e, value)}
-        onMouseEnter={() => handleMouseEnter(value)}
+        onMouseMove={(e) => handleMouseMove(e, value)} // 👈 Evento dinámico
         onMouseLeave={handleMouseLeave}
         className="cursor-pointer"
         style={{ width: '24px', height: '24px', display: 'inline-block' }}

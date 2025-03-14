@@ -16,6 +16,7 @@ const SongPage = ({ usuario }) => {
   const [listas, setListas] = useState([]);
   const [selectedLista, setSelectedLista] = useState('');
   const [alreadyInList, setAlreadyInList] = useState(false);
+  const [recommendation, setRecommendation] = useState(null);
 
   useEffect(() => {
     const fetchSongData = async () => {
@@ -59,6 +60,15 @@ const SongPage = ({ usuario }) => {
           });
           console.log("Respuesta de verificación:", existsResponse.data);
           setAlreadyInList(existsResponse.data.exists);
+
+          // Obtener recomendación para la canción
+          const recommendationResponse = await axios.get(`${API_URL}/recommend`, {
+            params: {
+              id_usuario: usuario.id_usuario
+            }
+          });
+          const songRecommendation = recommendationResponse.data.find(rec => rec.entidad_id === parseInt(id));
+          setRecommendation(songRecommendation ? songRecommendation.estimacion : null);
         }
       } catch (error) {
         console.error('Error fetching song data:', error);
@@ -123,33 +133,35 @@ const SongPage = ({ usuario }) => {
           <p>Duración: {Math.floor(song.duracion_ms / 60000)}:{((song.duracion_ms % 60000) / 1000).toFixed(0).padStart(2, '0')} minutos</p>
           <p>Popularidad: {song.popularidad}</p>
           <p>Preview: <a href={song.preview_url} target="_blank" rel="noopener noreferrer">{song.preview_url}</a></p>
+          {recommendation && <p>Recomendación: {recommendation}%</p>}
           {usuario ? (
             <StarRating valoracionInicial={rating} onRatingChange={handleRatingChange} />
           ) : (
             <p>Inicia sesión para valorar</p>
           )}
 
-{usuario && (
-  <div>
-    {alreadyInList ? (
-      <p>Esta canción ya está en una de tus listas.</p>
-    ) : (
-      listas.length > 0 ? (
-        <>
-          <select value={selectedLista} onChange={(e) => setSelectedLista(e.target.value)}>
-            <option value="">Selecciona una lista</option>
-            {listas.map(lista => (
-              <option key={lista.id_lista} value={lista.id_lista}>{lista.nombre_lista}</option>
-            ))}
-          </select>
-          <button onClick={handleAddToList}>Añadir a Lista</button>
-        </>
-      ) : (
-        <button onClick={() => navigate('/lists')}>Ir a crear una nueva lista...</button>
-      )
-    )}
-  </div>
-)}
+          {usuario && (
+            <div>
+              {alreadyInList ? (
+                <p>Esta canción ya está en una de tus listas.</p>
+              ) : (
+                listas.length > 0 ? (
+                  <>
+                    <select value={selectedLista} onChange={(e) => setSelectedLista(e.target.value)}>
+                      <option value="">Selecciona una lista</option>
+                      {listas.map(lista => (
+                        <option key={lista.id_lista} value={lista.id_lista}>{lista.nombre_lista}</option>
+                      ))}
+                    </select>
+                    <button onClick={handleAddToList}>Añadir a Lista</button>
+                  </>
+                ) : (
+                  <button onClick={() => navigate('/lists')}>Ir a crear una nueva lista...</button>
+                )
+              )}
+            </div>
+          )}
+
           <h3 className="text-2xl font-bold mt-8">Artistas</h3>
           <ul>
             {artists.map(artist => (

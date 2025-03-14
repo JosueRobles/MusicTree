@@ -18,6 +18,7 @@ import VideoPage from './pages/VideoPage';
 import Encabezado from './components/Encabezado';
 import PieDePagina from './components/PieDePagina';
 import ProtectedRoute from './components/ProtectedRoute';
+import Recommendations from './pages/Recommendations';
 import './styles/globals.css';
 import './App.css';
 
@@ -73,6 +74,7 @@ function App() {
         <Route path="/video/:id" element={<VideoPage usuario={usuario} />} />
         <Route path="/lists" element={<Lists />} />
         <Route path="/list/:id" element={<ListPage />} />
+        <Route path="/recommendations" element={<Recommendations usuario={usuario} />} />
         <Route path="/admin" element={
           <ProtectedRoute user={usuario} roles={["admin"]}>
             <div>Panel de Administración</div>
