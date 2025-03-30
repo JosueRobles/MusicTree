@@ -1,0 +1,287 @@
+En Home.jsx: 
+Detalles: "Tendencias semanales" con Top 15 por entidad (que solo sean 15 máximo, de 5 en 5 en carrusel).
+En Tendencias Semanales
+(los cuadrados en los que se ven cada tendencia deben de estar ajustados a si solo hay 1-4 registros,
+apartir 5 va a estar igual aunque si son 6 el carrusel va a ser de 1-5 6,1-4 5-6,1-3 y asi dinamicamente con los demas)
+
+Music.jsx:
+Detalles: Implementar filtros avanzados (año, entidad, popularidad, nuevo, mejor valoradas, ranking, genero musical, etc.), mejorar visualización (en columnas y filas, junto al número total de entidades) y tendencias de la semana en la parte superior (Top 50 en carrusel de 10 en 10).
+Lo que tengo actualmente:
+(BarraDeBusqueda)(con un contador de errores que sube rapidamente (BarraDeBusqueda.jsx:57 
+ Warning: Maximum update depth exceeded. This can happen when a component calls setState inside useEffect, but useEffect either doesn't have a dependency array, or one of the dependencies changes on every render.) revisar el BarraDeBusqueda.jsx)
+(un gran espacio)
+(despues nombre de TODOS los albumes y repetidos una vez mas, asi:
+Clancy
+Clancy
+y sin imagen o tener un vinculo, solo el nombre en color blanco y otra vez arriba supongo que la imagen pero solo agarra el nombre de nuevo y el icono de falta imagen o su direccion correcta)
+
+Año:
+Todos los años(deberia de verificar la BD para ver todos los anios que contiene una entidad, sirva para filtrar los resultados)
+Género:
+Todos los géneros(igual aunque aun no lo implementamos correctamente en la BD)
+Popularidad mínima:
+Cualquier popularidad
+Tendencias de la semana
+
+(despues nombre de las canciones repetidas una vez mas asi:
+Overcompensate
+Overcompensate
+y sin imagen pero teniendo un vinculo y otra vez arriba supongo que la imagen pero solo agarra el nombre de nuevo)
+
+Artistas
+(despues nombre de los artistas repetidos una vez mas asi:
+Ty Dolla $ignTy Dolla $ign
+y sin imagen pero teniendo un vinculo y otra vez alado supongo que la imagen pero solo agarra el nombre de nuevo)
+
+Albumes
+(por alguna razon aca esta bien implementado a diferencia del de arriba en el que se ve la imagen del album grande y el nombre con vinculo del album pero no son todos los albumes)
+
+Canciones
+(Creo que se copio lo de arriba)
+
+Videos Musicales
+(Aun no hago ningun registro asi que no se si tengo problemas con esto)
+
+{Y bueno en general no son cuadrados en planilla (revisar PlanillaDinamica.jsx) sino una lista de nombres algunos con imagen y otros con vinculos a la pagina}
+Aparte que hay errores en consola del frontend en la pagina Musica:
+
+La forma que quiero
+Tendencias Semanales en MusicTree:
+{Titulo: Artistas
+[Carrusel de 10 en 10 completando el Top 50]}
+{Titulo: Albumes
+[Carrusel de 10 en 10 completando el Top 50]}
+{Titulo: Canciones
+[Carrusel de 10 en 10 completando el Top 50, como tal las canciones deben de agarrar la imagen de su album padre]}
+{Titulo: Videos Musicales
+[Carrusel de 10 en 10 completando el Top 50, como tal deben de agarrar la imagen de su miniatura]}
+(Siendo casi casi una plantilla de 10 ancho x 4 alto, pero con titulo separandolos)
+(un pequenio espacio)
+
+(Filtrado avanzado, Busqueda  botones)
+Toda la musica en MusicTree
+(Contador de registros en cada entidad ejemplo: Artistas: 84, Albumes: 850, Canciones: 6000, Videos Musicales: 527)
+(Como si fuera excel te lo dare como CSV: es una plantilla de 12x10)
+artista1,artista2,artista3,album1,album2,album3,cancion1,cancion2,cancion3,video1,video2,video3
+artista4,artista5,artista6,album4,album5,album6,cancion4,cancion5,cancion6,video4,video5,video6
+artista7,artista8,artista9,album7,album8,album9,cancion7,cancion8,cancion9,video7,video8,video9
+artista10,artista11,artista12,album10,album11,album12,cancion10,cancion11,cancion12,video10,video11,video12
+artista13,artista14,artista15,album13,album14,album15,cancion13,cancion14,cancion15,video13,video14,video15
+artista16,artista17,artista18,album16,album17,album18,cancion16,cancion17,cancion18,video16,video17,video18
+artista19,artista20,artista21,album19,album20,album21,cancion18,cancion19,cancion21,video19,video20,video21
+artista22,artista23,artista24,album22,album23,album24,cancion22,cancion23,cancion24,video22,video23,video24
+artista25,artista26,artista27,album25,album26,album27,cancion25,cancion26,cancion27,video25,video26,video27
+artista28,artista29,artista30,album28,album29,album30,cancion28,cancion29,cancion30,video28,video29,video30
+(Al bajar se hace los siguientes 10 filas y asi hasta terminar todo)
+
+Dime si entendiste para pasarte los archivos:
+Music.jsx
+BarraDeBusqueda.jsx
+PlanillaDinamica.jsx
+tendenciaRoutes.js
+tendenciaController.js
+TendenciasFeed.jsx
+Home.jsx
+BusquedaAvanzada.jsx
+
+Mis tablas:
+SELECT table_name, column_name, data_type
+FROM information_schema.columns
+WHERE table_schema = 'public'
+ORDER BY table_name, ordinal_position;
+| table_name                    | column_name               | data_type                   |
+| ----------------------------- | ------------------------- | --------------------------- |
+| actividad_usuario             | id_actividad              | integer                     |
+| actividad_usuario             | usuario                   | integer                     |
+| actividad_usuario             | tipo_actividad            | character varying           |
+| actividad_usuario             | referencia_id             | integer                     |
+| actividad_usuario             | fecha                     | timestamp without time zone |
+| album_artistas                | album_id                  | integer                     |
+| album_artistas                | artista_id                | integer                     |
+| album_generos                 | album_id                  | integer                     |
+| album_generos                 | genero_id                 | integer                     |
+| albumes                       | id_album                  | integer                     |
+| albumes                       | spotify_id                | character varying           |
+| albumes                       | titulo                    | character varying           |
+| albumes                       | anio                      | integer                     |
+| albumes                       | foto_album                | character varying           |
+| albumes                       | numero_canciones          | integer                     |
+| albumes                       | tipo_album                | character varying           |
+| albumes                       | popularidad_album         | integer                     |
+| artista_generos               | artista_id                | integer                     |
+| artista_generos               | genero_id                 | integer                     |
+| artistas                      | id_artista                | integer                     |
+| artistas                      | spotify_id                | character varying           |
+| artistas                      | nombre_artista            | character varying           |
+| artistas                      | biografia                 | text                        |
+| artistas                      | foto_artista              | character varying           |
+| artistas                      | popularidad_artista       | integer                     |
+| artistas                      | numero_albumes            | integer                     |
+| artistas                      | numero_canciones          | integer                     |
+| artistas_relacionados         | id_ar                     | integer                     |
+| artistas_relacionados         | artista_principal         | integer                     |
+| artistas_relacionados         | artista_relacionado       | integer                     |
+| artistas_relacionados         | porcentaje_compatibilidad | numeric                     |
+| cancion_artistas              | cancion_id                | integer                     |
+| cancion_artistas              | artista_id                | integer                     |
+| cancion_generos               | cancion_id                | integer                     |
+| cancion_generos               | genero_id                 | integer                     |
+| canciones                     | id_cancion                | integer                     |
+| canciones                     | spotify_id                | character varying           |
+| canciones                     | titulo                    | character varying           |
+| canciones                     | album                     | integer                     |
+| canciones                     | orden                     | integer                     |
+| canciones                     | duracion_ms               | integer                     |
+| canciones                     | popularidad               | integer                     |
+| canciones                     | categoria                 | character varying           |
+| elementos_lista               | id_elemento               | integer                     |
+| elementos_lista               | lista                     | integer                     |
+| elementos_lista               | entidad_tipo              | character varying           |
+| elementos_lista               | entidad_id                | integer                     |
+| elementos_lista_personalizada | id_elemento               | integer                     |
+| elementos_lista_personalizada | lista_id                  | integer                     |
+| elementos_lista_personalizada | entidad_id                | integer                     |
+| elementos_lista_personalizada | entidad_tipo              | character varying           |
+| elementos_lista_personalizada | registrado                | timestamp without time zone |
+| generos                       | id_genero                 | integer                     |
+| generos                       | nombre                    | character varying           |
+| generos                       | descripcion               | text                        |
+| insignias                     | id_insignia               | integer                     |
+| insignias                     | nombre                    | character varying           |
+| insignias                     | descripcion               | text                        |
+| insignias                     | criterio                  | jsonb                       |
+| insignias                     | icono                     | text                        |
+| insignias_usuario             | id_insignia_usuario       | integer                     |
+| insignias_usuario             | usuario                   | integer                     |
+| insignias_usuario             | insignia_id               | integer                     |
+| insignias_usuario             | fecha                     | timestamp without time zone |
+| listas_comunidad              | id_lista                  | integer                     |
+| listas_comunidad              | usuario                   | integer                     |
+| listas_comunidad              | nombre                    | character varying           |
+| listas_comunidad              | descripcion               | text                        |
+| listas_comunidad              | tipo_lista                | character varying           |
+| listas_comunidad              | creada                    | timestamp without time zone |
+| listas_personalizadas         | id_lista                  | integer                     |
+| listas_personalizadas         | usuario_id                | integer                     |
+| listas_personalizadas         | nombre_lista              | character varying           |
+| listas_personalizadas         | tipo_lista                | character varying           |
+| listas_personalizadas         | descripcion               | text                        |
+| listas_personalizadas         | registrado                | timestamp without time zone |
+| listas_personalizadas         | es_oficial                | boolean                     |
+| logs_sistema                  | id_log                    | integer                     |
+| logs_sistema                  | tipo                      | character varying           |
+| logs_sistema                  | mensaje                   | text                        |
+| logs_sistema                  | usuario_id                | integer                     |
+| logs_sistema                  | fecha                     | timestamp without time zone |
+| notificaciones                | id_notificacion           | integer                     |
+| notificaciones                | usuario_id                | integer                     |
+| notificaciones                | tipo_notificacion         | character varying           |
+| notificaciones                | entidad_tipo              | character varying           |
+| notificaciones                | entidad_id                | integer                     |
+| notificaciones                | mensaje                   | text                        |
+| notificaciones                | visto                     | boolean                     |
+| notificaciones                | registrado                | timestamp without time zone |
+| preferencias_usuario          | id_preferencia            | integer                     |
+| preferencias_usuario          | usuario_id                | integer                     |
+| preferencias_usuario          | generos_favoritos         | ARRAY                       |
+| preferencias_usuario          | artistas_favoritos        | ARRAY                       |
+| preferencias_usuario          | fecha                     | timestamp without time zone |
+| publicaciones                 | id_publicacion            | integer                     |
+| publicaciones                 | usuario_id                | integer                     |
+| publicaciones                 | contenido                 | text                        |
+| publicaciones                 | tipo_publicacion          | character varying           |
+| publicaciones                 | entidad_tipo              | character varying           |
+| publicaciones                 | entidad_id                | integer                     |
+| publicaciones                 | likes                     | integer                     |
+| publicaciones                 | registrado                | timestamp without time zone |
+| ranking_elementos             | id                        | integer                     |
+| ranking_elementos             | ranking_id                | integer                     |
+| ranking_elementos             | entidad_id                | integer                     |
+| ranking_elementos             | tipo_entidad              | character varying           |
+| ranking_elementos             | posicion                  | integer                     |
+| ranking_elementos             | valoracion                | numeric                     |
+| ranking_elementos             | created_at                | timestamp without time zone |
+| ranking_elementos             | updated_at                | timestamp without time zone |
+| rankings                      | id                        | integer                     |
+| rankings                      | user_id                   | integer                     |
+| rankings                      | nombre                    | character varying           |
+| rankings                      | tipo                      | character varying           |
+| rankings                      | created_at                | timestamp without time zone |
+| rankings                      | updated_at                | timestamp without time zone |
+| recomendaciones_ml            | id_recomendacion          | integer                     |
+| recomendaciones_ml            | usuario_id                | integer                     |
+| recomendaciones_ml            | entidad_tipo              | character varying           |
+| recomendaciones_ml            | entidad_id                | integer                     |
+| recomendaciones_ml            | probabilidad              | numeric                     |
+| recomendaciones_ml            | registrado                | timestamp without time zone |
+| seguidores                    | id                        | integer                     |
+| seguidores                    | usuario_seguidor          | integer                     |
+| seguidores                    | usuario_seguido           | integer                     |
+| seguidores                    | registrado                | timestamp without time zone |
+| seguimiento_artistas          | id                        | integer                     |
+| seguimiento_artistas          | usuario_id                | integer                     |
+| seguimiento_artistas          | artista_id                | integer                     |
+| seguimiento_artistas          | registrado                | timestamp without time zone |
+| tendencias                    | id_tendencia              | integer                     |
+| tendencias                    | usuario                   | integer                     |
+| tendencias                    | entidad_tipo              | character varying           |
+| tendencias                    | entidad_id                | integer                     |
+| tendencias                    | registrado                | timestamp without time zone |
+| tendencias                    | tipo_valoracion           | character varying           |
+| tendencias                    | calificacion              | numeric                     |
+| tendencias                    | contexto                  | jsonb                       |
+| tendencias                    | fecha                     | date                        |
+| tendencias_agrupadas          | entidad_tipo              | character varying           |
+| tendencias_agrupadas          | entidad_id                | integer                     |
+| tendencias_agrupadas          | valoraciones              | bigint                      |
+| tendencias_agrupadas          | foto_album                | character varying           |
+| usuarios                      | id_usuario                | integer                     |
+| usuarios                      | nombre                    | character varying           |
+| usuarios                      | email                     | character varying           |
+| usuarios                      | username                  | character varying           |
+| usuarios                      | password_hash             | text                        |
+| usuarios                      | registro                  | timestamp without time zone |
+| usuarios                      | tipo_usuario              | character varying           |
+| usuarios                      | configuracion             | jsonb                       |
+| usuarios                      | metodologia_valoracion    | jsonb                       |
+| usuarios                      | foto_perfil               | text                        |
+| valoraciones_albumes          | id_valoracion             | integer                     |
+| valoraciones_albumes          | usuario                   | integer                     |
+| valoraciones_albumes          | album                     | integer                     |
+| valoraciones_albumes          | calificacion              | numeric                     |
+| valoraciones_albumes          | comentario                | text                        |
+| valoraciones_albumes          | registrado                | timestamp without time zone |
+| valoraciones_artistas         | id_valoracion             | integer                     |
+| valoraciones_artistas         | usuario                   | integer                     |
+| valoraciones_artistas         | artista                   | integer                     |
+| valoraciones_artistas         | calificacion              | numeric                     |
+| valoraciones_artistas         | comentario                | text                        |
+| valoraciones_artistas         | registrado                | timestamp without time zone |
+| valoraciones_canciones        | id_valoracion             | integer                     |
+| valoraciones_canciones        | usuario                   | integer                     |
+| valoraciones_canciones        | cancion                   | integer                     |
+| valoraciones_canciones        | calificacion              | numeric                     |
+| valoraciones_canciones        | comentario                | text                        |
+| valoraciones_canciones        | registrado                | timestamp without time zone |
+| valoraciones_canciones        | recomendable              | boolean                     |
+| valoraciones_videos_musicales | id_valoracion             | integer                     |
+| valoraciones_videos_musicales | usuario                   | integer                     |
+| valoraciones_videos_musicales | video                     | integer                     |
+| valoraciones_videos_musicales | calificacion              | numeric                     |
+| valoraciones_videos_musicales | comentario                | text                        |
+| valoraciones_videos_musicales | registrado                | timestamp without time zone |
+| video_artistas                | video_id                  | integer                     |
+| video_artistas                | artista_id                | integer                     |
+| videos_musicales              | id_video                  | integer                     |
+| videos_musicales              | titulo                    | character varying           |
+| videos_musicales              | album_id                  | integer                     |
+| videos_musicales              | url_video                 | text                        |
+| videos_musicales              | duracion                  | integer                     |
+| videos_musicales              | popularidad               | numeric                     |
+| videos_musicales              | miniatura                 | text                        |
+| votaciones_rankings           | id_votacion               | integer                     |
+| votaciones_rankings           | usuario                   | integer                     |
+| votaciones_rankings           | lista                     | integer                     |
+| votaciones_rankings           | voto                      | integer                     |
+| votaciones_rankings           | registrado                | timestamp without time zone |
+| votaciones_rankings           | fecha_votacion            | timestamp without time zone |
