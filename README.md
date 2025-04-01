@@ -209,4 +209,4 @@ Si se desarrolla una plataforma de valoración musical con funciones sociales av
 - **Integración con Spotify/Apple/YouTube Music.**
 - **Relación de artistas similares.**
 - **Gráficas de valoración.**
-- **Pop-ups de logros desbloqueados** (similar al de PlayStation con sonido).
+- **Pop-ups de logros desbloqueados** (similar al de PlayStation con sonido).# MusicTree-main
