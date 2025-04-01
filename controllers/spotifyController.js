@@ -190,10 +190,7 @@ const insertArtist = async (artistData) => {
 };
 
 const searchFamousArtists = async (req, res) => {
-  const famousArtists = ["Bruno Mars","The Weeknd","Lady Gaga","Ariana Grande","Taylor Swift","Kendrick Lamar","Billie Eilish",
-    "Justin Bieber","Post Malone","Coldplay","Bad Bunny","Ed Sheeran","Sia","Rihanna","Drake","Eminem","Miley Cyrus","Shakira",
-    "David Guetta","Dua Lipa","Beyoncé","Travis Scott","Sam Smith","Calvin Harris","Marshmello","Harry Styles","Maroon 5",
-    "Nicki Minaj","Katy Perry","J Balvin","OneRepublic","Queen","KAROL G","Imagine Dragons","Adele","One Direction","Michael Jackson"];
+  const famousArtists = ["KAROL G","Imagine Dragons","Adele","One Direction","Michael Jackson"];
 
   try {
     const token = await getSpotifyToken();

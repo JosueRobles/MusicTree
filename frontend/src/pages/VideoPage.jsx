@@ -69,7 +69,7 @@ const VideoPage = ({ usuario }) => {
         console.error('Error fetching video data:', error);
       }
     };
-  
+
     fetchVideoData();
   }, [id, usuario]);
 
@@ -100,7 +100,7 @@ const VideoPage = ({ usuario }) => {
         console.error('Error saving rating:', error);
       }
     }
-  };    
+  };
 
   const fetchValoracion = async () => {
     try {
@@ -121,7 +121,7 @@ const VideoPage = ({ usuario }) => {
       console.error('Error fetching rating:', error);
       setRating(0); // Si hay un error, asumimos que no hay calificación
     }
-  };  
+  };
 
   const handleAddToList = async () => {
     if (selectedLista) {
@@ -159,7 +159,13 @@ const VideoPage = ({ usuario }) => {
           <p>Popularidad: {video.popularidad}</p>
           {recommendation && <p>Recomendación: {recommendation}%</p>}
           {usuario ? (
-            <StarRating valoracionInicial={rating} onRatingChange={handleRatingChange} />
+            <StarRating 
+              valoracionInicial={rating} 
+              onRatingChange={handleRatingChange} 
+              entidadTipo="video" 
+              entidadId={id} 
+              usuario={usuario} 
+            />
           ) : (
             <p>Inicia sesión para valorar</p>
           )}

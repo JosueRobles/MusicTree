@@ -17,6 +17,31 @@ const About = () => {
           Ser la comunidad de referencia para los entusiastas de la música, ofreciendo herramientas y contenido de calidad para enriquecer su experiencia musical.
         </p>
       </section>
+      <section className="mt-4">
+        <h3 className="text-2xl font-bold mb-2">Diferencias con otras plataformas</h3>
+        <p>
+          A diferencia de otras plataformas, MusicTree se enfoca en la creación de una comunidad unida por la pasión por la música, proporcionando recomendaciones personalizadas y un espacio para la interacción social.
+        </p>
+      </section>
+      <section className="mt-4">
+        <h3 className="text-2xl font-bold mb-2">Nuestro Equipo</h3>
+        <div className="flex gap-4">
+          <div>
+            <img src="/path/to/foto-josue.jpg" alt="Josue Robles" className="w-32 h-32 rounded-full" />
+            <p className="text-center">Josue Robles</p>
+          </div>
+          <div>
+            <img src="/path/to/foto-dulce.jpg" alt="Dulce" className="w-32 h-32 rounded-full" />
+            <p className="text-center">Dulce</p>
+          </div>
+        </div>
+      </section>
+      <section className="mt-4">
+        <h3 className="text-2xl font-bold mb-2">Comentarios de nuestros usuarios</h3>
+        <div className="bg-gray-100 p-4 rounded-md">
+          <p><strong>Karlita:</strong> MusicTree es la mejor plataforma que he visto y la uso diario.</p>
+        </div>
+      </section>
     </div>
   );
 };

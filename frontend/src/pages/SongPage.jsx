@@ -74,7 +74,7 @@ const SongPage = ({ usuario }) => {
         console.error('Error fetching song data:', error);
       }
     };
-  
+
     fetchSongData();
   }, [id, usuario]);
 
@@ -134,7 +134,13 @@ const SongPage = ({ usuario }) => {
           <p>Popularidad: {song.popularidad}</p>
           {recommendation && <p>Recomendación: {recommendation}%</p>}
           {usuario ? (
-            <StarRating valoracionInicial={rating} onRatingChange={handleRatingChange} />
+            <StarRating 
+              valoracionInicial={rating} 
+              onRatingChange={handleRatingChange} 
+              entidadTipo="cancion" 
+              entidadId={id} 
+              usuario={usuario} 
+            />
           ) : (
             <p>Inicia sesión para valorar</p>
           )}

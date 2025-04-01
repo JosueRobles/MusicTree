@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useContext } from 'react';
 import { UsuarioContext } from '../context/UsuarioContext';
 
@@ -9,6 +9,7 @@ const API_URL = "http://localhost:5000";
 const Profile = () => {
   const { usuario } = useContext(UsuarioContext); // Obtener el usuario desde el contexto
   const { id } = useParams();
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [followers, setFollowers] = useState(0);
   const [activity, setActivity] = useState(0);
@@ -16,6 +17,7 @@ const Profile = () => {
   const [newName, setNewName] = useState('');
   const [newProfilePic, setNewProfilePic] = useState('');
   const [following, setFollowing] = useState([]);
+  const [isFollowing, setIsFollowing] = useState(false);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -31,6 +33,8 @@ const Profile = () => {
       try {
         const response = await axios.get(`${API_URL}/ranking/${id}/seguidores`);
         setFollowers(response.data.length);
+        // Verificar si el usuario actual está en la lista de seguidores
+        setIsFollowing(response.data.some(seguidor => seguidor.id_usuario === usuario?.id_usuario));
       } catch (error) {
         console.error('Error fetching followers:', error);
       }
@@ -58,7 +62,7 @@ const Profile = () => {
     fetchFollowers();
     fetchActivity();
     fetchFollowing();
-  }, [id]);
+  }, [id, usuario]);
 
   const handleEdit = async () => {
     try {
@@ -85,6 +89,33 @@ const Profile = () => {
       setUser(response.data);
     } catch (error) {
       console.error('Error updating profile:', error);
+    }
+  };
+
+  const handleFollowToggle = async () => {
+    if (!usuario) {
+      alert('Debes iniciar sesión para seguir o dejar de seguir a un usuario.');
+      navigate('/login');
+      return;
+    }
+  
+    try {
+      const usuario_seguidor = usuario.id_usuario;
+      const usuario_seguido = id;
+  
+      if (isFollowing) {
+        // Dejar de seguir
+        await axios.post(`${API_URL}/ranking/unfollow`, { usuario_seguidor, usuario_seguido });
+        setIsFollowing(false);
+        setFollowers(followers - 1);
+      } else {
+        // Seguir
+        await axios.post(`${API_URL}/ranking/seguir`, { usuario_seguidor, usuario_seguido });
+        setIsFollowing(true);
+        setFollowers(followers + 1);
+      }
+    } catch (error) {
+      console.error('Error toggling follow status:', error);
     }
   };
 
@@ -124,7 +155,7 @@ const Profile = () => {
               <img 
                 src={user.foto_perfil ? `${API_URL}/uploads/${user.foto_perfil}` : '/default-profile.png'} 
                 alt={user.username} 
-                className="w-24 h-24 rounded-full" 
+                className="profile-image mx-auto rounded" 
               />
               <p>Nombre: {user.nombre}</p>
               <p>Seguidores: {followers}</p>
@@ -132,6 +163,11 @@ const Profile = () => {
               {usuario && usuario.id_usuario === user.id_usuario && (
                 <button onClick={() => setEditing(true)} className="bg-blue-500 text-white px-4 py-2 rounded">
                   Editar Perfil
+                </button>
+              )}
+              {usuario && usuario.id_usuario !== user.id_usuario && (
+                <button onClick={handleFollowToggle} className="bg-blue-500 text-white px-4 py-2 rounded">
+                  {isFollowing ? 'Seguido' : 'Seguir'}
                 </button>
               )}
             </div>

@@ -41,8 +41,8 @@ router.get('/ranking-combinado', async (req, res) => {
         username, 
         nombre, 
         foto_perfil, 
-        seguidores:seguidores!seguidores_usuario_seguido_fkey(id), 
-        actividad:actividad_usuario!inner(id_actividad)
+        seguidores (id_usuario), 
+        actividad (id_actividad)
       `);
 
     if (error) throw error;
@@ -133,12 +133,12 @@ router.get('/:id/seguidores', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('seguidores')
-      .select('id')
+      .select('usuario_seguidor (id_usuario, nombre, username)')
       .eq('usuario_seguido', id);
 
     if (error) throw error;
 
-    res.json(data);
+    res.json(data.map((item) => item.usuario_seguidor));
   } catch (error) {
     console.error('Error fetching followers:', error);
     res.status(500).json({ error: 'Internal server error' });
@@ -169,7 +169,7 @@ router.get('/:id/siguiendo', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('seguidores')
-      .select('usuario_seguido(id_usuario, nombre, username)')
+      .select('usuario_seguido (id_usuario, nombre, username)')
       .eq('usuario_seguidor', id);
 
     if (error) throw error;

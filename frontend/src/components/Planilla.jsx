@@ -16,20 +16,16 @@ const Planilla = ({ items }) => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [rows]);
 
-  const cells = [];
-  for (let i = 0; i < rows * columns; i++) {
-    const item = items[i % items.length];
-    if (item) {
-      cells.push(
-        <div key={i} className="cell">
-          <img src={item.image} alt={item.name} className="w-full h-full object-cover rounded" />
-          <p className="text-center text-xs truncate">{item.name}</p>
-        </div>
-      );
-    } else {
-      cells.push(<div key={i} className="cell"></div>);
-    }
-  }
+  const uniqueItems = [...new Map(items.map(item => [item.id, item])).values()];
+
+  const cells = uniqueItems.slice(0, rows * columns).map((item, i) => (
+    <div key={i} className="cell">
+      <a href={`/${item.type}/${item.id}`}>
+        <img src={item.image} alt={item.name} className="w-full h-full object-cover rounded" />
+        <p className="text-center text-xs truncate">{item.name}</p>
+      </a>
+    </div>
+  ));
 
   return (
     <div className="grid-container">
@@ -40,8 +36,10 @@ const Planilla = ({ items }) => {
 
 Planilla.propTypes = {
   items: PropTypes.arrayOf(PropTypes.shape({
+    id: PropTypes.number.isRequired,
     name: PropTypes.string.isRequired,
     image: PropTypes.string.isRequired,
+    type: PropTypes.string.isRequired,
   })).isRequired,
 };
 

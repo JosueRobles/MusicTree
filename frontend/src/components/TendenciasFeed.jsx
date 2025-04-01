@@ -54,6 +54,21 @@ const TendenciasFeed = () => {
     }
   };
 
+  const getImage = (item, tipo) => {
+    switch (tipo) {
+      case "artista":
+        return item.foto_artista;
+      case "album":
+        return item.foto_album;
+      case "cancion":
+        return item.foto_album; // Asumimos que la canción usa la foto del álbum
+      case "video":
+        return item.miniatura;
+      default:
+        return "";
+    }
+  };
+
   const generateCarouselItems = (items) => {
     if (items.length === 0) return [];
     
@@ -107,14 +122,13 @@ const TendenciasFeed = () => {
                   >
                     <Link to={getLink(tipo, item.entidad_id)}>
                       <img 
-                        src={item.foto_album || item.imagen} 
+                        src={getImage(item, tipo)}
                         alt={item.nombre} 
                         className="tendencia-imagen" 
                       />
                       <h4 className="text-center mt-1 text-sm">{item.nombre}</h4> {/* Mostramos el nombre */}
                     </Link>
                     <p className="text-center mt-1 text-xs">Valoraciones: {item.valoraciones}</p>
-                    <p className="text-center mt-1 text-xs">Promedio: {item.promedio_valoracion?.toFixed(2) ?? "N/A"}</p>
                   </div>
                 ))}
               </Carousel>
@@ -128,14 +142,13 @@ const TendenciasFeed = () => {
                   >
                     <Link to={getLink(tipo, item.entidad_id)}>
                       <img 
-                        src={item.foto_album || item.imagen} 
+                        src={getImage(item, tipo)}
                         alt={item.nombre} 
                         className="tendencia-imagen" 
                       />
                       <h4 className="text-center mt-1 text-sm">{item.nombre}</h4> {/* Mostramos el nombre */}
                     </Link>
                     <p className="text-center mt-1 text-xs">Valoraciones: {item.valoraciones}</p>
-                    <p className="text-center mt-1 text-xs">Promedio: {item.promedio_valoracion?.toFixed(2) ?? "N/A"}</p>
                   </div>
                 ))}
               </div>

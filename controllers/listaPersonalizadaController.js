@@ -31,12 +31,17 @@ const verificarEntidadEnListas = async (req, res) => {
 };
 
 const crearListaPersonalizada = async (req, res) => {
-  const { userId, nombre_lista, tipo_lista, descripcion } = req.body;
+  const { userId, nombre_lista, tipo_lista, descripcion, privacidad } = req.body;
+
+  // Validar que el nombre de la lista y el tipo de lista no estén vacíos
+  if (!nombre_lista || !tipo_lista) {
+    return res.status(400).json({ error: 'El nombre de la lista y el tipo de lista son obligatorios.' });
+  }
 
   try {
     const { data, error } = await supabase
       .from('listas_personalizadas')
-      .insert([{ usuario_id: userId, nombre_lista, tipo_lista, descripcion }])
+      .insert([{ usuario_id: userId, nombre_lista, tipo_lista, descripcion, privacidad }])
       .select();
 
     if (error) throw error;
@@ -70,17 +75,23 @@ const obtenerListasPersonalizadas = async (req, res) => {
 
 const obtenerListaPersonalizadaPorId = async (req, res) => {
   const { listaId } = req.params;
+  const { userId } = req.query;
 
   try {
-    const { data, error } = await supabase
+    const { data: listaData, error: listaError } = await supabase
       .from('listas_personalizadas')
       .select('*')
       .eq('id_lista', listaId)
       .single();
 
-    if (error) throw error;
+    if (listaError) throw listaError;
 
-    res.status(200).json(data);
+    // Verificar privacidad
+    if (listaData.privacidad === 'privada' && listaData.usuario_id !== parseInt(userId, 10)) {
+      return res.status(403).json({ error: 'No tienes permiso para ver esta lista.' });
+    }
+
+    res.status(200).json(listaData);
   } catch (error) {
     console.error('Error al obtener lista personalizada:', error);
     res.status(500).json({ error: 'Error al obtener lista personalizada.' });
@@ -172,6 +183,82 @@ const eliminarElementoDeLista = async (req, res) => {
   }
 };
 
+const cambiarPrivacidad = async (req, res) => {
+  const { listaId } = req.params;
+  const { privacidad } = req.body;
+
+  try {
+    const { data, error } = await supabase
+      .from('listas_personalizadas')
+      .update({ privacidad })
+      .eq('id_lista', listaId)
+      .select();
+
+    if (error) throw error;
+
+    res.status(200).json(data[0]);
+  } catch (error) {
+    console.error('Error al cambiar la privacidad:', error);
+    res.status(500).json({ error: 'Error al cambiar la privacidad.' });
+  }
+};
+
+const guardarLista = async (req, res) => {
+  const { userId, listaId } = req.body;
+
+  try {
+    const { data, error } = await supabase
+      .from('listas_guardadas')
+      .insert([{ usuario_id: userId, lista_id: listaId }])
+      .select();
+
+    if (error) throw error;
+
+    res.status(201).json(data[0]);
+  } catch (error) {
+    console.error('Error al guardar lista:', error);
+    res.status(500).json({ error: 'Error al guardar lista.' });
+  }
+};
+
+const eliminarListaGuardada = async (req, res) => {
+  const { userId, listaId } = req.body;
+
+  try {
+    const { data, error } = await supabase
+      .from('listas_guardadas')
+      .delete()
+      .eq('usuario_id', userId)
+      .eq('lista_id', listaId);
+
+    if (error) throw error;
+
+    res.status(200).json({ message: 'Lista eliminada de guardadas correctamente.' });
+  } catch (error) {
+    console.error('Error al eliminar lista guardada:', error);
+    res.status(500).json({ error: 'Error al eliminar lista guardada.' });
+  }
+};
+
+const verificarListaGuardada = async (req, res) => {
+  const { userId, listaId } = req.query;
+
+  try {
+    const { data, error } = await supabase
+      .from('listas_guardadas')
+      .select('*')
+      .eq('usuario_id', userId)
+      .eq('lista_id', listaId);
+
+    if (error) throw error;
+
+    res.status(200).json({ guardada: data.length > 0 });
+  } catch (error) {
+    console.error('Error al verificar lista guardada:', error);
+    res.status(500).json({ error: 'Error al verificar lista guardada.' });
+  }
+};
+
 module.exports = {
   crearListaPersonalizada,
   obtenerListasPersonalizadas,
@@ -181,4 +268,8 @@ module.exports = {
   eliminarListaPersonalizada,
   eliminarElementoDeLista,
   verificarEntidadEnListas,
+  guardarLista,
+  cambiarPrivacidad,
+  eliminarListaGuardada,
+  verificarListaGuardada,
 };

@@ -1,36 +1,44 @@
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import BarraDeBusqueda from './BarraDeBusqueda';
+import axios from 'axios';
+
+const API_URL = "http://localhost:5000";
 
 const BusquedaAvanzada = ({ 
   onSearch, 
   artistas = [], 
   albums = [], 
   canciones = [],
-  videos = []
+  videos = [],
+  onSortOrderChange
 }) => {
   const [filtros, setFiltros] = useState({
     termino: '',
     anio: '',
     artista: '',
-    genero: ''
+    genero: '',
+    entidad: ''
   });
-  
+
   const [generos, setGeneros] = useState([]);
   const [anios, setAnios] = useState([]);
   const [sugerencias, setSugerencias] = useState([]);
 
   useEffect(() => {
-    const todosAnios = [...new Set(albums.map(album => 
-      new Date(album.fecha_lanzamiento).getFullYear()
-    ))].sort((a, b) => b - a);
-    
-    const todosGeneros = [...new Set(artistas.map(artista => 
-      artista.genero
-    ))].filter(Boolean).sort();
+    const fetchGeneros = async () => {
+      try {
+        const { data } = await axios.get(`${API_URL}/generos`);
+        setGeneros(data);
+      } catch (error) {
+        console.error('Error fetching genres:', error);
+      }
+    };
 
+    fetchGeneros();
+
+    const todosAnios = [...new Set([...albums.map(album => album.anio), ...videos.map(video => video.anio)])].sort((a, b) => b - a);
     setAnios(todosAnios);
-    setGeneros(todosGeneros);
 
     const nuevasSugerencias = [
       ...artistas.map(artist => ({
@@ -49,16 +57,16 @@ const BusquedaAvanzada = ({
         id: song.id_cancion,
         texto: song.titulo,
         tipo: 'Canción',
-        imagen: song.url_preview
+        imagen: song.album ? albums.find(album => album.id_album === song.album)?.foto_album : ''
       })),
       ...videos.map(video => ({
         id: video.id_video,
         texto: video.titulo,
         tipo: 'Video',
-        imagen: video.url_preview
+        imagen: video.miniatura
       }))
     ];
-    
+
     setSugerencias(nuevasSugerencias);
   }, [artistas, albums, canciones, videos]);
 
@@ -83,10 +91,15 @@ const BusquedaAvanzada = ({
       termino: '',
       anio: '',
       artista: '',
-      genero: ''
+      genero: '',
+      entidad: ''
     };
     setFiltros(filtrosReseteados);
     aplicarFiltros(filtrosReseteados);
+  };
+
+  const handleSortChange = (e) => {
+    onSortOrderChange(e.target.value);
   };
 
   return (
@@ -141,11 +154,37 @@ const BusquedaAvanzada = ({
           >
             <option value="">Todos los géneros</option>
             {generos.map((genero) => (
-              <option key={genero} value={genero}>{genero}</option>
+              <option key={genero.id_genero} value={genero.id_genero}>{genero.nombre}</option>
             ))}
           </select>
         </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Entidad:</label>
+          <select 
+            className="w-full border rounded px-3 py-2"
+            value={filtros.entidad}
+            onChange={(e) => handleFiltroChange('entidad', e.target.value)}
+          >
+            <option value="">Todas las entidades</option>
+            <option value="artist">Artistas</option>
+            <option value="album">Álbumes</option>
+            <option value="song">Canciones</option>
+            <option value="video">Videos Musicales</option>
+          </select>
+        </div>
         
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Ordenar por:</label>
+          <select 
+            className="w-full border rounded px-3 py-2"
+            onChange={handleSortChange}
+          >
+            <option value="predeterminado">Predeterminado</option>
+            <option value="popularidad">Popularidad</option>
+          </select>
+        </div>
+
         <div className="flex items-end">
           <button 
             onClick={resetearFiltros}
@@ -164,7 +203,8 @@ BusquedaAvanzada.propTypes = {
   artistas: PropTypes.array,
   albums: PropTypes.array,
   canciones: PropTypes.array,
-  videos: PropTypes.array
+  videos: PropTypes.array,
+  onSortOrderChange: PropTypes.func.isRequired
 };
 
 export default BusquedaAvanzada;

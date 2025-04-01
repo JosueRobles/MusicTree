@@ -17,7 +17,7 @@ const PieDePagina = () => {
           <ul>
             <li><Link to="/terms" style={{ color: 'white', textDecoration: 'none' }}>Términos de uso</Link></li>
             <li><Link to="/privacy" style={{ color: 'white', textDecoration: 'none' }}>Política de privacidad</Link></li>
-            <li><Link to="/community" style={{ color: 'white', textDecoration: 'none' }}>Normas de la comunidad</Link></li>
+            <li><Link to="/community-rules" style={{ color: 'white', textDecoration: 'none' }}>Normas de la comunidad</Link></li>
           </ul>
         </div>
       </div>

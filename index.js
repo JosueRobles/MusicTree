@@ -45,6 +45,8 @@ const artistasVideoRoutes = require('./routes/artistasVideoRoutes');
 const listaPersonalizadaRoutes = require('./routes/listaPersonalizadaRoutes');
 const recommendRoutes = require('./src/routes/recommendRoutes');
 const rankingRoutes = require('./routes/rankingUsuariosRoutes');
+const emocionesRoutes = require('./routes/emocionesRoutes');
+const insigniasRoutes = require('./routes/insigniasRoutes');
 
 app.use("/auth", authRoutes);
 app.use("/usuarios", userRoutes);
@@ -67,6 +69,8 @@ app.use('/artistas_video', artistasVideoRoutes);
 app.use('/listas-personalizadas', listaPersonalizadaRoutes);
 app.use("/recommend", recommendRoutes);  // Conectar las rutas de recomendación
 app.use("/ranking", rankingRoutes);
+app.use("/emociones", emocionesRoutes);
+app.use("/insignias", insigniasRoutes);
 
 app.get("/", (req, res) => {
   res.send("MusicTree API funcionando 🚀");

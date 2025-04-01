@@ -16,22 +16,17 @@ const BusquedaEncabezado = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [artistsRes, albumsRes, songsRes] = await Promise.all([
+        const [artistsRes, albumsRes, songsRes, videosRes] = await Promise.all([
           axios.get(`${API_URL}/artistas`),
           axios.get(`${API_URL}/albumes`),
-          axios.get(`${API_URL}/canciones`)
+          axios.get(`${API_URL}/canciones`),
+          axios.get(`${API_URL}/videos`)
         ]);
         
         setArtists(artistsRes.data || []);
         setAlbums(albumsRes.data || []);
         setSongs(songsRes.data || []);
-        
-        // Aquí deberíamos cargar los videos si existiera el endpoint
-        // Para este ejemplo, simulamos algunos videos
-        setVideos([
-          { id_video: 1, titulo: "Michael Jackson - Thriller", artista_id: 1, url_preview: "https://example.com/thriller.jpg" },
-          { id_video: 2, titulo: "Queen - Bohemian Rhapsody", artista_id: 2, url_preview: "https://example.com/bohemian.jpg" }
-        ]);
+        setVideos(videosRes.data || []);
       } catch (error) {
         console.error('Error fetching search data:', error);
       }
@@ -102,6 +97,14 @@ const BusquedaEncabezado = () => {
         placeholder="Buscar..." 
         sugerencias={sugerencias}
         className="w-full"
+        renderSuggestion={(suggestion) => (
+          <div className="flex items-center space-x-2">
+            <a href={suggestion.ruta}>
+              <img src={suggestion.imagen} alt={suggestion.texto} className="w-8 h-8 rounded-full" />
+            </a>
+            <a href={suggestion.ruta} className="text-sm">{suggestion.texto}</a>
+          </div>
+        )}
       />
     </div>
   );

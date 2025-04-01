@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
+import { UsuarioContext } from '../context/UsuarioContext';
 
 const API_URL = 'http://localhost:5000';
 
@@ -11,12 +12,18 @@ const ListPage = () => {
   const [detalles, setDetalles] = useState({});
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [privacidad, setPrivacidad] = useState('publica'); // Nueva variable de estado para privacidad
+  const [guardada, setGuardada] = useState(false); // Nueva variable de estado para lista guardada
+  const { usuario } = useContext(UsuarioContext); // Obtener el usuario del contexto
 
   useEffect(() => {
     const fetchListaData = async () => {
       try {
-        const listaResponse = await axios.get(`${API_URL}/listas-personalizadas/detalle/${id}`);
+        const listaResponse = await axios.get(`${API_URL}/listas-personalizadas/detalle/${id}`, {
+          params: { userId: usuario ? usuario.id_usuario : null }
+        });
         setLista(listaResponse.data);
+        setPrivacidad(listaResponse.data.privacidad);
 
         const elementosResponse = await axios.get(`${API_URL}/listas-personalizadas/elementos/${id}`);
         setElementos(elementosResponse.data);
@@ -62,7 +69,24 @@ const ListPage = () => {
     };
 
     fetchListaData();
-  }, [id]);
+  }, [id, usuario]);
+
+  useEffect(() => {
+    const verificarListaGuardada = async () => {
+      if (usuario) {
+        try {
+          const response = await axios.get(`${API_URL}/listas-guardadas/verificar`, {
+            params: { userId: usuario.id_usuario, listaId: id }
+          });
+          setGuardada(response.data.guardada);
+        } catch (error) {
+          console.error('Error al verificar si la lista está guardada:', error);
+        }
+      }
+    };
+
+    verificarListaGuardada();
+  }, [id, usuario]);
 
   const eliminarElemento = async (elementoId) => {
     try {
@@ -78,6 +102,45 @@ const ListPage = () => {
     }
   };
 
+  const handleGuardarLista = async () => {
+    if (!usuario) {
+      alert('Debes iniciar sesión para guardar una lista.');
+      return;
+    }
+
+    try {
+      if (guardada) {
+        await axios.delete(`${API_URL}/listas-guardadas/eliminar`, {
+          data: { userId: usuario.id_usuario, listaId: id }
+        });
+        setGuardada(false);
+        alert('Lista eliminada de guardadas.');
+      } else {
+        await axios.post(`${API_URL}/listas-guardadas/guardar`, {
+          userId: usuario.id_usuario,
+          listaId: id
+        });
+        setGuardada(true);
+        alert('Lista guardada correctamente.');
+      }
+    } catch (error) {
+      console.error('Error al guardar/eliminar la lista:', error);
+      alert('No se pudo guardar/eliminar la lista.');
+    }
+  };
+
+  const handlePrivacidadChange = async (newPrivacidad) => {
+    try {
+      const response = await axios.put(`${API_URL}/listas-personalizadas/${id}`, {
+        privacidad: newPrivacidad
+      });
+      setPrivacidad(response.data.privacidad);
+    } catch (error) {
+      console.error('Error al cambiar la privacidad:', error);
+      alert('No se pudo cambiar la privacidad.');
+    }
+  };
+
   return (
     <div>
       {error && <p>{error}</p>}
@@ -86,6 +149,14 @@ const ListPage = () => {
         <>
           <h1>{lista.nombre_lista} ({lista.tipo_lista})</h1>
           <p>{lista.descripcion}</p>
+          {usuario && lista.usuario_id === usuario.id_usuario && (
+            <div>
+              <select value={privacidad} onChange={(e) => handlePrivacidadChange(e.target.value)}>
+                <option value="publica">Pública</option>
+                <option value="privada">Privada</option>
+              </select>
+            </div>
+          )}
           <ul>
             {elementos.map(elemento => (
               <li key={elemento.id_elemento}>
@@ -108,10 +179,17 @@ const ListPage = () => {
                     `Cargando...`
                   )}
                 </Link>
-                <button onClick={() => eliminarElemento(elemento.id_elemento)}>Eliminar</button>
+                {usuario && lista.usuario_id === usuario.id_usuario && (
+                  <button onClick={() => eliminarElemento(elemento.id_elemento)}>Eliminar</button>
+                )}
               </li>
             ))}
           </ul>
+          {usuario && lista.usuario_id !== usuario.id_usuario && (
+            <button onClick={handleGuardarLista}>
+              {guardada ? 'Eliminar de Guardadas' : 'Guardar Lista'}
+            </button>
+          )}
         </>
       )}
     </div>

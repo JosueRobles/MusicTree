@@ -14,10 +14,14 @@ const ArtistPage = ({ usuario }) => {
   const [songs, setSongs] = useState([]);
   const [videos, setVideos] = useState([]);
   const [rating, setRating] = useState(0);
+  const [averageRating, setAverageRating] = useState(0);
+  const [comentario, setComentario] = useState('');
+  const [emocion, setEmocion] = useState('');
   const [listas, setListas] = useState([]);
   const [selectedLista, setSelectedLista] = useState('');
   const [alreadyInList, setAlreadyInList] = useState(false);
   const [recommendation, setRecommendation] = useState(null);
+  const [emocionesCount, setEmocionesCount] = useState({});
 
   useEffect(() => {
     const fetchArtistData = async () => {
@@ -37,10 +41,12 @@ const ArtistPage = ({ usuario }) => {
               params: {
                 usuario: usuario.id_usuario,
                 entidad_tipo: 'artista',
-                entidad_id: id
+                entidad_id: parseInt(id, 10)  // Convertir `id` a número
               }
             });
             setRating(valoracionResponse.data.calificacion || 0);
+            setComentario(valoracionResponse.data.comentario || '');
+            setEmocion(valoracionResponse.data.emocion || '');
           } catch (error) {
             console.error('Error al obtener valoración:', error);
             setRating(0); // Inicializa con 0 si hay un error
@@ -55,7 +61,7 @@ const ArtistPage = ({ usuario }) => {
           // Verificar si la entidad ya está en una lista
           const existsResponse = await axios.post(`${API_URL}/listas-personalizadas/verificar`, {
             userId: usuario.id_usuario,
-            entidad_id: id,
+            entidad_id: parseInt(id, 10),  // Convertir `id` a número
             entidad_tipo: 'artista'
           });
           setAlreadyInList(existsResponse.data.exists);
@@ -66,9 +72,31 @@ const ArtistPage = ({ usuario }) => {
               id_usuario: usuario.id_usuario
             }
           });
-          const artistRecommendation = recommendationResponse.data.find(rec => rec.entidad_id === parseInt(id) && rec.tipo === 'artista');
+          const artistRecommendation = recommendationResponse.data.find(rec => rec.entidad_id === parseInt(id, 10) && rec.tipo === 'artista');
           setRecommendation(artistRecommendation ? Math.round(artistRecommendation.estimacion) : null);
         }
+
+        // Obtener la valoración promedio
+        const avgRatingResponse = await axios.get(`${API_URL}/valoraciones/promedio`, {
+          params: {
+            entidad_tipo: 'artista',
+            entidad_id: parseInt(id, 10)  // Convertir `id` a número
+          }
+        });
+        setAverageRating(avgRatingResponse.data.promedio || 0);
+
+        // Obtener conteo de emociones
+        const emocionesResponse = await axios.get(`${API_URL}/emociones`, {
+          params: {
+            entidad_tipo: 'artista',
+            entidad_id: parseInt(id, 10)  // Convertir `id` a número
+          }
+        });
+        const emocionesData = emocionesResponse.data.emociones.reduce((acc, item) => {
+          acc[item.emocion] = item.count;
+          return acc;
+        }, {});
+        setEmocionesCount(emocionesData);
       } catch (error) {
         console.error('Error fetching artist data:', error);
       }
@@ -81,16 +109,16 @@ const ArtistPage = ({ usuario }) => {
     setRating(newRating);
     if (usuario) {
       try {
-        const token = localStorage.getItem('token');
         await axios.post(`${API_URL}/valoraciones`, {
           usuario: usuario.id_usuario,
           entidad_tipo: 'artista',
-          entidad_id: id,
+          entidad_id: parseInt(id, 10),  // Convertir `id` a número
           calificacion: newRating,
-          comentario: "Comentario de ejemplo",
+          comentario,
+          emocion
         }, {
           headers: {
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
             "Content-Type": "application/json"
           }
         });
@@ -107,7 +135,7 @@ const ArtistPage = ({ usuario }) => {
         await axios.post(`${API_URL}/listas-personalizadas/anadir`, {
           userId: usuario.id_usuario,
           listaId: selectedLista,
-          entidad_id: id,
+          entidad_id: parseInt(id, 10),  // Convertir `id` a número
           entidad_tipo: 'artista',
         });
         alert('Artista añadido a la lista');
@@ -119,6 +147,119 @@ const ArtistPage = ({ usuario }) => {
     }
   };
 
+  const handleEliminarValoracion = async () => {
+    if (usuario) {
+      try {
+        await axios.delete(`${API_URL}/valoraciones`, {
+          data: {
+            usuario: usuario.id_usuario,
+            entidad_tipo: 'artista',
+            entidad_id: parseInt(id, 10)
+          },
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+            "Content-Type": "application/json"
+          }
+        });
+        setRating(0);
+        setComentario('');
+        setEmocion('');
+        alert('Valoración eliminada correctamente');
+      } catch (error) {
+        console.error('Error al eliminar la valoración:', error);
+      }
+    }
+  };
+
+  const handleAgregarComentario = async () => {
+    if (usuario && comentario) {
+      try {
+        await axios.post(`${API_URL}/valoraciones/comentario`, {
+          usuario: usuario.id_usuario,
+          entidad_tipo: 'artista',
+          entidad_id: parseInt(id, 10),
+          comentario
+        }, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+            "Content-Type": "application/json"
+          }
+        });
+        alert('Comentario agregado correctamente');
+      } catch (error) {
+        console.error('Error al agregar el comentario:', error);
+      }
+    }
+  };
+
+  const handleEliminarComentario = async () => {
+    if (usuario && comentario) {
+      try {
+        await axios.post(`${API_URL}/valoraciones/comentario`, {
+          usuario: usuario.id_usuario,
+          entidad_tipo: 'artista',
+          entidad_id: parseInt(id, 10),
+          comentario: ''  // Eliminar comentario
+        }, {
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+            "Content-Type": "application/json"
+          }
+        });
+        setComentario('');
+        alert('Comentario eliminado correctamente');
+      } catch (error) {
+        console.error('Error al eliminar el comentario:', error);
+      }
+    }
+  };
+
+  const handleAgregarEmocion = async (newEmocion) => {
+    if (!usuario || !newEmocion) return;
+
+    try {
+      await axios.put(`${API_URL}/emociones`, { // Usamos PUT para modificar la emoción
+        usuario: usuario.id_usuario,
+        entidad_tipo: 'artista',
+        entidad_id: parseInt(id, 10),
+        emocion: newEmocion
+      }, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+          "Content-Type": "application/json"
+        }
+      });
+      setEmocion(newEmocion);
+      setEmocionesCount(prev => ({ ...prev, [newEmocion]: (prev[newEmocion] || 0) + 1 }));
+      alert('Emoción agregada/modificada correctamente');
+    } catch (error) {
+      console.error('Error al agregar la emoción:', error);
+    }
+  };
+
+  const handleEliminarEmocion = async () => {
+    if (usuario) {
+      try {
+        await axios.delete(`${API_URL}/emociones`, {
+          data: {
+            usuario: usuario.id_usuario,
+            entidad_tipo: 'artista',
+            entidad_id: parseInt(id, 10)
+          },
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem('token')}`,
+            "Content-Type": "application/json"
+          }
+        });
+        setEmocionesCount(prev => ({ ...prev, [emocion]: (prev[emocion] || 1) - 1 }));
+        setEmocion('');
+        alert('Emoción eliminada correctamente');
+      } catch (error) {
+        console.error('Error al eliminar la emoción:', error);
+      }
+    }
+  };
+
   return (
     <div className="pt-16 p-4">
       {artist && (
@@ -127,8 +268,25 @@ const ArtistPage = ({ usuario }) => {
           <img src={artist.foto_artista} alt={artist.nombre_artista} className="w-64 h-64 object-cover rounded-full" />
           <p className="mt-4">{artist.biografia}</p>
           {recommendation !== null && <p>Recomendación: {recommendation}%</p>}
+          <div className="flex items-center">
+            <p className="text-lg font-bold mr-4">Valoración Promedio:</p>
+            <p>{averageRating} ⭐</p>
+          </div>
           {usuario ? (
-            <StarRating valoracionInicial={rating} onRatingChange={handleRatingChange} />
+            <>
+              <StarRating 
+                valoracionInicial={rating} 
+                onRatingChange={handleRatingChange} 
+                entidadTipo="artista" 
+                entidadId={parseInt(id, 10)}  // Convertir `id` a número
+                usuario={usuario} 
+                handleEliminarValoracion={handleEliminarValoracion}
+                handleAgregarComentario={handleAgregarComentario}
+                handleEliminarComentario={handleEliminarComentario}
+                handleAgregarEmocion={handleAgregarEmocion}
+                handleEliminarEmocion={handleEliminarEmocion}
+              />
+            </>
           ) : (
             <p>Inicia sesión para valorar</p>
           )}
@@ -156,12 +314,12 @@ const ArtistPage = ({ usuario }) => {
           )}
 
           <h3 className="text-2xl font-bold mt-8">Álbumes</h3>
-          <ul>
+          <ul className="flex flex-wrap">
             {albums.map(album => (
-              <li key={album.id_album}>
+              <li key={album.id_album} className="w-1/5 p-2">
                 <Link to={`/album/${album.id_album}`}>
-                  <img src={album.foto_album} alt={album.titulo} className="w-32 h-32 object-cover" />
-                  {album.titulo}
+                  <img src={album.foto_album} alt={album.titulo} className="w-24 h-24 object-cover" />
+                  <p className="text-center">{album.titulo}</p>
                 </Link>
               </li>
             ))}
@@ -179,7 +337,7 @@ const ArtistPage = ({ usuario }) => {
             {videos.map(video => (
               <li key={video.id_video}>
                 <Link to={`/video/${video.id_video}`}>
-                  <img src={`https://img.youtube.com/vi/${video.url_video.split('/').pop()}/0.jpg`} alt={video.titulo} className="w-32 h-32 object-cover" />
+                  <img src={video.miniatura} alt={video.titulo} className="w-32 h-32 object-cover" />
                   {video.titulo}
                 </Link>
               </li>

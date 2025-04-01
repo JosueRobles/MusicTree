@@ -40,3 +40,15 @@
   border-radius: 8px;
   color: #888;
 }
+
+.image-standard {
+  width: 400px;
+  height: 500px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+.profile-image {
+  width: 50%;
+  max-width: 400px;
+ 
