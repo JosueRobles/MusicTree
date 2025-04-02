@@ -9,7 +9,18 @@ import axios from 'axios';
 
 const API_URL = "http://localhost:5000";
 
-const StarRating = ({ valoracionInicial = 0, onRatingChange, entidadTipo, entidadId, usuario }) => {
+const StarRating = ({
+  valoracionInicial = 0,
+  onRatingChange,
+  entidadTipo,
+  entidadId,
+  usuario,
+  handleEliminarValoracion,
+  handleAgregarComentario,
+  handleEliminarComentario,
+  handleAgregarEmocion,
+  handleEliminarEmocion,
+}) => {
   const [rating, setRating] = useState(valoracionInicial);
   const [hovered, setHovered] = useState(null);
   const [comentario, setComentario] = useState('');
@@ -40,7 +51,7 @@ const StarRating = ({ valoracionInicial = 0, onRatingChange, entidadTipo, entida
               entidad_id: entidadId
             }
           });
-          const emocionesData = emocionesResponse.data.emociones.reduce((acc, item) => {
+          const emocionesData = emocionesResponse.data.reduce((acc, item) => {
             acc[item.emocion] = item.count;
             return acc;
           }, {});
@@ -77,75 +88,6 @@ const StarRating = ({ valoracionInicial = 0, onRatingChange, entidadTipo, entida
 
   const handleMouseLeave = () => setHovered(null);
 
-  const handleAgregarComentario = async () => {
-    if (!usuario || !comentario) return;
-
-    try {
-      await axios.post(`${API_URL}/valoraciones/comentario`, {
-        usuario: usuario.id_usuario,
-        entidad_tipo: entidadTipo,
-        entidad_id: entidadId,
-        comentario
-      });
-      alert('Comentario agregado correctamente');
-    } catch (error) {
-      console.error('Error al agregar el comentario:', error);
-    }
-  };
-
-  const handleEliminarComentario = async () => {
-    if (!usuario) return;
-
-    try {
-      await axios.post(`${API_URL}/valoraciones/comentario`, {
-        usuario: usuario.id_usuario,
-        entidad_tipo: entidadTipo,
-        entidad_id: entidadId,
-        comentario: ''  // Eliminar comentario
-      });
-      setComentario('');
-      alert('Comentario eliminado correctamente');
-    } catch (error) {
-      console.error('Error al eliminar el comentario:', error);
-    }
-  };
-
-  const handleAgregarEmocion = async (newEmocion) => {
-    if (!usuario || !newEmocion) return;
-
-    try {
-      await axios.put(`${API_URL}/emociones`, {
-        usuario: usuario.id_usuario,
-        entidad_tipo: entidadTipo,
-        entidad_id: entidadId,
-        emocion: newEmocion
-      });
-      setEmocion(newEmocion);
-      setEmocionesCount(prev => ({ ...prev, [newEmocion]: (prev[newEmocion] || 0) + 1 }));
-      alert('Emoción agregada/modificada correctamente');
-    } catch (error) {
-      console.error('Error al agregar la emoción:', error);
-    }
-  };
-
-  const handleEliminarEmocion = async () => {
-    if (!usuario) return;
-
-    try {
-      await axios.delete(`${API_URL}/emociones`, {
-        data: {
-          usuario: usuario.id_usuario,
-          entidad_tipo: entidadTipo,
-          entidad_id: entidadId
-        }
-      });
-      setEmocion('');
-      alert('Emoción eliminada correctamente');
-    } catch (error) {
-      console.error('Error al eliminar la emoción:', error);
-    }
-  };
-
   const renderIcon = (value) => {
     const currentRating = hovered !== null ? hovered : rating;
     let iconSrc;
@@ -156,7 +98,7 @@ const StarRating = ({ valoracionInicial = 0, onRatingChange, entidadTipo, entida
       if (value <= currentRating) {
         iconSrc = starFilled;
       } else if (currentRating > value - 1 && currentRating < value) {
-        iconSrc = starHalf;      
+        iconSrc = starHalf;
       } else {
         iconSrc = starEmpty;
       }

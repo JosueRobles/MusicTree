@@ -1,4 +1,26 @@
+const express = require('express');
+const router = express.Router();
 const supabase = require("../db");
+
+// Controlador para obtener emociones
+const obtenerEmociones = async (req, res) => {
+  const { entidad_tipo, entidad_id } = req.query;
+
+  try {
+    const { data, error } = await supabase
+      .from('emociones')
+      .select('*')
+      .eq('entidad_tipo', entidad_tipo)
+      .eq('entidad_id', entidad_id);
+
+    if (error) throw error;
+
+    res.status(200).json({ emociones: data });
+  } catch (error) {
+    console.error("❌ Error al obtener las emociones:", error);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
+};
 
 const agregarEmocion = async (req, res) => {
   const { usuario, entidad_tipo, entidad_id, emocion } = req.body;
@@ -41,12 +63,28 @@ const modificarEmocion = async (req, res) => {
   const { usuario, entidad_tipo, entidad_id, emocion } = req.body;
 
   try {
-    await eliminarEmocion(req, res); // Primero eliminamos la emoción existente
-    await agregarEmocion(req, res);  // Luego agregamos la nueva emoción
+    // Primero eliminamos la emoción existente
+    const { error: deleteError } = await supabase
+      .from('emociones')
+      .delete()
+      .eq('usuario', usuario)
+      .eq('entidad_tipo', entidad_tipo)
+      .eq('entidad_id', entidad_id);
+
+    if (deleteError) throw deleteError;
+
+    // Luego agregamos la nueva emoción
+    const { data, error: insertError } = await supabase
+      .from('emociones')
+      .insert([{ usuario, entidad_tipo, entidad_id, emocion }], { upsert: true });
+
+    if (insertError) throw insertError;
+
+    res.status(200).json({ mensaje: "Emoción modificada correctamente", data });
   } catch (error) {
     console.error("❌ Error al modificar la emoción:", error);
     res.status(500).json({ error: "Error en el servidor" });
   }
 };
 
-module.exports = { agregarEmocion, eliminarEmocion, modificarEmocion };
+module.exports = { obtenerEmociones, agregarEmocion, eliminarEmocion, modificarEmocion };
