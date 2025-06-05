@@ -113,14 +113,16 @@ const Lists = () => {
           </div>
           <div>
             {listas.length > 0 ? (
-              listas.map((lista) => (
+              <div>
+              {listas.map(lista => (
                 <div key={lista.id_lista}>
                   <h2>{lista.nombre_lista} ({lista.tipo_lista})</h2>
                   <p>{lista.descripcion}</p>
+                  <p>Popularidad: {lista.saved_count} guardados</p>
                   <Link to={`/list/${lista.id_lista}`}>Ver Lista</Link>
-                  <button onClick={() => eliminarLista(lista.id_lista)}>Eliminar Lista</button>
                 </div>
-              ))
+              ))}
+            </div>
             ) : (
               <p>No tienes listas creadas. Puedes crear una nueva lista arriba.</p>
             )}

@@ -15,8 +15,8 @@ const Encabezado = ({ usuario, onLogout }) => {
           <Link to="/members" style={{ textDecoration: 'none', color: 'white' }}>Miembros</Link>
           <Link to="/lists" style={{ textDecoration: 'none', color: 'white' }}>Listas</Link>
           <Link to="/badges" style={{ textDecoration: 'none', color: 'white' }}>Insignias</Link>
+          <Link to="/collections" style={{ textDecoration: 'none', color: 'white' }}>Colecciones</Link> {/* Nuevo enlace */}
           <Link to="/about" style={{ textDecoration: 'none', color: 'white' }}>Acerca de</Link>
-          <Link to="/recommendations" style={{ textDecoration: 'none', color: 'white' }}>Recomendaciones</Link>
         </nav>
       </div>
       

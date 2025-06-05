@@ -15,21 +15,37 @@ const StarRating = ({
   entidadTipo,
   entidadId,
   usuario,
-  handleEliminarValoracion,
-  handleAgregarComentario,
-  handleEliminarComentario,
-  handleAgregarEmocion,
-  handleEliminarEmocion,
 }) => {
   const [rating, setRating] = useState(valoracionInicial);
   const [hovered, setHovered] = useState(null);
   const [comentario, setComentario] = useState('');
+  const [comentarioGuardado, setComentarioGuardado] = useState(false);
   const [emocion, setEmocion] = useState('');
   const [emocionesCount, setEmocionesCount] = useState({});
 
   useEffect(() => {
     setRating(valoracionInicial);
   }, [valoracionInicial]);
+
+  useEffect(() => {
+    const fetchEmociones = async () => {
+      try {
+        const { data } = await axios.get(`${API_URL}/emociones`, {
+          params: { entidad_tipo: entidadTipo, entidad_id: entidadId },
+        });
+
+        const emocionesData = data.reduce((acc, item) => {
+          acc[item.emocion] = item.count || 0;
+          return acc;
+        }, {});
+        setEmocionesCount(emocionesData);
+      } catch (error) {
+        console.error('Error fetching emotions data:', error);
+      }
+    };
+
+    fetchEmociones();
+  }, [entidadTipo, entidadId]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -39,23 +55,29 @@ const StarRating = ({
             params: {
               usuario: usuario.id_usuario,
               entidad_tipo: entidadTipo,
-              entidad_id: entidadId
-            }
+              entidad_id: entidadId,
+            },
           });
           setComentario(data.comentario || '');
+          setComentarioGuardado(!!data.comentario);
           setEmocion(data.emocion || '');
 
           const emocionesResponse = await axios.get(`${API_URL}/emociones`, {
             params: {
               entidad_tipo: entidadTipo,
-              entidad_id: entidadId
-            }
+              entidad_id: entidadId,
+            },
           });
-          const emocionesData = emocionesResponse.data.reduce((acc, item) => {
-            acc[item.emocion] = item.count;
-            return acc;
-          }, {});
-          setEmocionesCount(emocionesData);
+
+          if (Array.isArray(emocionesResponse.data)) {
+            const emocionesData = emocionesResponse.data.reduce((acc, item) => {
+              acc[item.emocion] = item.count;
+              return acc;
+            }, {});
+            setEmocionesCount(emocionesData);
+          } else {
+            setEmocionesCount({});
+          }
         } catch (error) {
           console.error('Error fetching rating data:', error);
         }
@@ -64,10 +86,142 @@ const StarRating = ({
     fetchData();
   }, [usuario, entidadTipo, entidadId]);
 
-  const handleRating = (newRating) => {
+  const handleRating = async (newRating) => {
     if (newRating >= 0 && newRating <= 5) {
       setRating(newRating);
       onRatingChange(newRating);
+
+      try {
+        const token = localStorage.getItem('token');
+        await axios.post(`${API_URL}/valoraciones`, {
+          usuario: usuario.id_usuario,
+          entidad_tipo: entidadTipo,
+          entidad_id: entidadId,
+          calificacion: newRating,
+          comentario,
+          emocion,
+        }, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        });
+        console.log('Rating saved:', newRating);
+      } catch (error) {
+        console.error('Error saving rating:', error);
+      }
+    }
+  };
+
+  const handleComentario = async () => {
+    if (!comentario.trim()) {
+      alert('El comentario no puede estar vacío.');
+      return;
+    }
+    try {
+      const token = localStorage.getItem('token');
+      await axios.post(`${API_URL}/valoraciones/comentario`, {
+        usuario: usuario.id_usuario,
+        entidad_tipo: entidadTipo,
+        entidad_id: entidadId,
+        comentario,
+      }, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      setComentarioGuardado(true);
+      alert('Comentario agregado correctamente.');
+    } catch (error) {
+      console.error('Error al agregar comentario:', error);
+    }
+  };
+
+  const handleEliminarEmocion = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(`${API_URL}/emociones`, {
+        data: {
+          usuario: usuario.id_usuario,
+          entidad_tipo: entidadTipo,
+          entidad_id: entidadId,
+          emocion,
+        },
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+  
+      // Actualizar el estado para reflejar la eliminación
+      setEmocion('');
+      setEmocionesCount((prevState) => ({
+        ...prevState,
+        [emocion]: Math.max((prevState[emocion] || 1) - 1, 0),
+      }));
+  
+      alert('Emoción eliminada correctamente.');
+    } catch (error) {
+      console.error('Error al eliminar emoción:', error);
+    }
+  };
+
+  const handleAgregarOReemplazarEmocion = async (emocionSeleccionada) => {
+    try {
+      const token = localStorage.getItem('token');
+  
+      if (emocion === emocionSeleccionada) {
+        alert('Ya has seleccionado esta emoción.');
+        return;
+      }
+  
+      await axios.put(
+        `${API_URL}/emociones`,
+        {
+          usuario: usuario.id_usuario,
+          entidad_tipo: entidadTipo,
+          entidad_id: entidadId,
+          emocion: emocionSeleccionada,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+  
+      // Actualizar el estado con la nueva emoción
+      setEmocion(emocionSeleccionada);
+  
+      // Incrementar el contador de la nueva emoción y decrementar la anterior
+      setEmocionesCount((prevState) => ({
+        ...prevState,
+        [emocionSeleccionada]: (prevState[emocionSeleccionada] || 0) + 1,
+        [emocion]: Math.max((prevState[emocion] || 1) - 1, 0),
+      }));
+  
+      alert('Emoción modificada correctamente.');
+    } catch (error) {
+      console.error('Error al modificar emoción:', error);
+    }
+  };
+
+  const handleEliminarComentario = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.delete(`${API_URL}/valoraciones/comentario`, {
+        usuario: usuario.id_usuario,
+        entidad_tipo: entidadTipo,
+        entidad_id: entidadId,
+      }, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      setComentario('');
+      setComentarioGuardado(false);
+      alert('Comentario eliminado correctamente.');
+    } catch (error) {
+      console.error('Error al eliminar comentario:', error);
     }
   };
 
@@ -121,11 +275,8 @@ const StarRating = ({
   return (
     <div className="flex flex-col items-center">
       <div className="flex items-center">
-        {renderIcon(0)}
-        {[1, 2, 3, 4, 5].map(renderIcon)}
-        <div className="ml-2 text-green-500 font-bold">
-          {rating} ⭐
-        </div>
+        {[0, 1, 2, 3, 4, 5].map(renderIcon)}
+        <div className="ml-2 text-green-500 font-bold">{rating} ⭐</div>
       </div>
       {rating > 0 && (
         <>
@@ -135,36 +286,35 @@ const StarRating = ({
             placeholder="Agregar comentario..."
             className="border p-2 mt-4 w-full"
           />
-          {!comentario ? (
-            <button onClick={handleAgregarComentario} className="bg-blue-500 text-white px-4 py-2 rounded mt-2">
-              Agregar Comentario
-            </button>
-          ) : (
+          {comentarioGuardado ? (
             <button onClick={handleEliminarComentario} className="bg-red-500 text-white px-4 py-2 rounded mt-2">
               Eliminar Comentario
             </button>
+          ) : (
+            <button onClick={handleComentario} className="bg-blue-500 text-white px-4 py-2 rounded mt-2">
+              Agregar Comentario
+            </button>
           )}
           <div className="flex mt-4">
-            {['alegria', 'tristeza', 'energia', 'relajacion', 'romance', 'enojo', 'inspiracion', 'nostalgia'].map((em) => (
-              <div key={em} className="flex items-center">
-                <img
-                  src={`/emojis/${em}.png`}
-                  alt={em}
-                  className={`w-8 h-8 cursor-pointer mx-1 ${em === emocion ? 'border border-blue-500' : ''}`}
-                  onClick={() => handleAgregarEmocion(em)}
-                />
-                <span className="ml-1 text-sm">{emocionesCount[em] || 0}</span>
-              </div>
-            ))}
+          <div className="emocion-container">
+          {['alegria', 'tristeza', 'energia', 'relajacion', 'romance', 'enojo', 'inspiracion', 'nostalgia'].map((em) => (
+            <div key={em} className="emocion-item">
+              <img
+                src={`/emojis/${em}.png`}
+                alt={em}
+                className={em === emocion ? 'selected' : ''}
+                onClick={() => handleAgregarOReemplazarEmocion(em)}
+              />
+              <span className="emocion-count">{emocionesCount[em] || 0}</span>
+            </div>
+          ))}
+        </div>
           </div>
           {emocion && (
             <button onClick={handleEliminarEmocion} className="bg-red-500 text-white px-4 py-2 rounded mt-4">
               Eliminar Emoción
             </button>
           )}
-          <button onClick={handleEliminarValoracion} className="bg-red-500 text-white px-4 py-2 rounded mt-4">
-            Eliminar Valoración
-          </button>
         </>
       )}
     </div>
@@ -177,11 +327,6 @@ StarRating.propTypes = {
   entidadTipo: PropTypes.string.isRequired,
   entidadId: PropTypes.number.isRequired,
   usuario: PropTypes.object.isRequired,
-  handleEliminarValoracion: PropTypes.func.isRequired,
-  handleAgregarComentario: PropTypes.func.isRequired,
-  handleEliminarComentario: PropTypes.func.isRequired,
-  handleAgregarEmocion: PropTypes.func.isRequired,
-  handleEliminarEmocion: PropTypes.func.isRequired,
 };
 
 export default StarRating;

@@ -15,14 +15,15 @@ import ArtistPage from './pages/ArtistPage';
 import SongPage from './pages/SongPage';
 import VideoPage from './pages/VideoPage';
 import ProtectedRoute from './components/ProtectedRoute';
-import Recommendations from './pages/Recommendations';
 import Layout from './components/Layout';
 import Profile from './pages/Profile';
 import Contribute from './pages/Contribute';
 import Terms from './pages/Terms';
 import Privacy from './pages/Privacy';
 import CommunityRules from './pages/CommunityRules';
+import Colecciones from './pages/Colecciones'; // Importar la nueva página
 import ManageBadges from './pages/ManageBadges'; // Importar el componente de gestión de insignias
+import ColeccionPage from './pages/ColeccionPage'; // Importar la nueva página
 import { Routes, Route, Navigate } from 'react-router-dom';
 import './styles/globals.css';
 import './App.css';
@@ -37,7 +38,7 @@ function App() {
       const token = localStorage.getItem('token');
       if (token) {
         try {
-          const response = await axios.get(`${API_URL}/usuarios/perfil`, {
+          const response = await axios.get(`${API_URL}/usuarios/current-user`, {
             headers: {
               Authorization: `Bearer ${token}`,
               "Content-Type": "application/json"
@@ -46,7 +47,10 @@ function App() {
           setUsuario(response.data);
         } catch (error) {
           console.error("Error al obtener los datos del usuario:", error);
+          setUsuario(null); // Manejar el caso donde no se pueda obtener el usuario
         }
+      } else {
+        setUsuario(null); // No hay token, por lo tanto no hay usuario
       }
     };
     fetchUsuario();
@@ -79,7 +83,8 @@ function App() {
         <Route path="lists" element={<Lists />} />
         <Route path="list/:id" element={<ListPage />} />
         <Route path="profile/:id" element={<Profile />} />
-        <Route path="recommendations" element={<Recommendations usuario={usuario} />} />
+        <Route path="collections" element={<Colecciones />} /> {/* Nueva ruta */}
+        <Route path="collection/:id" element={<ColeccionPage />} /> {/* Nueva ruta */}
         <Route path="admin" element={
           <ProtectedRoute user={usuario} roles={["admin"]}>
             <div>Panel de Administración</div>

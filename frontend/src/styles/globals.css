@@ -13,6 +13,27 @@
   padding-top: 80px; /* Ajusta este valor según la altura de tu encabezado */
 }
 
+.profile-icon {
+  width: 100px !important;
+  height: 100px !important;
+  border-radius: 50% !important;
+  object-fit: cover !important;
+}
+
+.profile-img {
+  width: 500px !important;
+  height: 500px !important;
+  border-radius: 1% !important;
+  object-fit: cover !important;
+}
+
+.member-icon {
+  width: 250px !important;
+  height: 250px !important;
+  border-radius: 50% !important;
+  object-fit: cover !important;
+}
+
 .tendencia-card {
   background: #065F46;
   border-radius: 10px;
@@ -51,4 +72,39 @@
 .profile-image {
   width: 50%;
   max-width: 400px;
- 
+}
+
+/* Estilo para emociones en StarRating */
+.emocion-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.emocion-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.emocion-item img {
+  width: 50px;
+  height: 50px;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.emocion-item img.selected {
+  transform: scale(1.2);
+  border: 2px solid #3b82f6; /* Azul para destacar */
+  border-radius: 50%;
+}
+
+.emocion-count {
+  margin-top: 5px;
+  font-size: 14px;
+  color: #374151; /* Gris oscuro */
+}

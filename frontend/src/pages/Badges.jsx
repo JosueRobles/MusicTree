@@ -11,9 +11,15 @@ const Badges = ({ usuario }) => {
     const fetchInsignias = async () => {
       try {
         const response = await axios.get('/api/insignias');
-        setInsignias(response.data);
+        if (Array.isArray(response.data)) {
+          setInsignias(response.data);
+        } else {
+          console.error('Error: La respuesta de insignias no es una matriz');
+          setInsignias([]); // Asigna una matriz vacía en caso de error
+        }
       } catch (error) {
         console.error('Error fetching insignias:', error);
+        setInsignias([]); // Asigna una matriz vacía en caso de error
       }
     };
 
@@ -56,18 +62,22 @@ const Badges = ({ usuario }) => {
         <h2 className="text-4xl font-bold my-4">Insignias</h2>
         {usuario ? (
           <div className="insignias-grid">
-            {insignias.map((insignia) => (
-              <div key={insignia.id_insignia} className="insignia">
-                <img src={insignia.icono} alt={insignia.nombre} />
-                <h3>{insignia.nombre}</h3>
-                <p>{insignia.descripcion}</p>
-                {obtenerInsigniaUsuario(insignia.id_insignia) ? (
-                  <p className="text-green-500">Obtenida</p>
-                ) : (
-                  <p className="text-red-500">No obtenida</p>
-                )}
-              </div>
-            ))}
+            {Array.isArray(insignias) && insignias.length > 0 ? (
+              insignias.map((insignia) => (
+                <div key={insignia.id_insignia} className="insignia">
+                  <img src={insignia.icono} alt={insignia.nombre} />
+                  <h3>{insignia.nombre}</h3>
+                  <p>{insignia.descripcion}</p>
+                  {obtenerInsigniaUsuario(insignia.id_insignia) ? (
+                    <p className="text-green-500">Obtenida</p>
+                  ) : (
+                    <p className="text-red-500">No obtenida</p>
+                  )}
+                </div>
+              ))
+            ) : (
+              <p>No hay insignias disponibles.</p>
+            )}
           </div>
         ) : (
           <div>

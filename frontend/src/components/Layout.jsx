@@ -7,7 +7,7 @@ const Layout = ({ usuario, onLogout }) => {
   return (
     <div>
       <Encabezado usuario={usuario} onLogout={onLogout} />
-      <div className="content" style={{ paddingTop: '80px' }}>
+      <div className="content" style={{ paddingTop: '150px' }}> {/* Incrementado el padding-top */}
         <Outlet />
       </div>
       <PieDePagina />

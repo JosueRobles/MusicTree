@@ -7,8 +7,8 @@ const multer = require('multer');
 const storage = multer.diskStorage({
   destination: 'uploads/',
   filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname); // Obtener la extensión del archivo
-    const filename = `${Date.now()}${ext}`; // Generar un nombre único con la extensión
+    const ext = path.extname(file.originalname);
+    const filename = `${Date.now()}${ext}`;
     cb(null, filename);
   },
 });
@@ -23,7 +23,6 @@ router.get('/', async (req, res) => {
       .select('id_usuario, username, nombre, foto_perfil');
 
     if (error) throw error;
-
     res.json(data);
   } catch (error) {
     console.error('Error fetching users:', error);
@@ -41,8 +40,8 @@ router.get('/ranking-combinado', async (req, res) => {
         username, 
         nombre, 
         foto_perfil, 
-        seguidores (id_usuario), 
-        actividad (id_actividad)
+        seguidores:seguidores!seguidores_usuario_seguido_fkey(*), 
+        actividad_usuario (id_actividad)
       `);
 
     if (error) throw error;
@@ -52,14 +51,44 @@ router.get('/ranking-combinado', async (req, res) => {
       username: user.username,
       nombre: user.nombre,
       foto_perfil: user.foto_perfil,
-      seguidores: user.seguidores.length,
-      actividad: user.actividad.length,
-      ranking: user.seguidores.length + user.actividad.length
+      seguidores: (user.seguidores || []).length,
+      actividad: (user.actividad_usuario || []).length,
+      ranking: user.seguidores.length + user.actividad_usuario.length
     })).sort((a, b) => b.ranking - a.ranking);
 
     res.json(result);
   } catch (error) {
     console.error('Error fetching combined ranking:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Obtener ranking de miembros por actividad (solo actividad)
+router.get('/ranking-actividad', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('usuarios')
+      .select(`
+        id_usuario, 
+        username, 
+        nombre, 
+        foto_perfil, 
+        actividad_usuario (id_actividad)
+      `);
+
+    if (error) throw error;
+
+    const result = data.map(user => ({
+      id_usuario: user.id_usuario,
+      username: user.username,
+      nombre: user.nombre,
+      foto_perfil: user.foto_perfil,
+      actividad: user.actividad_usuario.length
+    })).sort((a, b) => b.actividad - a.actividad);
+
+    res.json(result);
+  } catch (error) {
+    console.error('Error fetching activity ranking:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -73,7 +102,6 @@ router.post('/seguir', async (req, res) => {
   }
 
   try {
-    // Verificar si ya existe la relación de seguimiento
     const { data: existingFollow, error: fetchError } = await supabase
       .from('seguidores')
       .select('*')
@@ -87,19 +115,14 @@ router.post('/seguir', async (req, res) => {
       return res.status(400).json({ error: 'Ya sigues a este usuario.' });
     }
 
-    // Insertar la relación de seguimiento
     const { error: followError } = await supabase
       .from('seguidores')
       .insert([{ usuario_seguidor, usuario_seguido }]);
 
     if (followError) throw followError;
 
-    // Registrar la actividad de seguimiento
-    const { error: activityError } = await supabase
-      .from('actividad_usuario')
-      .insert([{ usuario: usuario_seguidor, tipo_actividad: 'seguimiento', referencia_id: usuario_seguido }]);
-
-    if (activityError) throw activityError;
+    const { registrarActividad } = require('../controllers/utils/actividadUtils');
+    await registrarActividad(usuario_seguidor, 'seguimiento', 'usuario', usuario_seguido);
 
     res.status(201).json({ message: 'Usuario seguido exitosamente' });
   } catch (error) {
@@ -108,6 +131,7 @@ router.post('/seguir', async (req, res) => {
   }
 });
 
+// Endpoint para dejar de seguir a un usuario
 router.post('/unfollow', async (req, res) => {
   const { usuario_seguidor, usuario_seguido } = req.body;
 
@@ -133,7 +157,7 @@ router.get('/:id/seguidores', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('seguidores')
-      .select('usuario_seguidor (id_usuario, nombre, username)')
+      .select('usuario_seguidor (id_usuario, nombre, username, foto_perfil)')
       .eq('usuario_seguido', id);
 
     if (error) throw error;
@@ -169,7 +193,7 @@ router.get('/:id/siguiendo', async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('seguidores')
-      .select('usuario_seguido (id_usuario, nombre, username)')
+      .select('usuario_seguido (id_usuario, nombre, username, foto_perfil)')
       .eq('usuario_seguidor', id);
 
     if (error) throw error;
@@ -207,7 +231,6 @@ router.put('/:id', upload.single('foto_perfil'), async (req, res) => {
   const foto_perfil = req.file ? req.file.filename : null;
 
   try {
-    // Obtener el usuario actual para mantener los valores existentes
     const { data: currentUser, error: fetchError } = await supabase
       .from('usuarios')
       .select('nombre, foto_perfil')
@@ -216,10 +239,9 @@ router.put('/:id', upload.single('foto_perfil'), async (req, res) => {
 
     if (fetchError) throw fetchError;
 
-    // Actualizar solo los campos modificados
     const updates = {
-      nombre: nombre || currentUser.nombre, // Mantener el nombre actual si no se envió uno nuevo
-      foto_perfil: foto_perfil || currentUser.foto_perfil, // Mantener la foto actual si no se subió una nueva
+      nombre: nombre || currentUser.nombre,
+      foto_perfil: foto_perfil || currentUser.foto_perfil,
     };
 
     const { error } = await supabase

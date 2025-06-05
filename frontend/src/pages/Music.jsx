@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import BusquedaAvanzada from '../components/BusquedaAvanzada';
 import Planilla from '../components/Planilla';
@@ -12,104 +12,117 @@ const Music = () => {
   const [canciones, setCanciones] = useState([]);
   const [videos, setVideos] = useState([]);
   const [items, setItems] = useState([]);
-  const [sortOrder, setSortOrder] = useState('predeterminado');
+
+  const [resumen, setResumen] = useState({
+    artistas: 0,
+    albums: 0,
+    canciones: 0,
+    videos: 0,
+  });
+
+  const fetchItemsByView = useCallback(async (viewName) => {
+    try {
+      const { data } = await axios.get(`${API_URL}/vistas/${viewName}`);
+      const itemsWithUrls = data.map(item => ({
+        ...item,
+        id: `${item.tipo}-${item.id}`, // Clave única
+        url: generateEntityUrl(item.tipo, item.id),
+      }));
+      setItems(itemsWithUrls);
+    } catch (error) {
+      console.error(`Error fetching data from ${viewName}:`, error);
+      setItems([]);
+    }
+  }, []);
+
+  const generateEntityUrl = (type, id) => {
+    switch (type) {
+      case 'artist': return `/artist/${id}`;
+      case 'album': return `/album/${id}`;
+      case 'song': return `/song/${id}`;
+      case 'video': return `/video/${id}`;
+      default: return `/undefined/${id}`;
+    }
+  };
 
   useEffect(() => {
+    fetchItemsByView('vista_orden_predeterminado');
+
     const fetchData = async () => {
       try {
         const [artistsRes, albumsRes, cancionesRes, videosRes] = await Promise.all([
           axios.get(`${API_URL}/artistas`),
           axios.get(`${API_URL}/albumes`),
           axios.get(`${API_URL}/canciones`),
-          axios.get(`${API_URL}/videos`)
+          axios.get(`${API_URL}/videos`),
         ]);
 
-        const uniqueArtists = [...new Map(artistsRes.data.map(artist => [artist.id_artista, artist])).values()];
-        const uniqueAlbums = [...new Map(albumsRes.data.map(album => [album.id_album, album])).values()];
-
-        // Asociar imágenes de álbumes a las canciones
-        const cancionesConImagen = cancionesRes.data.map(cancion => {
-          const album = uniqueAlbums.find(album => album.id_album === cancion.album);
-          return { ...cancion, foto_album: album ? album.foto_album : '' };
-        });
-
-        setArtists(uniqueArtists);
-        setAlbums(uniqueAlbums);
-        setCanciones(cancionesConImagen);
+        setArtists(artistsRes.data);
+        setAlbums(albumsRes.data);
+        setCanciones(cancionesRes.data);
         setVideos(videosRes.data);
 
-        const combinedItems = [];
-        const max = Math.max(uniqueArtists.length, uniqueAlbums.length, cancionesConImagen.length, videosRes.data.length);
-
-        for (let i = 0; i < max; i++) {
-          if (uniqueArtists[i]) combinedItems.push({ id: uniqueArtists[i].id_artista, name: uniqueArtists[i].nombre_artista, image: uniqueArtists[i].foto_artista, type: 'artist', popularidad: uniqueArtists[i].popularidad_artista });
-          if (uniqueAlbums[i]) combinedItems.push({ id: uniqueAlbums[i].id_album, name: uniqueAlbums[i].titulo, image: uniqueAlbums[i].foto_album, type: 'album', popularidad: uniqueAlbums[i].popularidad_album });
-          if (cancionesConImagen[i]) combinedItems.push({ id: cancionesConImagen[i].id_cancion, name: cancionesConImagen[i].titulo, image: cancionesConImagen[i].foto_album, type: 'song', popularidad: cancionesConImagen[i].popularidad });
-          if (videosRes.data[i]) combinedItems.push({ id: videosRes.data[i].id_video, name: videosRes.data[i].titulo, image: videosRes.data[i].miniatura, type: 'video', popularidad: videosRes.data[i].popularidad });
-        }
-
-        setItems(combinedItems);
+        setResumen({
+          artistas: artistsRes.data.length,
+          albums: albumsRes.data.length,
+          canciones: cancionesRes.data.length,
+          videos: videosRes.data.length,
+        });
       } catch (error) {
         console.error('Error fetching data:', error);
       }
     };
 
     fetchData();
-  }, []);
+  }, [fetchItemsByView]);
 
-  const handleAdvancedSearch = (filtros) => {
-    const filteredArtistas = artists.filter(artista => 
-      (!filtros.termino || artista.nombre_artista.toLowerCase().includes(filtros.termino.toLowerCase())) &&
-      (!filtros.genero || artista.generos.includes(filtros.genero)) &&
-      (!filtros.artista || artista.id_artista === filtros.artista)
-    );
-
-    const filteredAlbumes = albums.filter(album => 
-      (!filtros.termino || album.titulo.toLowerCase().includes(filtros.termino.toLowerCase())) &&
-      (!filtros.anio || album.anio === parseInt(filtros.anio)) &&
-      (!filtros.artista || album.artista_id === filtros.artista) &&
-      (!filtros.genero || album.generos.includes(filtros.genero))
-    );
-
-    const filteredCanciones = canciones.filter(cancion => {
-      const album = albums.find(album => album.id_album === cancion.album);
-      return (!filtros.termino || cancion.titulo.toLowerCase().includes(filtros.termino.toLowerCase())) &&
-        (!filtros.anio || album.anio === parseInt(filtros.anio)) &&
-        (!filtros.artista || cancion.artistas.includes(filtros.artista)) &&
-        (!filtros.genero || cancion.generos.includes(filtros.genero))
-    });
-
-    const filteredVideos = videos.filter(video => 
-      (!filtros.termino || video.titulo.toLowerCase().includes(filtros.termino.toLowerCase())) &&
-      (!filtros.anio || video.anio === parseInt(filtros.anio)) &&
-      (!filtros.artista || video.artistas.includes(filtros.artista)) &&
-      (!filtros.genero || video.generos.includes(filtros.genero))
-    );
-
-    const combinedItems = [];
-    const max = Math.max(filteredArtistas.length, filteredAlbumes.length, filteredCanciones.length, filteredVideos.length);
-
-    for (let i = 0; i < max; i++) {
-      if (filteredArtistas[i]) combinedItems.push({ id: filteredArtistas[i].id_artista, name: filteredArtistas[i].nombre_artista, image: filteredArtistas[i].foto_artista, type: 'artist', popularidad: filteredArtistas[i].popularidad_artista });
-      if (filteredAlbumes[i]) combinedItems.push({ id: filteredAlbumes[i].id_album, name: filteredAlbumes[i].titulo, image: filteredAlbumes[i].foto_album, type: 'album', popularidad: filteredAlbumes[i].popularidad_album });
-      if (filteredCanciones[i]) combinedItems.push({ id: filteredCanciones[i].id_cancion, name: filteredCanciones[i].titulo, image: filteredCanciones[i].foto_album, type: 'song', popularidad: filteredCanciones[i].popularidad });
-      if (filteredVideos[i]) combinedItems.push({ id: filteredVideos[i].id_video, name: filteredVideos[i].titulo, image: filteredVideos[i].miniatura, type: 'video', popularidad: filteredVideos[i].popularidad });
+  const handleAdvancedSearch = async (filtros) => {
+    try {
+      const { termino, anio, artista, genero, entidad, orden } = filtros;
+  
+      // Construir los parámetros de consulta
+      const params = new URLSearchParams();
+      if (termino) params.append('termino', termino);
+      if (anio) params.append('anio', anio);
+      if (artista) params.append('artista', artista);
+      if (genero) params.append('genero', genero);
+      if (entidad) params.append('entidad', entidad);
+      if (orden) params.append('orden', orden);
+  
+      // Llamar al backend con los filtros
+      const { data } = await axios.get(`${API_URL}/filtrar?${params.toString()}`);
+  
+      // Validar que `data` es un array
+      if (!Array.isArray(data)) {
+        throw new Error('La respuesta del servidor no es un array.');
+      }
+  
+      // Mapear los datos para la Planilla
+      const filteredItems = data.map((item) => ({
+        id: `${item.tipo || entidad}-${item.id}`,
+        nombre: item.nombre,
+        imagen: item.imagen || '/default-image.png',
+        url: generateEntityUrl(item.tipo || entidad, item.id),
+      }));
+  
+      setItems(filteredItems);
+    } catch (error) {
+      console.error('Error al aplicar filtros avanzados:', error);
     }
-
-    setItems(combinedItems);
   };
 
   const handleSortOrderChange = (order) => {
-    setSortOrder(order);
-    let sortedItems = [...items];
-
-    if (order === 'predeterminado') {
-      sortedItems.sort((a, b) => a.id - b.id);
-    } else if (order === 'popularidad') {
-      sortedItems.sort((a, b) => b.popularidad - a.popularidad);
+    if (order === 'popularidad') {
+      fetchItemsByView('vista_popularidad');
+    } else if (order === 'valoracion') {
+      fetchItemsByView('vista_valoracion_promedio');
+    } else {
+      fetchItemsByView('vista_orden_predeterminado');
     }
+  };
 
-    setItems(sortedItems);
+  const resetFilters = () => {
+    fetchItemsByView('vista_orden_predeterminado');
   };
 
   return (
@@ -118,23 +131,14 @@ const Music = () => {
 
       <MusicTendencias limit={50} itemsPerPage={10} />
 
-      <BusquedaAvanzada 
-        onSearch={handleAdvancedSearch}
-        artistas={artists}
-        albums={albums}
-        canciones={canciones}
-        videos={videos}
-        onSortOrderChange={handleSortOrderChange}
-      />
-
       <div className="entidad-contadores mb-8">
         <h3 className="text-2xl font-bold mb-4">Resumen de Contenido</h3>
         <div className="grid grid-cols-4 gap-4 text-center">
           {[
-            { nombre: 'Artistas', cantidad: artists.length > 999 ? '1000+' : artists.length },
-            { nombre: 'Álbumes', cantidad: albums.length > 999 ? '1000+' : albums.length },
-            { nombre: 'Canciones', cantidad: canciones.length > 999 ? '1000+' : canciones.length },
-            { nombre: 'Videos', cantidad: videos.length > 999 ? '1000+' : videos.length }
+            { nombre: 'Artistas', cantidad: resumen.artistas > 999 ? '1000+' : resumen.artistas },
+            { nombre: 'Álbumes', cantidad: resumen.albums > 999 ? '1000+' : resumen.albums },
+            { nombre: 'Canciones', cantidad: resumen.canciones > 999 ? '1000+' : resumen.canciones },
+            { nombre: 'Videos', cantidad: resumen.videos > 999 ? '1000+' : resumen.videos },
           ].map(({ nombre, cantidad }) => (
             <div key={nombre} className="bg-gray-100 p-4 rounded">
               <h4 className="text-lg font-semibold">{nombre}</h4>
@@ -143,6 +147,16 @@ const Music = () => {
           ))}
         </div>
       </div>
+
+      <BusquedaAvanzada
+        onSearch={handleAdvancedSearch}
+        artistas={artists}
+        albums={albums}
+        canciones={canciones}
+        videos={videos}
+        onSortOrderChange={handleSortOrderChange}
+        onReset={resetFilters}
+      />
 
       <Planilla items={items} />
     </div>

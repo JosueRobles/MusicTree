@@ -2,9 +2,10 @@ import { Link } from "react-router-dom";
 import TendenciasFeed from "../components/TendenciasFeed";
 import PropTypes from "prop-types";
 import { useState } from "react";
+import ParaTiFeed from "../components/ParaTi";
 
 const Home = ({ usuario }) => {
-  const [activeTab, setActiveTab] = useState("tendencias");
+  const [activeTab, setActiveTab] = useState(usuario ? "paraTi" : "tendencias");
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -21,7 +22,13 @@ const Home = ({ usuario }) => {
           </button>
           <button
             className={`tab ${activeTab === "paraTi" ? "active" : ""}`}
-            onClick={() => setActiveTab("paraTi")}
+            onClick={() => {
+              if (usuario) {
+                setActiveTab("paraTi");
+              } else {
+                window.location.href = '/login';
+              }
+            }}
           >
             Para Ti
           </button>
@@ -31,7 +38,7 @@ const Home = ({ usuario }) => {
         {activeTab === "paraTi" && (
           <div>
             <h3 className="text-2xl font-bold">Para Ti</h3>
-            <p>Recomendaciones personalizadas (próximamente).</p>
+            {usuario && activeTab === "paraTi" && <ParaTiFeed usuario={usuario} />}
             {!usuario && (
               <div className="mt-4">
                 <h3 className="text-2xl font-bold mb-2">Crea tu cuenta ahora</h3>

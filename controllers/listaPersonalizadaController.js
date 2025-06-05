@@ -120,19 +120,21 @@ const anadirAListaPersonalizada = async (req, res) => {
   const { userId, listaId, entidad_id, entidad_tipo } = req.body;
 
   try {
+    // Verificar si la entidad ya está en la lista especificada
     const { data: existsData, error: existsError } = await supabase
       .from('elementos_lista_personalizada')
       .select('id_elemento')
       .eq('entidad_id', entidad_id)
       .eq('entidad_tipo', entidad_tipo)
-      .in('lista_id', (await supabase.from('listas_personalizadas').select('id_lista').eq('usuario_id', userId)).data.map(lista => lista.id_lista));
+      .eq('lista_id', listaId);
 
     if (existsError) throw existsError;
 
     if (existsData.length > 0) {
-      return res.status(400).json({ error: 'La entidad ya existe en una de tus listas.' });
+      return res.status(400).json({ error: 'La entidad ya existe en esta lista.' });
     }
 
+    // Insertar la nueva entidad en la lista
     const { data, error } = await supabase
       .from('elementos_lista_personalizada')
       .insert([{ lista_id: listaId, entidad_id, entidad_tipo }])
@@ -207,6 +209,17 @@ const guardarLista = async (req, res) => {
   const { userId, listaId } = req.body;
 
   try {
+    // Incrementar el contador de popularidad
+    const { data: lista, error: listaError } = await supabase
+      .from('listas_personalizadas')
+      .update({ saved_count: supabase.raw('saved_count + 1') })
+      .eq('id_lista', listaId)
+      .select()
+      .single();
+
+    if (listaError) throw listaError;
+
+    // Guardar la lista en listas_guardadas
     const { data, error } = await supabase
       .from('listas_guardadas')
       .insert([{ usuario_id: userId, lista_id: listaId }])
@@ -225,6 +238,17 @@ const eliminarListaGuardada = async (req, res) => {
   const { userId, listaId } = req.body;
 
   try {
+    // Decrementar el contador de popularidad
+    const { data: lista, error: listaError } = await supabase
+      .from('listas_personalizadas')
+      .update({ saved_count: supabase.raw('saved_count - 1') })
+      .eq('id_lista', listaId)
+      .select()
+      .single();
+
+    if (listaError) throw listaError;
+
+    // Eliminar la lista de listas_guardadas
     const { data, error } = await supabase
       .from('listas_guardadas')
       .delete()
@@ -259,7 +283,25 @@ const verificarListaGuardada = async (req, res) => {
   }
 };
 
+const invitarColaborador = async (req, res) => {
+  const { listaId, usuarioId, rol } = req.body;
+
+  try {
+    const { data, error } = await supabase
+      .from('listas_colaboradores')
+      .insert([{ lista_id: listaId, usuario_id: usuarioId, rol }]);
+
+    if (error) throw error;
+
+    res.status(201).json(data[0]);
+  } catch (error) {
+    console.error('Error al invitar colaborador:', error);
+    res.status(500).json({ error: 'Error al invitar colaborador.' });
+  }
+};
+
 module.exports = {
+  invitarColaborador,
   crearListaPersonalizada,
   obtenerListasPersonalizadas,
   obtenerListaPersonalizadaPorId,

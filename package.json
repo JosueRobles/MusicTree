@@ -10,19 +10,20 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@supabase/supabase-js": "^2.48.1",
-    "axios": "^1.8.3",
+    "@supabase/supabase-js": "^2.49.4",
+    "axios": "^1.8.4",
     "bcrypt": "^5.1.1",
     "bcryptjs": "^2.4.3",
     "compute-cosine-similarity": "^1.1.0",
     "cors": "^2.8.5",
-    "dotenv": "^16.4.7",
+    "dotenv": "^16.5.0",
     "express": "^4.21.2",
     "jsonwebtoken": "^9.0.2",
     "multer": "^1.4.5-lts.2",
     "pg": "^8.13.1",
     "python-shell": "^5.0.0",
-    "react-multi-carousel": "^2.8.5"
+    "react-multi-carousel": "^2.8.5",
+    "spotify-web-api-node": "^5.0.2"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.20",

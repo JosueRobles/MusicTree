@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 
-const BarraDeBusqueda = ({ onSearch, placeholder, sugerencias = [], className = "" }) => {
+const BarraDeBusqueda = ({ onSearch, placeholder, sugerencias = [], className = "", resetQuery }) => {
   const [query, setQuery] = useState('');
   const [sugerenciasFiltradas, setSugerenciasFiltradas] = useState([]);
   const [mostrarSugerencias, setMostrarSugerencias] = useState(false);
@@ -32,6 +32,14 @@ const BarraDeBusqueda = ({ onSearch, placeholder, sugerencias = [], className = 
     
     return true;
   };
+
+  useEffect(() => {
+    if (resetQuery) {
+      setQuery('');
+      setSugerenciasFiltradas([]);
+      setMostrarSugerencias(false);
+    }
+  }, [resetQuery]);
 
   useEffect(() => {
     if (query.trim()) {
@@ -87,7 +95,7 @@ const BarraDeBusqueda = ({ onSearch, placeholder, sugerencias = [], className = 
   const handleSugerenciaClick = (sugerencia) => {
     setQuery(sugerencia.texto);
     setMostrarSugerencias(false);
-    onSearch(sugerencia.texto);
+    onSearch(sugerencia);
   };
 
   return (
@@ -144,6 +152,7 @@ BarraDeBusqueda.propTypes = {
     })
   ),
   className: PropTypes.string,
+  resetQuery: PropTypes.bool, // Prop para resetear la barra
 };
 
 export default BarraDeBusqueda;

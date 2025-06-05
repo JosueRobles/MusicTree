@@ -150,13 +150,15 @@ const ListPage = () => {
           <h1>{lista.nombre_lista} ({lista.tipo_lista})</h1>
           <p>{lista.descripcion}</p>
           {usuario && lista.usuario_id === usuario.id_usuario && (
-            <div>
-              <select value={privacidad} onChange={(e) => handlePrivacidadChange(e.target.value)}>
-                <option value="publica">Pública</option>
-                <option value="privada">Privada</option>
-              </select>
-            </div>
-          )}
+          <div>
+            <select value={privacidad} onChange={(e) => handlePrivacidadChange(e.target.value)}>
+              <option value="publica">Pública</option>
+              <option value="privada">Privada</option>
+              <option value="colaborativa">Colaborativa</option>
+            </select>
+            <button onClick={() => navigate(`/list/${id}/colaboradores`)}>Gestionar Colaboradores</button>
+          </div>
+        )}
           <ul>
             {elementos.map(elemento => (
               <li key={elemento.id_elemento}>

@@ -1,3 +1,0 @@
-numpy<2
-scikit-surprise
-pandas

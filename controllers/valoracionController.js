@@ -1,41 +1,6 @@
 const supabase = require("../db");
 const { registrarTendencia } = require("./tendenciaController");
 
-const registrarActividad = async (usuario, tipo_actividad, referencia_id) => {
-  const { error } = await supabase
-    .from('actividad_usuario')
-    .insert([{ usuario, tipo_actividad, referencia_id }]);
-
-  if (error) {
-    console.error("❌ Error al registrar la actividad:", error);
-  }
-};
-
-const calcularPromedio = async (tableName, referenciaId, entidad_id) => {
-  const { data, error } = await supabase
-    .from(tableName)
-    .select('calificacion')
-    .eq(referenciaId, entidad_id);
-
-  if (error) {
-    console.error("❌ Error al calcular el promedio:", error);
-    throw error;
-  }
-
-  const total = data.reduce((sum, valoracion) => sum + valoracion.calificacion, 0);
-  const promedio = total / data.length || 0;
-
-  const { error: updateError } = await supabase
-    .from(tableName)
-    .update({ promedio })
-    .eq(referenciaId, entidad_id);
-
-  if (updateError) {
-    console.error("❌ Error al actualizar el promedio:", updateError);
-    throw updateError;
-  }
-};
-
 const obtenerPromedio = async (req, res) => {
   const { entidad_tipo, entidad_id } = req.query;
 
@@ -81,108 +46,6 @@ const obtenerPromedio = async (req, res) => {
   } catch (error) {
     console.error("❌ Error al obtener el promedio:", error);
     res.status(500).json({ error: "Error en el servidor" });
-  }
-};
-
-const crearValoracion = async (req, res) => {
-  const { usuario, entidad_tipo, entidad_id, calificacion, comentario } = req.body;
-
-  try {
-    let tableName;
-    let referenciaId;
-
-    switch (entidad_tipo) {
-      case 'artista':
-        tableName = 'valoraciones_artistas';
-        referenciaId = 'artista';
-        break;
-      case 'album':
-        tableName = 'valoraciones_albumes';
-        referenciaId = 'album';
-        break;
-      case 'cancion':
-        tableName = 'valoraciones_canciones';
-        referenciaId = 'cancion';
-        break;
-      case 'video':
-        tableName = 'valoraciones_videos_musicales';
-        referenciaId = 'video';
-        break;
-      default:
-        return res.status(400).json({ error: "Tipo de entidad no válido" });
-    }
-
-    if (!usuario || !entidad_id || !calificacion) {
-      return res.status(400).json({ error: "Parámetros faltantes" });
-    }
-
-    // Verificar si ya existe una valoración
-    const { data: valoracionExistente, error: errorExistente } = await supabase
-      .from(tableName)
-      .select('id_valoracion')
-      .eq('usuario', usuario)
-      .eq(referenciaId, entidad_id)
-      .single();
-
-    let valoracionId;
-
-    if (errorExistente && errorExistente.code !== 'PGRST116') {
-      throw errorExistente;
-    }
-
-    if (valoracionExistente) {
-      // Actualizar valoración existente
-      const { data: updatedData, error } = await supabase
-        .from(tableName)
-        .update({ calificacion, comentario })
-        .eq('id_valoracion', valoracionExistente.id_valoracion)
-        .select()
-        .single();
-
-      if (error) throw error;
-      valoracionId = updatedData.id_valoracion;
-    } else {
-      // Crear nueva valoración
-      const { data: newData, error } = await supabase
-        .from(tableName)
-        .insert([{
-          usuario,
-          [referenciaId]: entidad_id,
-          calificacion,
-          comentario
-        }])
-        .select()
-        .single();
-
-      if (error) throw error;
-      valoracionId = newData.id_valoracion;
-    }
-
-    // Calcular y actualizar el promedio
-    await calcularPromedio(tableName, referenciaId, entidad_id);
-
-    // Registrar tendencia
-    await registrarTendencia(req.body);
-
-    // Registrar actividad solo si tenemos un ID de valoración válido
-    if (valoracionId) {
-      await registrarActividad(usuario, 'valoracion', valoracionId);
-    } else {
-      throw new Error("No se pudo obtener el ID de la valoración");
-    }
-
-    res.status(200).json({ 
-      success: true, 
-      id_valoracion: valoracionId,
-      mensaje: "Valoración registrada correctamente" 
-    });
-
-  } catch (error) {
-    console.error("❌ Error al crear la valoración:", error);
-    res.status(500).json({ 
-      error: "Error en el servidor",
-      detalle: error.message 
-    });
   }
 };
 
@@ -233,66 +96,6 @@ const obtenerValoracion = async (req, res) => {
     }
   } catch (error) {
     console.error("❌ Error al obtener la valoración:", error);
-    res.status(500).json({ error: "Error en el servidor" });
-  }
-};
-
-const eliminarValoracion = async (req, res) => {
-  const { usuario, entidad_tipo, entidad_id } = req.body;
-
-  try {
-    let tableName;
-    let referenciaId;
-
-    switch (entidad_tipo) {
-      case 'artista':
-        tableName = 'valoraciones_artistas';
-        referenciaId = 'artista';
-        break;
-      case 'album':
-        tableName = 'valoraciones_albumes';
-        referenciaId = 'album';
-        break;
-      case 'cancion':
-        tableName = 'valoraciones_canciones';
-        referenciaId = 'cancion';
-        break;
-      case 'video':
-        tableName = 'valoraciones_videos_musicales';
-        referenciaId = 'video';
-        break;
-      default:
-        return res.status(400).json({ error: "Tipo de entidad no válido" });
-    }
-
-    if (!usuario || !entidad_id) {
-      return res.status(400).json({ error: "Parámetros faltantes" });
-    }
-
-    const { error } = await supabase
-      .from(tableName)
-      .delete()
-      .eq('usuario', usuario)
-      .eq(referenciaId, entidad_id);
-
-    if (error) throw error;
-
-    // Calcular y actualizar el promedio
-    await calcularPromedio(tableName, referenciaId, entidad_id);
-
-    // Eliminar emociones asociadas
-    const { error: errorEmocion } = await supabase
-      .from('emociones')
-      .delete()
-      .eq('usuario', usuario)
-      .eq('entidad_tipo', entidad_tipo)
-      .eq('entidad_id', entidad_id);
-
-    if (errorEmocion) throw errorEmocion;
-
-    res.status(200).json({ mensaje: "Valoración eliminada correctamente" });
-  } catch (error) {
-    console.error("❌ Error al eliminar la valoración:", error);
     res.status(500).json({ error: "Error en el servidor" });
   }
 };
@@ -395,12 +198,12 @@ const contarEmociones = async (req, res) => {
   const { entidad_tipo, entidad_id } = req.query;
 
   try {
+    // Realiza la consulta para obtener el conteo de emociones agrupadas
     const { data, error } = await supabase
       .from('emociones')
-      .select('emocion, count(*)')
+      .select('emocion, count:emocion')
       .eq('entidad_tipo', entidad_tipo)
-      .eq('entidad_id', entidad_id)
-      .group('emocion');
+      .eq('entidad_id', entidad_id);
 
     if (error) throw error;
 
@@ -411,4 +214,351 @@ const contarEmociones = async (req, res) => {
   }
 };
 
-module.exports = { crearValoracion, obtenerValoracion, eliminarValoracion, agregarComentario, obtenerPromedio, agregarEmocion, contarEmociones };
+const registrarCambioEnHistorial = async (valoracion) => {
+  const { id_valoracion, usuario, entidad_tipo, entidad_id, calificacion, comentario } = valoracion;
+
+  try {
+    await supabase
+      .from('historial_valoraciones')
+      .insert([{ id_valoracion, usuario, entidad_tipo, entidad_id, calificacion, comentario, fecha: new Date() }]);
+  } catch (error) {
+    console.error('❌ Error al registrar historial de valoraciones:', error);
+  }
+};
+
+const haPasadoUnDia = (ultimaFecha) => {
+  const ahora = new Date();
+  const diferenciaTiempo = ahora - new Date(ultimaFecha);
+  return diferenciaTiempo >= 24 * 60 * 60 * 1000; // 24 horas en milisegundos
+};
+
+const obtenerValoracionesGlobales = async (req, res) => {
+  const { entidad_tipo, entidad_id } = req.query;
+
+  try {
+    let tableName;
+    let referenciaId;
+
+    switch (entidad_tipo) {
+      case 'artista':
+        tableName = 'valoraciones_artistas';
+        referenciaId = 'artista';
+        break;
+      case 'album':
+        tableName = 'valoraciones_albumes';
+        referenciaId = 'album';
+        break;
+      case 'cancion':
+        tableName = 'valoraciones_canciones';
+        referenciaId = 'cancion';
+        break;
+      case 'video':
+        tableName = 'valoraciones_videos_musicales';
+        referenciaId = 'video';
+        break;
+      default:
+        return res.status(400).json({ error: "Tipo de entidad no válido" });
+    }
+
+    // Consulta principal para obtener valoraciones con datos del usuario como subconsulta
+    const { data: valoraciones, error: valoracionesError } = await supabase
+      .from(tableName)
+      .select(`
+        usuario,
+        calificacion,
+        comentario,
+        usuarios:usuario (
+          nombre,
+          foto_perfil
+        )
+      `)
+      .eq(referenciaId, entidad_id);
+
+    if (valoracionesError) throw valoracionesError;
+
+    // Consulta separada para obtener las emociones asociadas
+    const { data: emociones, error: emocionesError } = await supabase
+      .from('emociones')
+      .select('usuario, emocion')
+      .eq('entidad_tipo', entidad_tipo)
+      .eq('entidad_id', entidad_id);
+
+    if (emocionesError) throw emocionesError;
+
+    // Combinar las valoraciones con las emociones
+    const valoracionesConEmociones = valoraciones.map((valoracion) => {
+      const emocionUsuario = emociones.find((e) => e.usuario === valoracion.usuario);
+      return {
+        ...valoracion,
+        emocion: emocionUsuario ? emocionUsuario.emocion : null,
+      };
+    });
+
+    res.status(200).json(valoracionesConEmociones);
+  } catch (error) {
+    console.error("❌ Error al obtener las valoraciones globales:", error);
+    res.status(500).json({ error: "Error en el servidor", detalle: error.message });
+  }
+};
+
+// Función para recalcular el ranking personal
+const recalcularRankingPersonal = async (usuario, tipo_entidad) => {
+  try {
+    // Obtener elementos del ranking personal ordenados por calificación
+    const { data: elementos, error } = await supabase
+      .from('ranking_elementos')
+      .select('*')
+      .eq('ranking_id', usuario)
+      .eq('tipo_entidad', tipo_entidad)
+      .order('valoracion', { ascending: false }) // Ordenar por calificación descendente
+      .order('posicion', { ascending: true }); // Mantener manual para empates
+
+    if (error) throw error;
+
+    // Recalcular las posiciones
+    for (let i = 0; i < elementos.length; i++) {
+      const { id } = elementos[i];
+      const { error: updateError } = await supabase
+        .from('ranking_elementos')
+        .update({ posicion: i + 1 })
+        .eq('id', id);
+
+      if (updateError) throw updateError;
+    }
+  } catch (error) {
+    console.error("❌ Error al recalcular el ranking personal:", error);
+  }
+};
+
+// Función para calcular y actualizar el promedio
+const calcularPromedio = async (tableName, referenciaId, entidad_id) => {
+  const { data, error } = await supabase
+    .from(tableName)
+    .select('calificacion')
+    .eq(referenciaId, entidad_id);
+
+  if (error) {
+    console.error("❌ Error al calcular el promedio:", error);
+    throw error;
+  }
+
+  const total = data.reduce((sum, valoracion) => sum + valoracion.calificacion, 0);
+  const promedio = total / data.length || 0;
+
+  const { error: updateError } = await supabase
+    .from(tableName)
+    .update({ promedio })
+    .eq(referenciaId, entidad_id);
+
+  if (updateError) {
+    console.error("❌ Error al actualizar el promedio:", updateError);
+    throw updateError;
+  }
+};
+
+// Modificación en crearValoracion para llamar a recalcularRankingPersonal
+const crearValoracion = async (req, res) => {
+  const { usuario, entidad_tipo, entidad_id, calificacion, comentario } = req.body;
+
+  if (!usuario || !entidad_tipo || !entidad_id || !calificacion) {
+    console.error("🚨 Parámetros faltantes:", { usuario, entidad_tipo, entidad_id, calificacion });
+    return res.status(400).json({ error: "Parámetros faltantes" });
+  }
+
+  try {
+    let tableName;
+    let referenciaId;
+
+    switch (entidad_tipo) {
+      case 'artista':
+        tableName = 'valoraciones_artistas';
+        referenciaId = 'artista';
+        break;
+      case 'album':
+        tableName = 'valoraciones_albumes';
+        referenciaId = 'album';
+        break;
+      case 'cancion':
+        tableName = 'valoraciones_canciones';
+        referenciaId = 'cancion';
+        break;
+      case 'video':
+        tableName = 'valoraciones_videos_musicales';
+        referenciaId = 'video';
+        break;
+      default:
+        return res.status(400).json({ error: "Tipo de entidad no válido" });
+    }
+
+    if (!usuario || !entidad_id || !calificacion) {
+      return res.status(400).json({ error: "Parámetros faltantes" });
+    }
+
+    // Verificar si ya existe una valoración
+    const { data: valoracionExistente, error: errorExistente } = await supabase
+      .from(tableName)
+      .select('*')
+      .eq('usuario', usuario)
+      .eq(referenciaId, entidad_id)
+      .single();
+
+    let valoracionId;
+
+    if (errorExistente && errorExistente.code !== 'PGRST116') {
+      throw errorExistente;
+    }
+
+    if (valoracionExistente) {
+      // Si ya existe una valoración, verificar si ha pasado un día
+      if (haPasadoUnDia(valoracionExistente.registrado)) {
+        // Mover versión actual al historial
+        await registrarCambioEnHistorial(valoracionExistente);
+      }
+
+      // Actualizar valoración existente
+      const { data: updatedData, error } = await supabase
+        .from(tableName)
+        .update({ calificacion, comentario, registrado: new Date() })
+        .eq('id_valoracion', valoracionExistente.id_valoracion)
+        .select()
+        .single();
+
+      if (error) throw error;
+      valoracionId = updatedData.id_valoracion;
+    } else {
+      // Crear nueva valoración
+      const { data: newData, error } = await supabase
+        .from(tableName)
+        .insert([{
+          usuario,
+          [referenciaId]: entidad_id,
+          calificacion,
+          comentario,
+          registrado: new Date()
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+      valoracionId = newData.id_valoracion;
+    }
+
+    // Calcular y actualizar el promedio
+    await calcularPromedio(tableName, referenciaId, entidad_id);
+
+    // Registrar tendencia
+    await registrarTendencia(req.body);
+
+    // Recalcular el ranking personal del usuario
+    await recalcularRankingPersonal(usuario, entidad_tipo);
+
+    res.status(200).json({ 
+      success: true, 
+      id_valoracion: valoracionId,
+      mensaje: "Valoración registrada correctamente" 
+    });
+
+  }   catch (error) {
+    console.error("❌ Error al crear valoración:", error);
+    res.status(500).json({ error: "Error al crear la valoración", detalle: error.message });
+  }
+};
+
+// Modificación en eliminarValoracion para llamar a recalcularRankingPersonal
+const eliminarValoracion = async (req, res) => {
+  const { usuario, entidad_tipo, entidad_id } = req.body;
+
+  try {
+    let tableName;
+    let referenciaId;
+
+    switch (entidad_tipo) {
+      case 'artista':
+        tableName = 'valoraciones_artistas';
+        referenciaId = 'artista';
+        break;
+      case 'album':
+        tableName = 'valoraciones_albumes';
+        referenciaId = 'album';
+        break;
+      case 'cancion':
+        tableName = 'valoraciones_canciones';
+        referenciaId = 'cancion';
+        break;
+      case 'video':
+        tableName = 'valoraciones_videos_musicales';
+        referenciaId = 'video';
+        break;
+      default:
+        return res.status(400).json({ error: "Tipo de entidad no válido" });
+    }
+
+    if (!usuario || !entidad_id) {
+      return res.status(400).json({ error: "Parámetros faltantes" });
+    }
+
+    const { error } = await supabase
+      .from(tableName)
+      .delete()
+      .eq('usuario', usuario)
+      .eq(referenciaId, entidad_id);
+
+    if (error) throw error;
+
+    // Calcular y actualizar el promedio
+    await calcularPromedio(tableName, referenciaId, entidad_id);
+
+    // Recalcular el ranking personal del usuario
+    await recalcularRankingPersonal(usuario, entidad_tipo);
+
+    res.status(200).json({ mensaje: "Valoración eliminada correctamente" });
+  } catch (error) {
+    console.error("❌ Error al eliminar la valoración:", error);
+    res.status(500).json({ error: "Error en el servidor" });
+  }
+};
+
+const eliminarComentario = async (req, res) => {
+  const { usuario, entidad_tipo, entidad_id } = req.body;
+
+  try {
+    let tableName;
+    let referenciaId;
+
+    switch (entidad_tipo) {
+      case 'artista':
+        tableName = 'valoraciones_artistas';
+        referenciaId = 'artista';
+        break;
+      case 'album':
+        tableName = 'valoraciones_albumes';
+        referenciaId = 'album';
+        break;
+      case 'cancion':
+        tableName = 'valoraciones_canciones';
+        referenciaId = 'cancion';
+        break;
+      case 'video':
+        tableName = 'valoraciones_videos_musicales';
+        referenciaId = 'video';
+        break;
+      default:
+        return res.status(400).json({ error: "Tipo de entidad no válido" });
+    }
+
+    const { error } = await supabase
+      .from(tableName)
+      .update({ comentario: null }) // Establece el comentario como nulo
+      .eq('usuario', usuario)
+      .eq(referenciaId, entidad_id);
+
+    if (error) throw error;
+
+    res.status(200).json({ mensaje: "Comentario eliminado correctamente" });
+  } catch (error) {
+    console.error("❌ Error al eliminar el comentario:", error);
+    res.status(500).json({ error: "Error al eliminar el comentario" });
+  }
+};
+
+module.exports = { eliminarComentario, crearValoracion, obtenerValoracion, eliminarValoracion, agregarComentario, obtenerPromedio, agregarEmocion, contarEmociones, obtenerValoracionesGlobales };
