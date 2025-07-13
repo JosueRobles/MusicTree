@@ -85,7 +85,8 @@ const getFeedActivity = async (req, res) => {
       cancion: [],
       video: [],
       coleccion: [],
-      insignia: []
+      insignia: [],
+      usuario: [] // <-- agrega esto
     };
 
     feed.forEach(item => {
@@ -100,18 +101,24 @@ const getFeedActivity = async (req, res) => {
     }
 
     // Consultar cada tabla solo si hay ids
-    const [artistasRes, albumsRes, cancionesRes, videosRes] = await Promise.all([
+    const [artistasRes, albumsRes, cancionesRes, videosRes, usuariosRes, insigniasRes] = await Promise.all([
       referenciaPorEntidad.artista.length > 0
-        ? supabase.from('artistas').select('id_artista, nombre, imagen').in('id_artista', referenciaPorEntidad.artista)
+        ? supabase.from('artistas').select('id_artista, nombre_artista, foto_artista').in('id_artista', referenciaPorEntidad.artista)
         : Promise.resolve({ data: [] }),
       referenciaPorEntidad.album.length > 0
-        ? supabase.from('albumes').select('id_album, titulo, portada').in('id_album', referenciaPorEntidad.album)
+        ? supabase.from('albumes').select('id_album, titulo, foto_album').in('id_album', referenciaPorEntidad.album)
         : Promise.resolve({ data: [] }),
       referenciaPorEntidad.cancion.length > 0
-        ? supabase.from('canciones').select('id_cancion, titulo, portada').in('id_cancion', referenciaPorEntidad.cancion)
+        ? supabase.from('canciones').select('id_cancion, titulo').in('id_cancion', referenciaPorEntidad.cancion)
         : Promise.resolve({ data: [] }),
       referenciaPorEntidad.video.length > 0
-        ? supabase.from('videos').select('id_video, titulo, thumbnail').in('id_video', referenciaPorEntidad.video)
+        ? supabase.from('videos_musicales').select('id_video, titulo, miniatura').in('id_video', referenciaPorEntidad.video)
+        : Promise.resolve({ data: [] }),
+      referenciaPorEntidad.usuario.length > 0
+        ? supabase.from('usuarios').select('id_usuario, username, nombre, foto_perfil').in('id_usuario', referenciaPorEntidad.usuario)
+        : Promise.resolve({ data: [] }),
+      referenciaPorEntidad.insignia.length > 0
+        ? supabase.from('insignias').select('id_insignia, nombre, descripcion, icono').in('id_insignia', referenciaPorEntidad.insignia)
         : Promise.resolve({ data: [] })
     ]);
 
@@ -119,21 +126,72 @@ const getFeedActivity = async (req, res) => {
     const albumsMap = Object.fromEntries((albumsRes.data || []).map(a => [a.id_album, a]));
     const cancionesMap = Object.fromEntries((cancionesRes.data || []).map(c => [c.id_cancion, c]));
     const videosMap = Object.fromEntries((videosRes.data || []).map(v => [v.id_video, v]));
+    const referenciaUsuariosMap = Object.fromEntries((usuariosRes.data || []).map(u => [u.id_usuario, u]));
+    const insigniasMap = Object.fromEntries((insigniasRes.data || []).map(i => [i.id_insignia, i]));
+
+    // 5.2 Traer todas las valoraciones recientes de los usuarios seguidos
+    const [valoracionesArtistas, valoracionesAlbumes, valoracionesCanciones, valoracionesVideos] = await Promise.all([
+      supabase.from('valoraciones_artistas').select('usuario, artista, calificacion'),
+      supabase.from('valoraciones_albumes').select('usuario, album, calificacion'),
+      supabase.from('valoraciones_canciones').select('usuario, cancion, calificacion'),
+      supabase.from('valoraciones_videos_musicales').select('usuario, video, calificacion')
+    ]);
+
+    const valoracionMap = new Map();
+    // Llena el map para búsquedas rápidas
+    (valoracionesArtistas.data || []).forEach(v => valoracionMap.set(`artista-${v.usuario}-${v.artista}`, v.calificacion));
+    (valoracionesAlbumes.data || []).forEach(v => valoracionMap.set(`album-${v.usuario}-${v.album}`, v.calificacion));
+    (valoracionesCanciones.data || []).forEach(v => valoracionMap.set(`cancion-${v.usuario}-${v.cancion}`, v.calificacion));
+    (valoracionesVideos.data || []).forEach(v => valoracionMap.set(`video-${v.usuario}-${v.video}`, v.calificacion));
 
     // 6. Enriquecer el feed con los detalles de los usuarios y las referencias
     const enrichedFeed = feed.map(item => {
       let referencia_info = null;
-      if (item.referencia_entidad === 'artista') referencia_info = artistasMap[item.referencia_id] || null;
-      if (item.referencia_entidad === 'album') referencia_info = albumsMap[item.referencia_id] || null;
-      if (item.referencia_entidad === 'cancion') referencia_info = cancionesMap[item.referencia_id] || null;
-      if (item.referencia_entidad === 'video') referencia_info = videosMap[item.referencia_id] || null;
-      if (item.referencia_entidad === 'coleccion') referencia_info = { nombre: 'Colección', descripcion: 'Colección completada' }; // ejemplo de colecciones
-      if (item.referencia_entidad === 'insignia') referencia_info = { nombre: 'Insignia', descripcion: 'Insignia obtenida' }; // ejemplo de insignias
+      let nombre_entidad = '';
+      let tipo_entidad = item.referencia_entidad || '';
+      let calificacion = undefined;
+
+      if (item.referencia_entidad === 'artista') {
+        referencia_info = artistasMap[item.referencia_id] || null;
+        nombre_entidad = referencia_info?.nombre_artista || '';
+      }
+      if (item.referencia_entidad === 'album') {
+        referencia_info = albumsMap[item.referencia_id] || null;
+        nombre_entidad = referencia_info?.titulo || '';
+      }
+      if (item.referencia_entidad === 'cancion') {
+        referencia_info = cancionesMap[item.referencia_id] || null;
+        nombre_entidad = referencia_info?.titulo || '';
+      }
+      if (item.referencia_entidad === 'video') {
+        referencia_info = videosMap[item.referencia_id] || null;
+        nombre_entidad = referencia_info?.titulo || '';
+      }
+      if (item.referencia_entidad === 'usuario') {
+        referencia_info = referenciaUsuariosMap[item.referencia_id] || null;
+        nombre_entidad = referencia_info?.username || '';
+      }
+      if (item.referencia_entidad === 'coleccion') {
+        referencia_info = { nombre: 'Colección', descripcion: 'Colección completada' };
+        nombre_entidad = referencia_info.nombre;
+      }
+      if (item.referencia_entidad === 'insignia') {
+        referencia_info = insigniasMap[item.referencia_id] || { nombre: 'Insignia', descripcion: 'Insignia obtenida' };
+        nombre_entidad = referencia_info?.nombre || '';
+      }
+
+      // Si es valoracion, busca la calificación en el map
+      if (item.tipo === 'valoracion') {
+        calificacion = valoracionMap.get(`${item.referencia_entidad}-${item.usuario}-${item.referencia_id}`) || null;
+      }
 
       return {
         ...item,
         usuario_info: usuariosMap[item.usuario] || null,
-        referencia_info
+        referencia_info,
+        nombre_entidad,
+        tipo_entidad,
+        calificacion
       };
     });
 

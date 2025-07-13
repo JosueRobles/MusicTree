@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import BarraDeBusqueda from './BarraDeBusqueda';
 import axios from 'axios';
+import MenuSugerenciasBusqueda from './MenuSugerenciasBusqueda';
 
 const API_URL = "http://localhost:5000";
 
@@ -11,7 +11,10 @@ const BusquedaEncabezado = () => {
   const [albums, setAlbums] = useState([]);
   const [songs, setSongs] = useState([]);
   const [videos, setVideos] = useState([]);
+  const [input, setInput] = useState('');
+  const [showDropdown, setShowDropdown] = useState(false);
   const navigate = useNavigate();
+  const inputRef = useRef();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -22,7 +25,6 @@ const BusquedaEncabezado = () => {
           axios.get(`${API_URL}/canciones`),
           axios.get(`${API_URL}/videos`)
         ]);
-        
         setArtists(artistsRes.data || []);
         setAlbums(albumsRes.data || []);
         setSongs(songsRes.data || []);
@@ -31,12 +33,10 @@ const BusquedaEncabezado = () => {
         console.error('Error fetching search data:', error);
       }
     };
-    
     fetchData();
   }, []);
 
   useEffect(() => {
-    // Preparar las sugerencias en el formato adecuado para el componente de búsqueda
     const todasSugerencias = [
       ...artists.map(artist => ({
         id: artist.id_artista,
@@ -52,61 +52,74 @@ const BusquedaEncabezado = () => {
         imagen: album.foto_album,
         ruta: `/album/${album.id_album}`
       })),
-      ...songs.map(song => ({
-        id: song.id_cancion,
-        texto: song.titulo,
-        tipo: 'Canción',
-        imagen: song.url_preview || "https://example.com/default-song.jpg",
-        ruta: `/song/${song.id_cancion}`
-      })),
+      ...songs.map(song => {
+        const album = albums.find(a => a.id_album === song.album);
+        return {
+          id: song.id_cancion,
+          texto: song.titulo,
+          tipo: 'Canción',
+          imagen: album?.foto_album || "https://example.com/default-song.jpg",
+          ruta: `/song/${song.id_cancion}`
+        };
+      }),
       ...videos.map(video => ({
         id: video.id_video,
         texto: video.titulo,
         tipo: 'Video',
-        imagen: video.url_preview,
+        imagen: video.miniatura || "https://example.com/default-video.jpg",
         ruta: `/video/${video.id_video}`
       }))
     ];
-    
     setSugerencias(todasSugerencias);
   }, [artists, albums, songs, videos]);
 
-  const handleSearch = (query) => {
-    if (!query) return;
-    
-    // Encontrar la mejor coincidencia
-    const sugerenciasFiltradas = sugerencias.filter(item => 
-      item.texto.toLowerCase().includes(query.toLowerCase())
-    );
-    
-    // Si hay una coincidencia exacta, navegamos a ella
-    if (sugerenciasFiltradas.length === 1) {
-      navigate(sugerenciasFiltradas[0].ruta);
-    } else if (sugerenciasFiltradas.length > 0) {
-      // Si hay varias coincidencias, podemos navegar a una página de resultados
-      // navigate(`/search?q=${encodeURIComponent(query)}`);
-      
-      // O podemos simplemente no hacer nada y dejar que el usuario seleccione de las sugerencias
-    }
+  const sugerenciasFiltradas = input
+    ? sugerencias.filter(item =>
+        item.texto.toLowerCase().includes(input.toLowerCase())
+      ).slice(0, 8)
+    : [];
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (inputRef.current && !inputRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleInputChange = (e) => {
+    setInput(e.target.value);
+    setShowDropdown(true);
+  };
+
+  const handleSuggestionClick = (ruta) => {
+    setInput('');
+    setShowDropdown(false);
+    navigate(ruta);
   };
 
   return (
-    <div className="w-64">
-      <BarraDeBusqueda 
-        onSearch={handleSearch} 
-        placeholder="Buscar..." 
-        sugerencias={sugerencias}
-        className="w-full"
-        renderSuggestion={(suggestion) => (
-          <div className="flex items-center space-x-2">
-            <a href={suggestion.ruta}>
-              <img src={suggestion.imagen} alt={suggestion.texto} className="w-8 h-8 rounded-full" />
-            </a>
-            <a href={suggestion.ruta} className="text-sm">{suggestion.texto}</a>
-          </div>
-        )}
+    <>
+      <div className="relative w-64" ref={inputRef}>
+        <input
+          type="text"
+          className="border rounded px-4 py-2 w-full"
+          placeholder="Buscar..."
+          value={input}
+          onChange={handleInputChange}
+          onFocus={() => setShowDropdown(true)}
+          autoComplete="off"
+        />
+      </div>
+      <MenuSugerenciasBusqueda
+        anchorRef={inputRef}
+        sugerencias={sugerenciasFiltradas}
+        onSelect={handleSuggestionClick}
+        visible={showDropdown}
       />
-    </div>
+    </>
   );
 };
 

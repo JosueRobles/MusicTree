@@ -4,11 +4,12 @@ import Carousel from "react-multi-carousel";
 import "react-multi-carousel/lib/styles.css";
 import { Link } from "react-router-dom";
 
-const API_URL = "http://localhost:5000/tendencias/orden";
+const API_URL = "http://localhost:5000/tendencias/feed";
 
 const TendenciasFeed = () => {
   const [tendencias, setTendencias] = useState([]);
   const [error, setError] = useState(null);
+  const [pausedCategory, setPausedCategory] = useState(null);
 
   useEffect(() => {
     const fetchTendencias = async () => {
@@ -35,11 +36,11 @@ const TendenciasFeed = () => {
 
   const responsive = {
     desktop: { breakpoint: { max: 3000, min: 1024 }, items: 5, slidesToSlide: 5 },
-    tablet: { breakpoint: { max: 1024, min: 464 }, items: 2, slidesToSlide: 2 },
-    mobile: { breakpoint: { max: 464, min: 0 }, items: 1, slidesToSlide: 1 },
+    tablet: { breakpoint: { max: 1024, min: 464 }, items: 5, slidesToSlide: 5 },
+    mobile: { breakpoint: { max: 464, min: 0 }, items: 5, slidesToSlide: 5 },
   };
 
-  const getLink = (tipo, id) => {
+  const getLink = (tipo, id, valoraciones, promedio_valoracion) => {
     switch (tipo) {
       case "artista":
         return `/artist/${id}`;
@@ -54,41 +55,6 @@ const TendenciasFeed = () => {
     }
   };
 
-  const getImage = (item, tipo) => {
-    switch (tipo) {
-      case "artista":
-        return item.foto_artista;
-      case "album":
-        return item.foto_album;
-      case "cancion":
-        return item.foto_album; // Asumimos que la canción usa la foto del álbum
-      case "video":
-        return item.miniatura;
-      default:
-        return "";
-    }
-  };
-
-  const generateCarouselItems = (items) => {
-    if (items.length === 0) return [];
-    
-    const result = [];
-    const totalItems = items.length;
-
-    for (let i = 0; i < totalItems; i++) {
-      const startIndex = i % totalItems;
-      const endIndex = (startIndex + 5) % totalItems;
-
-      if (startIndex < endIndex) {
-        result.push(items.slice(startIndex, endIndex));
-      } else {
-        result.push(items.slice(startIndex).concat(items.slice(0, endIndex)));
-      }
-    }
-
-    return result.flat();
-  };
-
   return (
     <div className="tendencias-container">
       <h2>Tendencias Semanales</h2>
@@ -96,59 +62,71 @@ const TendenciasFeed = () => {
       {Object.keys(categorias).map((tipo) => {
         const tendenciasFiltradas = tendencias
           .filter((item) => item.entidad_tipo === tipo)
-          .slice(0, 15);
+          .map((item) => ({
+            id: item.entidad_id,
+            nombre: item.nombre,
+            imagen: item.imagen,
+            valoraciones: item.valoraciones,
+            promedio_valoracion: item.promedio_valoracion,
+          }));
 
-        const hasCarousel = tendenciasFiltradas.length >= 6;
-
-        const carouselItems = hasCarousel ? generateCarouselItems(tendenciasFiltradas) : [];
+        const hasCarousel = tendenciasFiltradas.length >= 25;
 
         return (
           <div key={tipo}>
             <h3>{categorias[tipo]}</h3>
             {hasCarousel ? (
-              <Carousel 
-                responsive={responsive} 
-                infinite 
-                autoPlay 
-                autoPlaySpeed={3000}
+              <Carousel
+                responsive={responsive}
+                infinite={true}
+                autoPlay={pausedCategory !== tipo}
                 containerClass="carousel-container"
                 itemClass="carousel-item"
+                partialVisible={false}
+                removeArrowOnDeviceType={["mobile"]}
               >
-                {carouselItems.map((item, index) => (
-                  <div 
-                    key={index} 
+                {tendenciasFiltradas.map((item, index) => (
+                  <div
+                    key={item.id}
                     className="tendencia-card"
-                    style={{ width: 'calc(20% - 10px)', margin: '0 5px' }} // Ajustamos el tamaño de los cuadros
+                    onMouseEnter={() => setPausedCategory(tipo)}
+                    onMouseLeave={() => setPausedCategory(null)}
                   >
-                    <Link to={getLink(tipo, item.entidad_id)}>
-                      <img 
-                        src={getImage(item, tipo)}
-                        alt={item.nombre} 
-                        className="tendencia-imagen" 
+                    <Link to={getLink(tipo, item.id)}>
+                      <img
+                        src={item.imagen}
+                        alt={item.nombre}
+                        className="tendencia-imagen"
                       />
-                      <h4 className="text-center mt-1 text-sm">{item.nombre}</h4> {/* Mostramos el nombre */}
+                      <h4 className="text-center mt-1 text-sm">{item.nombre}</h4>
+                      <p className="text-center mt-1 text-xs">
+                        Valoraciones: {item.valoraciones}
+                        {item.promedio_valoracion != null && (
+                          <> | Promedio: {Number(item.promedio_valoracion).toFixed(1)} ⭐</>
+                        )}
+                      </p>
                     </Link>
-                    <p className="text-center mt-1 text-xs">Valoraciones: {item.valoraciones}</p>
                   </div>
                 ))}
               </Carousel>
             ) : (
               <div className="static-container">
-                {tendenciasFiltradas.map((item) => (
-                  <div 
-                    key={item.entidad_id} 
-                    className="static-card"
-                    style={{ width: 'calc(20% - 10px)', margin: '0 5px' }} // Ajustamos el tamaño de los cuadros
-                  >
+                {tendenciasFiltradas.map((item, index) => (
+                  <div key={`${item.entidad_id}_${item.entidad_tipo}`} className="tendencia-card">
                     <Link to={getLink(tipo, item.entidad_id)}>
-                      <img 
-                        src={getImage(item, tipo)}
-                        alt={item.nombre} 
-                        className="tendencia-imagen" 
+                      <img
+                        src={item.imagen}
+                        alt={item.nombre}
+                        className="tendencia-imagen"
                       />
-                      <h4 className="text-center mt-1 text-sm">{item.nombre}</h4> {/* Mostramos el nombre */}
+                      <h4 className="text-center mt-1 text-sm">{item.nombre}</h4>
+                      <p className="text-center mt-1 text-xs">
+                        Valoraciones: {item.valoraciones}
+                        {item.promedio_valoracion != null && (
+                          <> | Promedio: {Number(item.promedio_valoracion).toFixed(1)} ⭐</>
+                        )}
+                      </p>
                     </Link>
-                    <p className="text-center mt-1 text-xs">Valoraciones: {item.valoraciones}</p>
                   </div>
                 ))}
               </div>

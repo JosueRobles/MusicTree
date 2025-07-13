@@ -13,6 +13,24 @@
   padding-top: 80px; /* Ajusta este valor según la altura de tu encabezado */
 }
 
+/* Resalta el texto y el fondo de entidades valoradas */
+.valorada {
+  color: #22c55e !important;
+  font-weight: bold !important;
+  background: #052e16 !important;
+  border-radius: 6px;
+  padding: 2px 8px;
+  transition: background 0.2s, color 0.2s;
+}
+
+/* Borde verde más grueso y notorio para imágenes valoradas */
+.valorada-img {
+  border: 4px solid #22c55e !important;
+  box-shadow: 0 0 12px #22c55e55;
+  border-radius: 8px;
+  transition: border 0.2s, box-shadow 0.2s;
+}
+
 .profile-icon {
   width: 100px !important;
   height: 100px !important;
@@ -39,16 +57,78 @@
   border-radius: 10px;
   padding: 10px;
   min-width: 200px;
+  max-width: 220px;
   text-align: center;
-  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.2);
   color: white;
+  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s;
+  margin: 0 5px;
+}
+
+.tendencia-card:hover {
+  transform: scale(1.05);
 }
 
 .tendencia-imagen {
   width: 100%;
   height: 200px;
-  border-radius: 8px;
   object-fit: cover;
+  border-radius: 8px;
+  background: #222;
+}
+
+.tendencia-card img[alt*="artista"],
+.tendencia-card img[alt*="Artista"],
+.tendencia-card img[alt*="video"],
+.tendencia-card img[alt*="Video"] {
+  object-fit: contain !important;
+}
+
+.carousel-container {
+  padding: 20px 0;
+}
+
+.carousel-item {
+  display: flex;
+  justify-content: center;
+}
+
+/* Estilos para MusicTendencias: versión compacta */
+.music-tendencia-card {
+  background: #034733;
+  border-radius: 6px;
+  padding: 4px;
+  min-width: 120px;
+  max-width: 140px;
+  text-align: center;
+  color: white;
+  box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.2);
+  font-size: 0.75rem;
+  margin: 0 4px;
+}
+
+.music-tendencia-imagen {
+  width: 100%;
+  height: 120px;
+  object-fit: cover;
+  border-radius: 6px;
+  background: #222;
+}
+
+.music-tendencia-card img[alt*="artista"],
+.music-tendencia-card img[alt*="Artista"],
+.music-tendencia-card img[alt*="video"],
+.music-tendencia-card img[alt*="Video"] {
+  object-fit: contain !important;
+}
+
+.music-carousel-container {
+  padding: 9px 0;
+}
+
+.music-carousel-item {
+  display: flex;
+  justify-content: center;
 }
 
 .placeholder-imagen {
@@ -107,4 +187,416 @@
   margin-top: 5px;
   font-size: 14px;
   color: #374151; /* Gris oscuro */
+}
+
+.insignias-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 32px;
+  justify-content: center;
+  margin-top: 2rem;
+}
+
+.insignia-badge-link {
+  transition: transform 0.2s;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.insignia-badge-link:hover .insignia-img {
+  transform: scale(1.2);
+  box-shadow: 0 0 16px #16a34a55;
+}
+
+.insignia-badge {
+  background: #18181b;
+  border-radius: 16px;
+  padding: 24px 16px 16px 16px;
+  min-width: 220px;
+  max-width: 240px;
+  text-align: center;
+  box-shadow: 0 2px 12px #0002;
+  transition: box-shadow 0.2s;
+}
+
+.insignia-img {
+  width: 80px;
+  height: 80px;
+  border-radius: 12px;
+  border: 3px solid #333;
+  background: #222;
+  object-fit: cover;
+  margin-bottom: 10px;
+  box-shadow: 0 2px 8px #0008;
+}
+
+.insignia-badge-link.obtenida .insignia-img {
+  border-color: #16a34a;
+  box-shadow: 0 0 8px #16a34a88;
+}
+
+.insignia-badge h3 {
+  font-size: 1.1rem;
+  margin: 0.5rem 0 0.2rem 0;
+  font-weight: bold;
+}
+
+.insignia-badge p {
+  font-size: 0.95rem;
+  margin: 0.2rem 0;
+}
+
+/* Centrar barra de progreso en insignias */
+.insignia-badge .progreso-barra {
+  display: flex;
+  justify-content: center;
+  margin: 0.5rem 0;
+}
+
+/* Texto "Obtenida" verde y notorio */
+.insignia-obtenida {
+  color: #16a34a;
+  font-weight: bold;
+  margin-top: 8px;
+  font-size: 1.1rem;
+}
+
+.planilla-paginacion-btn:hover {
+  background: #065F46;
+  box-shadow: 0 0 16px #16a34a55;
+}
+
+/* Notificación tipo trofeo PlayStation */
+.insignia-toast {
+  position: fixed;
+  bottom: 32px;
+  left: 32px;
+  z-index: 9999;
+  background: rgba(24, 24, 24, 0.98);
+  border-radius: 16px;
+  box-shadow: 0 4px 24px #000a;
+  padding: 18px 28px;
+  display: flex;
+  align-items: center;
+  animation: slideInLeft 0.7s cubic-bezier(.68,-0.55,.27,1.55);
+  min-width: 340px;
+  max-width: 420px;
+  border: 2px solid #16a34a;
+}
+
+@keyframes slideInLeft {
+  0% { transform: translateX(-120%); opacity: 0; }
+  60% { transform: translateX(10%); opacity: 1; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+.insignia-toast-content {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.insignia-toast-img {
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  border: 3px solid #eab308;
+  background: #222;
+  object-fit: cover;
+  margin-right: 10px;
+  box-shadow: 0 2px 8px #0008;
+}
+
+.insignia-toast-title {
+  font-size: 1.1rem;
+  font-weight: bold;
+  color: #eab308;
+  margin-bottom: 2px;
+  letter-spacing: 0.5px;
+}
+
+.insignia-toast-name {
+  font-size: 1.05rem;
+  font-weight: bold;
+  color: #16a34a;
+}
+
+.insignia-toast-desc {
+  font-size: 0.95rem;
+  color: #fff;
+  margin-top: 2px;
+}
+
+.familiaridad-container {
+  display: flex;
+  justify-content: center;
+  gap: 32px;
+  margin: 18px 0 8px 0;
+}
+.familiaridad-img.selected {
+  box-shadow: 0 0 12px #3b82f6;
+  border-color: #3b82f6 !important;
+  transform: scale(1.12);
+}
+.familiaridad-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  cursor: pointer;
+}
+.familiaridad-icon.selected {
+  box-shadow: 0 0 12px #3b82f6;
+  border-color: #3b82f6 !important;
+  transform: scale(1.12);
+}
+.familiaridad-label {
+  font-size: 12px;
+  color: #bbb;
+  margin-top: 2px;
+}
+.familiaridad-count {
+  font-size: 13px;
+  color: #16a34a;
+  font-weight: bold;
+  margin-top: 2px;
+}
+
+/* --- ShareablePage estilos visuales oscuros y atractivos --- */
+
+.shareable-section-dark {
+  background: #18181b;
+  border-radius: 18px;
+  box-shadow: 0 4px 24px #000a;
+  padding: 18px 18px;
+  color: #fff;
+  margin: 0 auto 18px auto;
+  max-width: 520px;
+  min-width: 220px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.shareable-header {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 18px;
+}
+
+.shareable-img-lg {
+  width: 110px;
+  height: 110px;
+  border-radius: 16px;
+  object-fit: cover;
+  border: 4px solid #22c55e;
+  background: #222;
+  box-shadow: 0 2px 16px #0008;
+}
+
+.shareable-header h2 {
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 6px;
+  color: #16a34a;
+  letter-spacing: 0.5px;
+}
+
+.shareable-header span {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #ffd700;
+}
+
+.shareable-details {
+  margin-top: 12px;
+  font-size: 1.08rem;
+  line-height: 1.7;
+  color: #e5e7eb;
+}
+
+.shareable-details p {
+  margin: 0 0 6px 0;
+  font-size: 1.08rem;
+}
+
+.shareable-details button {
+  margin-top: 10px;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-weight: bold;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background 0.2s, box-shadow 0.2s;
+  box-shadow: 0 2px 8px #0004;
+}
+
+.shareable-details button:hover {
+  background: #1e40af;
+  box-shadow: 0 4px 16px #2563eb55;
+}
+
+.shareable-section-dark .top-label {
+  position: absolute;
+  left: 24px;
+  top: 18px;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: #ffd700;
+  background: #18181b;
+  border-radius: 8px;
+  padding: 2px 12px;
+  box-shadow: 0 2px 8px #0004;
+  letter-spacing: 1px;
+}
+
+@media (max-width: 600px) {
+  .shareable-section-dark {
+    padding: 18px 6px 18px 6px;
+    min-width: unset;
+    max-width: 98vw;
+  }
+  .shareable-header {
+    flex-direction: column;
+    gap: 10px;
+    text-align: center;
+  }
+  .shareable-img-lg {
+    width: 80px;
+    height: 80px;
+  }
+}
+
+/* Comentario tipo Facebook */
+.valoracion-facebook {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.valoracion-facebook-foto {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid #22c55e;
+  background: #0e2c00;
+  flex-shrink: 0;
+}
+
+.valoracion-facebook-rect {
+  flex: 0.6;
+  background: #064E3B;
+  border-radius: 12px;
+  padding: 12px 16px;
+  box-shadow: 0 2px 8px #0001;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.valoracion-facebook-col {
+  flex: 0.4;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-around;
+  align-items: center;
+  gap: 12px;
+}
+
+.valoracion-facebook-cuadro {
+  width: 96px; /* 🔼 Doble tamaño */
+  height: 96px;
+  background: #000000;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;     /* 👈 Centrado vertical */
+  justify-content: center; /* 👈 Centrado horizontal */
+  overflow: hidden;
+}
+
+.valoracion-facebook-cuadro img {
+  max-width: 80%;  /* Ajuste interno */
+  max-height: 80%;
+  object-fit: contain;
+}
+
+.valoracion-facebook-nombre {
+  font-weight: bold;
+  font-size: 1.1rem;
+  color: #60ffb0;
+}
+
+.valoracion-facebook-username {
+  font-weight: normal;
+  color: #ffffff;
+  margin-left: 6px;
+}
+
+.valoracion-facebook-comentario {
+  margin-top: 4px;
+  font-size: 1rem;
+  color: #ffffff;
+}
+
+.album-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+.album-container a {
+  display: block;
+  margin-top: 6px;
+}
+
+.album-container span {
+  margin-top: 4px;
+}
+
+.profile-coleccion-card, .profile-catalogo-card {
+  border-radius: 14px;
+  padding: 16px;
+  width: 200px;
+  background: #18181b;
+  color: #fff;
+  box-shadow: 0 2px 12px #0004;
+  position: relative;
+  margin-bottom: 12px;
+  transition: box-shadow 0.2s, border 0.2s;
+}
+.profile-coleccion-card.completada, .profile-catalogo-card.completada {
+  border: 3px solid gold;
+  background: #222;
+  box-shadow: 0 0 16px #ffd70055;
+}
+.profile-coleccion-card img, .profile-catalogo-card img {
+  width: 56px;
+  border-radius: 10px;
+  margin-bottom: 8px;
+}
+.profile-coleccion-card .pie-chart, .profile-catalogo-card .pie-chart {
+  margin-top: 8px;
+}
+.profile-coleccion-card .medalla, .profile-catalogo-card .medalla {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: gold;
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
 }

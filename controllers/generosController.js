@@ -182,7 +182,10 @@ const getArtistasPorGenero = async (req, res) => {
     if (error) throw error;
 
     // Retornamos los artistas relacionados con el género
-    const artistas = data.map((item) => item.artistas);
+    const artistas = data.map((item) => ({
+      ...item.artistas,
+      id_artista: item.artista_id
+    }));
     res.status(200).json(artistas);
   } catch (error) {
     console.error('Error fetching artists for genre:', error);
@@ -209,7 +212,10 @@ const getAlbumesPorGenero = async (req, res) => {
     if (error) throw error;
 
     // Retornamos los álbumes relacionados con el género
-    const albumes = data.map((item) => item.albumes);
+    const albumes = data.map((item) => ({
+      ...item.albumes,
+      id_album: item.album_id
+    }));
     res.status(200).json(albumes);
   } catch (error) {
     console.error('Error fetching albums for genre:', error);
@@ -236,11 +242,126 @@ const getCancionesPorGenero = async (req, res) => {
     if (error) throw error;
 
     // Retornamos las canciones relacionadas con el género
-    const canciones = data.map((item) => item.canciones);
+    const canciones = data.map((item) => ({
+      ...item.canciones,
+      id_cancion: item.cancion_id
+    }));
     res.status(200).json(canciones);
   } catch (error) {
     console.error('Error fetching songs for genre:', error);
     res.status(500).json({ error: 'Error fetching songs for genre' });
+  }
+};
+
+// Obtener un género por ID
+const getGeneroPorId = async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { data, error } = await supabase
+      .from('generos')
+      .select('*')
+      .eq('id_genero', id)
+      .single();
+    if (error) throw error;
+    res.status(200).json(data);
+  } catch (error) {
+    res.status(404).json({ error: 'Género no encontrado.' });
+  }
+};
+
+const getVideosPorGenero = async (req, res) => {
+  const { id } = req.params;
+
+  if (isNaN(parseInt(id))) {
+    return res.status(400).json({ error: 'El ID del género debe ser un número entero.' });
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('video_generos')
+      .select('video_id, videos_musicales(titulo, url_video, duracion, popularidad, miniatura)')
+      .eq('genero_id', id);
+
+    if (error) throw error;
+
+    const videos = data.map((item) => ({
+      ...item.videos_musicales,
+      id_video: item.video_id
+    }));
+
+    res.status(200).json(videos);
+  } catch (error) {
+    console.error('❌ Error al obtener videos por género:', error);
+    res.status(500).json({ error: 'Error al obtener videos por género' });
+  }
+};
+
+const updateVideoGenres = async (req, res) => {
+  try {
+    // Traer todos los videos musicales
+    const { data: videos, error } = await supabase
+      .from('videos_musicales')
+      .select('id_video, titulo');
+
+    if (error) throw error;
+
+    for (const video of videos) {
+      // 1. Buscar canciones con el mismo título
+      const { data: cancionesSimilares } = await supabase
+        .from('canciones')
+        .select('id_cancion')
+        .ilike('titulo', video.titulo);
+
+      let generosSet = new Set();
+
+      for (const cancion of cancionesSimilares || []) {
+        const { data: generosCancion } = await supabase
+          .from('cancion_generos')
+          .select('genero_id')
+          .eq('cancion_id', cancion.id_cancion);
+
+        generosCancion?.forEach(g => generosSet.add(g.genero_id));
+      }
+
+      // 2. Buscar artistas del video
+      const { data: artistasVideo } = await supabase
+        .from('video_artistas')
+        .select('artista_id')
+        .eq('video_id', video.id_video);
+
+      for (const artista of artistasVideo || []) {
+        const { data: generosArtista } = await supabase
+          .from('artista_generos')
+          .select('genero_id')
+          .eq('artista_id', artista.artista_id);
+
+        generosArtista?.forEach(g => generosSet.add(g.genero_id));
+      }
+
+      // Limpiar géneros existentes
+      await supabase
+        .from('video_generos')
+        .delete()
+        .eq('video_id', video.id_video);
+
+      // Insertar nuevos géneros
+      const nuevos = Array.from(generosSet).map((genero_id) => ({
+        video_id: video.id_video,
+        genero_id
+      }));
+
+      if (nuevos.length > 0) {
+        await supabase.from('video_generos').insert(nuevos);
+        console.log(`✅ Video ID ${video.id_video}: géneros actualizados`);
+      } else {
+        console.log(`⚠️ Video ID ${video.id_video} sin géneros detectados`);
+      }
+    }
+
+    res.status(200).json({ message: 'Géneros de videos actualizados correctamente.' });
+  } catch (error) {
+    console.error('❌ Error al actualizar géneros de videos:', error);
+    res.status(500).json({ error: 'Error al actualizar géneros de videos' });
   }
 };
 
@@ -254,4 +375,7 @@ module.exports = {
   updateAlbumGenres,
   updateSongGenres,
   deleteLowMentionGenres,
+  getGeneroPorId,
+  getVideosPorGenero,
+  updateVideoGenres,
 };

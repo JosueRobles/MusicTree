@@ -1,4 +1,5 @@
 const supabase = require("../db");
+const { notificarNuevosLanzamientos } = require('./utils/notifyHelpers');
 
 const crearAlbum = async (req, res) => {
   const { titulo, anio, foto_album, artista_id, numero_canciones, tipo_album, popularidad_album } = req.body;
@@ -10,6 +11,17 @@ const crearAlbum = async (req, res) => {
       .single();
 
     if (error) throw error;
+
+    // Notificar sobre el nuevo lanzamiento
+    if (data && data.id_album && artista_id) {
+      await notificarNuevosLanzamientos(
+        artista_id,
+        'album',
+        data.id_album,
+        `¡Nuevo álbum de ${titulo}!`
+      );
+    }
+
     res.status(201).json(data);
   } catch (error) {
     console.error("❌ Error al crear álbum:", error);

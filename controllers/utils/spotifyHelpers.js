@@ -1,6 +1,7 @@
 const axios = require('axios');
-const { insertOrUpdateAlbum, insertOrUpdateArtist } = require('./supabaseHelpers');
 const { getSpotifyApi } = require('../config/spotifyAuth'); // ← ESTA LÍNEA FALTABA
+const supabase = require('../../supabaseClient');
+const { insertOrUpdateAlbum, insertOrUpdateTrack, insertOrUpdateArtist, linkAlbumWithArtist } = require('./supabaseHelpers');
 
 async function getPlaylistTracks(spotifyApi, playlistId) {
   try {
@@ -33,13 +34,86 @@ async function getArtistFromSpotify(name) {
 }
 
 async function getAlbumsFromArtist(artistId) {
+  const spotifyApi = getSpotifyApi();
   const data = await spotifyApi.getArtistAlbums(artistId, { limit: 50 });
   return data.body.items;
 }
 
 async function getTracksFromAlbum(albumId) {
+  const spotifyApi = getSpotifyApi();
   const data = await spotifyApi.getAlbumTracks(albumId);
   return data.body.items;
+}
+
+async function importFullArtistCatalog(spotifyId, id_artista = null) {
+  console.log(`📀 Importando catálogo para artista Spotify ID: ${spotifyId}`);
+
+  // 1. Obtener el id_artista interno si no lo tienes
+  if (!id_artista) {
+    const { data, error } = await supabase
+      .from('artistas')
+      .select('id_artista')
+      .eq('spotify_id', spotifyId)
+      .single();
+    if (error || !data) throw new Error(`No se encontró el artista con spotify_id: ${spotifyId}`);
+    id_artista = data.id_artista;
+  }
+
+  // 2. Obtener todos los álbumes del artista desde Spotify
+  const spotifyApi = getSpotifyApi();
+  const albums = await spotifyApi.getArtistAlbums(spotifyId, { limit: 50 });
+  const albumItems = albums.body.items;
+
+  for (const album of albumItems) {
+    // 3. Insertar o actualizar el álbum
+    const albumData = await insertOrUpdateAlbum(album);
+    const albumId = albumData.id_album;
+
+    // 4. Obtener todos los artistas del álbum y vincularlos
+    for (const artist of album.artists) {
+      // Insertar o actualizar artista
+      const relatedArtistId = await insertOrUpdateArtist({
+        id: artist.id,
+        name: artist.name,
+        images: [],
+        popularity: 0
+      });
+      // Relacionar álbum con artista
+      await linkAlbumWithArtist(albumId, relatedArtistId);
+    }
+
+    // 5. Obtener todas las canciones del álbum
+    const tracksData = await spotifyApi.getAlbumTracks(album.id);
+    const tracks = tracksData.body.items;
+
+    for (const track of tracks) {
+      // 6. Insertar o actualizar la canción
+      const trackId = await insertOrUpdateTrack(track, albumId);
+
+      // 7. Relacionar canción con todos sus artistas
+      for (const artist of track.artists) {
+        const relatedArtistId = await insertOrUpdateArtist({
+          id: artist.id,
+          name: artist.name,
+          images: [],
+          popularity: 0
+        });
+        // Relacionar canción con artista
+        await supabase.from('cancion_artistas').upsert({
+          cancion_id: trackId,
+          artista_id: relatedArtistId
+        }, { onConflict: ['cancion_id', 'artista_id'] });
+      }
+    }
+  }
+
+  // 8. Marcar artista como principal
+  await supabase
+    .from('artistas')
+    .update({ es_principal: true })
+    .eq('id_artista', id_artista);
+
+  console.log(`✅ Catálogo completo importado y relaciones creadas para artista: ${spotifyId}`);
 }
 
 async function getArtistsFromPlaylist(playlistId) {
@@ -219,5 +293,6 @@ module.exports = {
   getTracksFromAlbum,
   getArtistsFromPlaylist,
   getPlaylistTracks,
-  getArtistDetails, syncAlbumArtists
+  getArtistDetails, syncAlbumArtists,
+  importFullArtistCatalog
 };

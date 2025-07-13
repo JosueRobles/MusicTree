@@ -11,13 +11,15 @@ const {
   updateArtistsPopularityController,
   updateArtistPhotosController,
   searchArtistsFromAlbumsController, // Nuevo controlador
-  processArtistListController
+  processArtistListController,
+  importFullArtistCatalogController
 } = require('../controllers/spotifyController');
+
+router.get('/import-catalog/:artistId', importFullArtistCatalogController);
 
 // Rutas principales
 router.get('/search/famous', searchFamousArtistsController);
 router.get('/search/newlist', searchArtistsFromListController);
-router.get('/search/related', updateArtistRelatedController);
 
 // Rutas para procesar la playlist "Billion Club"
 router.get('/process-billion-playlist', extractBillionPlaylistController);

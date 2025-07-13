@@ -1,16 +1,18 @@
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import PropTypes from 'prop-types';
 import Encabezado from './Encabezado';
 import PieDePagina from './PieDePagina';
 
 const Layout = ({ usuario, onLogout }) => {
+  const location = useLocation();
+  const hideLayout = location.pathname.startsWith('/shareable');
   return (
     <div>
-      <Encabezado usuario={usuario} onLogout={onLogout} />
-      <div className="content" style={{ paddingTop: '150px' }}> {/* Incrementado el padding-top */}
+      {!hideLayout && <Encabezado usuario={usuario} onLogout={onLogout} />}
+      <div className="content" style={{ paddingTop: hideLayout ? 0 : '150px' }}>
         <Outlet />
       </div>
-      <PieDePagina />
+      {!hideLayout && <PieDePagina />}
     </div>
   );
 };

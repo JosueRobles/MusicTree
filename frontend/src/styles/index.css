@@ -33,27 +33,6 @@ button:disabled {
   cursor: not-allowed;
 }
 
-.tendencias-container {
-  padding: 16px;
-}
-
-.tendencia-card {
-  border: 1px solid #ddd;
-  border-radius: 8px;
-  padding: 16px;
-  text-align: center;
-  background-color: #065F46;
-  color: white;
-}
-
-.tendencia-imagen {
-  width: 100%;
-  height: 200px;
-  object-fit: cover;
-  border-radius: 8px;
-  margin-bottom: 8px;
-}
-
 .placeholder-imagen {
   width: 100%;
   height: 200px;

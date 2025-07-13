@@ -163,3 +163,44 @@ footer {
 .footer-section p {
   margin: 0;
 }
+
+.artist-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, 1fr) !important;
+}
+
+@media (min-width: 640px) {
+  .artist-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+  }
+}
+
+@media (min-width: 768px) {
+  .artist-grid {
+    grid-template-columns: repeat(4, 1fr) !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .artist-grid {
+    grid-template-columns: repeat(5, 1fr) !important;
+  }
+}
+
+.artist-grid li {
+  display: block !important;
+  margin: 0 auto !important;
+  max-width: 400px;
+  word-break: break-word;
+  justify-self: center;
+}
+
+.artist-grid li p {
+  white-space: normal !important;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  font-size: 0.85rem;
+  margin-top: 6px;
+  text-align: center;
+  max-width: 400px;
+}

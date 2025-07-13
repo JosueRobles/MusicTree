@@ -51,9 +51,9 @@ router.get('/ranking-combinado', async (req, res) => {
       username: user.username,
       nombre: user.nombre,
       foto_perfil: user.foto_perfil,
-      seguidores: (user.seguidores || []).length,
-      actividad: (user.actividad_usuario || []).length,
-      ranking: user.seguidores.length + user.actividad_usuario.length
+      seguidores_count: (user.seguidores || []).length,
+      actividad_count: (user.actividad_usuario || []).length,
+      ranking: (user.seguidores || []).length + (user.actividad_usuario || []).length
     })).sort((a, b) => b.ranking - a.ranking);
 
     res.json(result);
@@ -123,6 +123,16 @@ router.post('/seguir', async (req, res) => {
 
     const { registrarActividad } = require('../controllers/utils/actividadUtils');
     await registrarActividad(usuario_seguidor, 'seguimiento', 'usuario', usuario_seguido);
+
+    // Después de registrar la actividad
+    await supabase.from('notificaciones').insert([{
+      usuario_id: usuario_seguido,
+      tipo_notificacion: 'seguimiento', // <-- este es el tipo correcto
+      entidad_tipo: 'usuario',
+      entidad_id: usuario_seguidor, // <-- el que sigue
+      mensaje: '', // el mensaje se genera en el backend
+      visto: false
+    }]);
 
     res.status(201).json({ message: 'Usuario seguido exitosamente' });
   } catch (error) {

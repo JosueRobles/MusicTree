@@ -56,7 +56,23 @@ const obtenerUsuarioPorId = async (req, res) => {
 };
 
 const obtenerUsuarioActual = async (req, res) => {
-  const userId = req.user.id; // ID del usuario autenticado desde el token
+  // Permitir visitantes sin token
+  const auth = req.headers.authorization;
+  if (!auth || !auth.startsWith('Bearer ') || !auth.split(' ')[1]) {
+    // Visitante: no hay token, responde 200 y null
+    return res.status(200).json(null);
+  }
+
+  // Si hay token, sigue con la lógica actual
+  const token = auth.split(' ')[1];
+  let userId;
+  try {
+    // Decodifica el token para obtener el id (ajusta según tu JWT)
+    const decoded = require('jsonwebtoken').verify(token, process.env.JWT_SECRET);
+    userId = decoded.id;
+  } catch (e) {
+    return res.status(200).json(null); // Token inválido, tratar como visitante
+  }
 
   try {
     const { data, error } = await supabase
@@ -66,9 +82,7 @@ const obtenerUsuarioActual = async (req, res) => {
       .single();
 
     if (error) throw error;
-    if (!data) {
-      return res.status(404).json({ error: "Usuario no encontrado" });
-    }
+    if (!data) return res.status(404).json({ error: "Usuario no encontrado" });
     res.json(data);
   } catch (error) {
     console.error("Error al obtener usuario actual:", error);

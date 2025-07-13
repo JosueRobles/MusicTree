@@ -35,17 +35,27 @@ const obtenerEmociones = async (req, res) => {
   const { entidad_tipo, entidad_id } = req.query;
 
   try {
-    // Consulta para agrupar emociones y contarlas
+    // Trae todas las emociones para la entidad
     const { data, error } = await supabase
       .from('emociones')
-      .select('emocion, count:emocion')
+      .select('emocion')
       .eq('entidad_tipo', entidad_tipo)
       .eq('entidad_id', entidad_id);
 
     if (error) throw error;
 
-    // Devuelve las emociones agrupadas con sus conteos
-    res.status(200).json(data);
+    // Agrupa y cuenta en JS
+    const counts = {};
+    (data || []).forEach(item => {
+      if (item.emocion) {
+        counts[item.emocion] = (counts[item.emocion] || 0) + 1;
+      }
+    });
+
+    // Devuelve como array [{emocion: ..., count: ...}]
+    const result = Object.entries(counts).map(([emocion, count]) => ({ emocion, count }));
+
+    res.status(200).json(result);
   } catch (error) {
     console.error("❌ Error al obtener las emociones:", error);
     res.status(500).json({ error: "Error al obtener las emociones" });

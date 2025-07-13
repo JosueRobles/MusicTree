@@ -63,8 +63,29 @@ const obtenerGenerosDeArtista = async (req, res) => {
   }
 };
 
+// Video musical -> Géneros
+const obtenerGenerosDeVideo = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const { data, error } = await supabase
+      .from('video_generos')
+      .select('generos (id_genero, nombre, descripcion)')
+      .eq('video_id', id);
+
+    if (error) throw error;
+
+    const generos = data.map((item) => item.generos);
+    res.status(200).json(generos);
+  } catch (error) {
+    console.error('❌ Error al obtener géneros del video:', error);
+    res.status(500).json({ error: 'Error al obtener géneros del video musical' });
+  }
+};
+
 module.exports = {
   obtenerGenerosDeAlbum,
   obtenerGenerosDeCancion,
   obtenerGenerosDeArtista,
+  obtenerGenerosDeVideo,
 };

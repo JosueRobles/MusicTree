@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import PropTypes from 'prop-types';
 import StarRating from '../components/StarRating';
+import ValoracionComentario from '../components/ValoracionComentario';
 
 const API_URL = "http://localhost:5000";
 
@@ -21,7 +22,11 @@ const AlbumPage = ({ usuario }) => {
   const [selectedLista, setSelectedLista] = useState('');
   const [alreadyInList, setAlreadyInList] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [valoradas, setValoradas] = useState([]);
   const [valoracionesUsuarios, setValoracionesUsuarios] = useState([]);
+  const [posicionRanking, setPosicionRanking] = useState(null);
+  const [historial, setHistorial] = useState([]);
+  const [listasDestacadas, setListasDestacadas] = useState([]);
 
   useEffect(() => {
     const fetchAlbumData = async () => {
@@ -38,15 +43,15 @@ const AlbumPage = ({ usuario }) => {
         const genresResponse = await axios.get(`${API_URL}/relaciones/albumes/${id}/generos`);
         setGenres(Array.isArray(genresResponse.data) ? genresResponse.data : []);
 
-        if (usuario) {
-          const avgRatingResponse = await axios.get(`${API_URL}/valoraciones/promedio`, {
+        const avgRatingResponse = await axios.get(`${API_URL}/valoraciones/promedio`, {
             params: {
               entidad_tipo: 'album',
               entidad_id: parseInt(id, 10),
             },
           });
           setAverageRating(avgRatingResponse.data.promedio || null);
-
+          
+        if (usuario) {
           const valoracionResponse = await axios.get(`${API_URL}/valoraciones`, {
             params: {
               usuario: usuario.id_usuario,
@@ -58,9 +63,16 @@ const AlbumPage = ({ usuario }) => {
           setComentario(valoracionResponse.data.comentario || '');
           setEmocion(valoracionResponse.data.emocion || '');
 
-          const listasResponse = await axios.get(`${API_URL}/listas-personalizadas/${usuario.id_usuario}`);
-          const listasFiltradas = listasResponse.data.filter(lista => lista.tipo_lista === 'album');
-          setListas(listasFiltradas);
+          const listasResponse = await axios.get(`${API_URL}/listas-personalizadas/colaborativas-o-propias/${usuario.id_usuario}`);
+                    const listasFiltradas = listasResponse.data.filter(
+                      lista =>
+                        lista.tipo_lista === 'album' &&
+                        (
+                          lista.usuario_id === usuario.id_usuario ||
+                          (lista.privacidad === 'colaborativa' && ['agregar', 'admin', 'eliminar'].includes(lista.rol_colaborador))
+                        )
+                    );
+                    setListas(listasFiltradas);
 
           const existsResponse = await axios.post(`${API_URL}/listas-personalizadas/verificar`, {
             userId: usuario.id_usuario,
@@ -69,14 +81,22 @@ const AlbumPage = ({ usuario }) => {
           });
           setAlreadyInList(existsResponse.data.exists);
 
-          // Fetch valoraciones de todos los usuarios
+          // Fetch valoraciones de canciones valoradas por el usuario
+          const cancionesValoradas = await axios.get(`${API_URL}/valoraciones`, {
+            params: { usuario: usuario.id_usuario, entidad_tipo: 'cancion' }
+          });
+          if (Array.isArray(cancionesValoradas.data)) {
+            setValoradas(cancionesValoradas.data.map(c => c.cancion));
+          }
+
+          // Fetch valoraciones de usuarios para el álbum
           const valoracionesResponse = await axios.get(`${API_URL}/valoraciones/globales`, {
             params: {
               entidad_tipo: 'album',
               entidad_id: parseInt(id, 10),
             },
           });
-          setValoracionesUsuarios(valoracionesResponse.data || []);
+          setValoracionesUsuarios(Array.isArray(valoracionesResponse.data) ? valoracionesResponse.data : []);
         }
       } catch (error) {
         console.error('Error fetching album data:', error);
@@ -87,6 +107,26 @@ const AlbumPage = ({ usuario }) => {
 
     fetchAlbumData();
   }, [id, usuario]);
+
+  useEffect(() => {
+    axios.get(`${API_URL}/rankings/posicion-global`, {
+      params: { tipo_entidad: 'album', entidad_id: id }
+    }).then(res => setPosicionRanking(res.data.posicion));
+  }, [id, usuario]);
+
+  useEffect(() => {
+    if (usuario) {
+      axios.get(`${API_URL}/valoraciones/historial`, {
+        params: { usuario: usuario.id_usuario, entidad_tipo: 'album', entidad_id: id }
+      }).then(res => setHistorial(res.data));
+    }
+  }, [usuario, id]);
+
+  useEffect(() => {
+    axios.get(`${API_URL}/listas-personalizadas/destacadas-por-entidad`, {
+      params: { entidad_id: id, entidad_tipo: 'album' }
+    }).then(res => setListasDestacadas(res.data));
+  }, [id]);
 
   const handleRatingChange = async (newRating) => {
     setRating(newRating);
@@ -114,22 +154,33 @@ const AlbumPage = ({ usuario }) => {
   };
 
   const handleAddToList = async () => {
-    if (selectedLista) {
-      try {
-        await axios.post(`${API_URL}/listas-personalizadas/anadir`, {
-          userId: usuario.id_usuario,
-          listaId: selectedLista,
-          entidad_id: parseInt(id, 10),
-          entidad_tipo: 'album',
-        });
-        alert('Álbum añadido a la lista');
-      } catch (error) {
-        console.error('Error adding album to list:', error);
+  if (selectedLista) {
+    try {
+      await axios.post(`${API_URL}/listas-personalizadas/anadir`, {
+        userId: usuario.id_usuario,
+        listaId: selectedLista,
+        entidad_id: parseInt(id, 10),
+        entidad_tipo: 'album',
+      });
+      alert('Álbum añadido a la lista');
+    } catch (error) {
+      if (
+        error.response &&
+        error.response.status === 400 &&
+        error.response.data &&
+        error.response.data.error &&
+        error.response.data.error.includes('ya existe')
+      ) {
+        alert('Este álbum ya está en la lista seleccionada.');
+      } else {
+        alert('Error al añadir el álbum a la lista.');
       }
-    } else {
-      alert('Seleccione una lista o cree una nueva');
+      console.error('Error adding album to list:', error);
     }
-  };
+  } else {
+    alert('Seleccione una lista o cree una nueva');
+  }
+};
 
   return (
     <div className="pt-16 p-4">
@@ -137,7 +188,12 @@ const AlbumPage = ({ usuario }) => {
         <p>Cargando...</p>
       ) : album ? (
         <>
-          <h2 className="text-4xl font-bold my-4 text-center">{album.titulo}</h2>
+          <h2 className="text-4xl font-bold my-4 text-center">
+            {album.titulo}
+            {posicionRanking && (
+              <span className="ml-2 text-green-500 text-lg font-semibold"> - #{posicionRanking} en Ranking Global de Albumes</span>
+            )}
+          </h2>
           <img
             src={album.foto_album}
             alt={album.titulo}
@@ -162,69 +218,119 @@ const AlbumPage = ({ usuario }) => {
           )}
 
           <h3 className="text-2xl font-bold mt-8">Valoraciones de Usuarios</h3>
-          <ul>
-            {valoracionesUsuarios.map((valoracion, index) => (
-              <li key={index}>
-                <p>
-                  <strong>Usuario:</strong>{' '}
-                  <Link to={valoracion.perfil_usuario || '#'}>{valoracion.nombre_usuario || valoracion.usuario}</Link>
-                </p>
-                <p><strong>Calificación:</strong> {valoracion.calificacion} ⭐</p>
-                <p><strong>Comentario:</strong> {valoracion.comentario || 'Sin comentario'}</p>
-                <p><strong>Emoción:</strong> {valoracion.emocion || 'Sin emoción'}</p>
-              </li>
-            ))}
-          </ul>
+          {valoracionesUsuarios.length === 0 ? (
+            <div>No hay valoraciones aún.</div>
+          ) : (
+            valoracionesUsuarios.map((valoracion, idx) => (
+              <ValoracionComentario key={idx} valoracion={valoracion} />
+            ))
+          )}
 
           <h3 className="text-2xl font-bold mt-8">Géneros</h3>
           <ul className="text-center">
             {genres.map((genre) => (
-              <li key={genre.id_genero}>{genre.nombre}</li>
+              <li key={genre.id_genero}>
+                <Link to={`/genre/${genre.id_genero}`}>{genre.nombre}</Link>
+              </li>
             ))}
           </ul>
-
-          {usuario && (
-              <div className="mt-4">
-                {listas.filter(lista => lista.entidades.some(entidad => entidad.id === id)).length > 0 ? (
-                  <p>Esta entidad ya está en una de tus listas.</p>
-                ) : listas.length > 0 ? (
-                  <>
-                    <select value={selectedLista} onChange={(e) => setSelectedLista(e.target.value)}>
-                      <option value="">Selecciona una lista</option>
-                      {listas.map(lista => (
-                        <option key={lista.id_lista} value={lista.id_lista}>{lista.nombre_lista}</option>
-                      ))}
-                    </select>
-                    <button onClick={handleAddToList}>Añadir a Lista</button>
-                  </>
-                ) : (
-                  <button onClick={() => navigate('/lists')}>Crear una nueva lista</button>
-                )}
-              </div>
-            )}
+              {usuario && (
+                <div className="mt-4">
+                  {listas.filter(
+                    lista => Array.isArray(lista.entidades) && lista.entidades.some(entidad => String(entidad.id) === String(id))
+                  ).length > 0 ? (
+                    <p>Esta entidad ya está en una de tus listas.</p>
+                  ) : listas.length > 0 ? (
+                    <>
+                      <select value={selectedLista} onChange={(e) => setSelectedLista(e.target.value)}>
+                        <option value="">Selecciona una lista</option>
+                        {listas.map(lista => (
+                          <option key={lista.id_lista} value={lista.id_lista}>{lista.nombre_lista}</option>
+                        ))}
+                      </select>
+                      <button onClick={handleAddToList}>Añadir a Lista</button>
+                    </>
+                  ) : (
+                    <button onClick={() => navigate('/lists')}>Crear una nueva lista</button>
+                  )}
+                </div>
+              )}
 
           <h3 className="text-2xl font-bold mt-8">Artistas</h3>
-          <ul className="grid grid-cols-3 gap-4">
+          <ul className="artist-grid gap-4 w-full justify-items-center mx-auto">
             {artists.map((artist) => (
-              <li key={artist.id_artista} className="flex flex-col items-center">
-                <img
-                  src={artist.foto_artista}
-                  alt={artist.nombre_artista}
-                  className="w-32 h-32 object-cover rounded-full"
-                />
-                <Link to={`/artist/${artist.id_artista}`} className="mt-2">{artist.nombre_artista}</Link>
+              <li key={artist.id_artista}>
+                <Link to={`/artist/${artist.id_artista}`}>
+                  <img
+                    src={artist.foto_artista}
+                    alt={artist.nombre_artista}
+                    style={{ width: '255px', height: '255px', objectFit: 'cover' }}
+                    className={`rounded-md ${valoradas?.includes?.(`artista-${artist.id_artista}`) ? 'valorada-img' : ''}`}
+                  />
+                  <p className={`text-center mt-2 text-xs font-semibold ${valoradas?.includes?.(`artista-${artist.id_artista}`) ? 'valorada' : ''}`}>
+                    {artist.nombre_artista}
+                    {valoradas?.includes?.(`artista-${artist.id_artista}`) && <span style={{ marginLeft: 6 }}>⭐</span>}
+                  </p>
+                </Link>
               </li>
             ))}
           </ul>
 
           <h3 className="text-2xl font-bold mt-8">Canciones</h3>
-          <ul>
-            {songs.map((song) => (
-              <li key={song.id_cancion}>
-                <Link to={`/song/${song.id_cancion}`}>{song.titulo}</Link>
-              </li>
-            ))}
-          </ul>
+          <table className="min-w-full mt-2">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Título</th>
+                <th>Duración</th>
+                <th># Valoraciones</th>
+                <th>Promedio</th>
+                <th>Popularidad</th>
+              </tr>
+            </thead>
+            <tbody>
+              {songs.map((song, idx) => (
+                <tr key={song.id_cancion}>
+                  <td>{song.numero_pista || idx + 1}</td>
+                  <td>
+                    <Link to={`/song/${song.id_cancion}`}>{song.titulo}</Link>
+                  </td>
+                  <td>{Math.floor(song.duracion_ms / 60000)}:{((song.duracion_ms % 60000) / 1000).toFixed(0).padStart(2, '0')}</td>
+                  <td>{song.valoraciones_count || '-'}</td>
+                  <td>{song.promedio_valoracion ? `${song.promedio_valoracion} ⭐` : '-'}</td>
+                  <td>{song.popularidad}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {historial.length > 0 && (
+  <div className="mt-6">
+    <h4 className="font-bold">Historial de valoraciones</h4>
+    <ul>
+      {historial.map(h => (
+        <li key={h.id_historial}>
+          <span className="font-semibold">{new Date(h.fecha).toLocaleString()}:</span>
+          <span> {h.calificacion} ⭐ {h.comentario && `- "${h.comentario}"`}</span>
+        </li>
+      ))}
+    </ul>
+  </div>
+)}
+
+          {listasDestacadas.length > 0 && (
+  <div className="mt-6">
+    <h4 className="font-bold">Listas destacadas con este álbum</h4>
+    <div className="flex flex-wrap gap-4 justify-center mt-4">
+      {listasDestacadas.map(lista => (
+        <div key={lista.id_lista} className="w-48 bg-white shadow rounded p-2 text-center">
+          <img src={lista.imagen ? `${API_URL}/uploads/${lista.imagen}?t=${Date.now()}` : '/default_playlist.png'} alt={lista.nombre_lista} className="tendencia-imagen" />
+          <Link to={`/list/${lista.id_lista}`} className="font-bold">{lista.nombre_lista}</Link>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
         </>
       ) : (
         <p>Álbum no encontrado.</p>

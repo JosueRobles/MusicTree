@@ -77,26 +77,29 @@ const obtenerFeedTendencias = async (req, res) => {
   }
 };
 
-const obtenerTendenciasOrdenadas = async (req, res) => {
+// Listas populares por número de guardados
+const obtenerListasPopulares = async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from("tendencias_agrupadas")
-      .select("*, foto_album")
-      .order("valoraciones", { ascending: false });
+    const { usuario } = req.query;
+
+    let { data, error } = await supabase
+      .from('listas_populares')
+      .select('*')
+      .order('saved_count', { ascending: false })
+      .limit(100);
 
     if (error) throw error;
 
-    const agrupadas = data.reduce((acc, item) => {
-      if (!acc[item.entidad_tipo]) acc[item.entidad_tipo] = [];
-      if (acc[item.entidad_tipo].length < 15) acc[item.entidad_tipo].push(item);
-      return acc;
-    }, {});
+    // Si hay usuario, filtra las listas propias en JS
+    if (usuario) {
+      data = data.filter(lista => String(lista.usuario_id) !== String(usuario));
+    }
 
-    res.status(200).json(Object.values(agrupadas).flat());
+    res.status(200).json(data);
   } catch (error) {
-    console.error("Error al obtener tendencias ordenadas:", error);
+    console.error("Error al obtener listas populares:", error);
     res.status(500).json({ error: "Error interno del servidor" });
   }
 };
 
-module.exports = { registrarTendencia, obtenerTendenciasRecientes, obtenerFeedTendencias, obtenerTendenciasOrdenadas };
+module.exports = { obtenerListasPopulares, registrarTendencia, obtenerTendenciasRecientes, obtenerFeedTendencias };

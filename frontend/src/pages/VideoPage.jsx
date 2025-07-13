@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import PropTypes from 'prop-types';
 import StarRating from '../components/StarRating';
+import ValoracionComentario from '../components/ValoracionComentario';
 
 const API_URL = "http://localhost:5000";
 
@@ -19,6 +20,11 @@ const VideoPage = ({ usuario }) => {
   const [loading, setLoading] = useState(true);
   const [valoracionesUsuarios, setValoracionesUsuarios] = useState([]); // Valoraciones globales
   const [emocion, setEmocion] = useState('');
+  const [valoradas, setValoradas] = useState([]);
+  const [posicionRanking, setPosicionRanking] = useState(null);
+  const [historial, setHistorial] = useState([]);
+  const [genres, setGenres] = useState([]);
+  const [listasDestacadas, setListasDestacadas] = useState([]);
 
   useEffect(() => {
     const fetchVideoData = async () => {
@@ -29,8 +35,10 @@ const VideoPage = ({ usuario }) => {
         const artistsResponse = await axios.get(`${API_URL}/relaciones/videos/${id}/artistas`);
         setArtists(artistsResponse.data || []);
 
-        if (usuario) {
-          // Obtener valoración promedio
+        const genresResponse = await axios.get(`${API_URL}/relaciones/videos/${id}/generos`);
+        setGenres(Array.isArray(genresResponse.data) ? genresResponse.data : []);
+        
+        // Obtener valoración promedio
           const avgRatingResponse = await axios.get(`${API_URL}/valoraciones/promedio`, {
             params: {
               entidad_tipo: 'video',
@@ -38,10 +46,18 @@ const VideoPage = ({ usuario }) => {
             },
           });
           setAverageRating(avgRatingResponse.data.promedio || null);
-
+          
+        if (usuario) {
           // Obtener listas personalizadas de tipo "video"
-          const listasResponse = await axios.get(`${API_URL}/listas-personalizadas/${usuario.id_usuario}`);
-          const listasFiltradas = listasResponse.data.filter(lista => lista.tipo_lista === 'video');
+          const listasResponse = await axios.get(`${API_URL}/listas-personalizadas/colaborativas-o-propias/${usuario.id_usuario}`);
+          const listasFiltradas = listasResponse.data.filter(
+            lista =>
+              lista.tipo_lista === 'video' &&
+              (
+                lista.usuario_id === usuario.id_usuario ||
+                (lista.privacidad === 'colaborativa' && ['agregar', 'admin', 'eliminar'].includes(lista.rol_colaborador))
+              )
+          );
           setListas(listasFiltradas);
 
           // Verificar si el video ya está en una lista
@@ -56,10 +72,10 @@ const VideoPage = ({ usuario }) => {
           const valoracionesResponse = await axios.get(`${API_URL}/valoraciones/globales`, {
             params: {
               entidad_tipo: 'video',
-              entidad_id: parseInt(id, 10), // Convertir id a número
+              entidad_id: parseInt(id, 10),
             },
           });
-          setValoracionesUsuarios(valoracionesResponse.data || []);
+          setValoracionesUsuarios(Array.isArray(valoracionesResponse.data) ? valoracionesResponse.data : []);
         }
       } catch (error) {
         console.error('Error al cargar los datos del video:', error);
@@ -70,6 +86,26 @@ const VideoPage = ({ usuario }) => {
 
     fetchVideoData();
   }, [id, usuario]);
+
+  useEffect(() => {
+  axios.get(`${API_URL}/listas-personalizadas/destacadas-por-entidad`, {
+    params: { entidad_id: id, entidad_tipo: 'video' }
+  }).then(res => setListasDestacadas(res.data));
+}, [id]);
+
+  useEffect(() => {
+  if (usuario) {
+    axios.get(`${API_URL}/valoraciones/historial`, {
+      params: { usuario: usuario.id_usuario, entidad_tipo: 'video', entidad_id: id }
+    }).then(res => setHistorial(res.data));
+  }
+}, [usuario, id]);
+
+  useEffect(() => {
+  axios.get(`${API_URL}/rankings/posicion-global`, {
+    params: { tipo_entidad: 'video', entidad_id: id }
+  }).then(res => setPosicionRanking(res.data.posicion));
+}, [id, usuario]);
 
   const handleRatingChange = async (newRating) => {
     setRating(newRating);
@@ -95,30 +131,46 @@ const VideoPage = ({ usuario }) => {
     }
   };
 
-  const handleAddToList = async () => {
-    if (selectedLista) {
-      try {
-        await axios.post(`${API_URL}/listas-personalizadas/anadir`, {
-          userId: usuario.id_usuario,
-          listaId: selectedLista,
-          entidad_id: parseInt(id, 10), // Convertir id a número
-          entidad_tipo: 'video',
-        });
-        alert('Video añadido a la lista');
-      } catch (error) {
-        console.error('Error al añadir el video a la lista:', error);
+const handleAddToList = async () => {
+  if (selectedLista) {
+    try {
+      await axios.post(`${API_URL}/listas-personalizadas/anadir`, {
+        userId: usuario.id_usuario,
+        listaId: selectedLista,
+        entidad_id: parseInt(id, 10),
+        entidad_tipo: 'video',
+      });
+      alert('Video añadido a la lista');
+    } catch (error) {
+      if (
+        error.response &&
+        error.response.status === 400 &&
+        error.response.data &&
+        error.response.data.error &&
+        error.response.data.error.includes('ya existe')
+      ) {
+        alert('Este video ya está en la lista seleccionada.');
+      } else {
+        alert('Error al añadir el video a la lista.');
       }
-    } else {
-      alert('Seleccione una lista o cree una nueva.');
+      console.error('Error adding video to list:', error);
     }
-  };
+  } else {
+    alert('Seleccione una lista o cree una nueva');
+  }
+};
 
   if (loading) return <p>Cargando...</p>;
   if (!video) return <p>Error: Video no encontrado.</p>;
 
   return (
     <div className="pt-16 p-4">
-      <h2 className="text-4xl font-bold my-4 text-center">{video.titulo}</h2>
+      <h2 className="text-4xl font-bold my-4 text-center">
+        {video.titulo}
+        {posicionRanking && (
+          <span className="ml-2 text-yellow-500 text-lg font-semibold"> - #{posicionRanking} en Ranking Global de Videos Musicales</span>
+        )}
+      </h2>
       <div className="flex justify-center">
         <a href={video.url_video} target="_blank" rel="noopener noreferrer">
           <img
@@ -130,6 +182,11 @@ const VideoPage = ({ usuario }) => {
       </div>
       <p className="text-center mt-4">Duración: {Math.floor(video.duracion / 60)}:{(video.duracion % 60).toString().padStart(2, '0')} minutos</p>
       <p className="text-center">Popularidad: {video.popularidad}</p>
+
+      <div className="flex items-center">
+        <p className="text-lg font-bold mr-4">Valoración Promedio:</p>
+        <p>{averageRating !== null ? `${averageRating} ⭐` : 'Sin valoraciones'}</p>
+      </div>
 
       {usuario ? (
         <StarRating
@@ -144,23 +201,18 @@ const VideoPage = ({ usuario }) => {
       )}
 
       <h3 className="text-2xl font-bold mt-8">Valoraciones de Usuarios</h3>
-      <ul>
-        {valoracionesUsuarios.map((valoracion, index) => (
-          <li key={index}>
-            <p>
-              <strong>Usuario:</strong>{' '}
-              <Link to={valoracion.usuarios?.foto_perfil || '#'}>{valoracion.usuarios?.nombre || valoracion.usuario}</Link>
-            </p>
-            <p><strong>Calificación:</strong> {valoracion.calificacion} ⭐</p>
-            <p><strong>Comentario:</strong> {valoracion.comentario || 'Sin comentario'}</p>
-            <p><strong>Emoción:</strong> {valoracion.emocion || 'Sin emoción'}</p>
-          </li>
-        ))}
-      </ul>
-
+      {valoracionesUsuarios.length === 0 ? (
+        <div>No hay valoraciones aún.</div>
+      ) : (
+        valoracionesUsuarios.map((valoracion, idx) => (
+          <ValoracionComentario key={idx} valoracion={valoracion} />
+        ))
+      )}
       {usuario && (
         <div className="mt-4">
-          {listas.filter(lista => lista.entidades.some(entidad => entidad.id === parseInt(id, 10))).length > 0 ? (
+          {listas.filter(
+            lista => Array.isArray(lista.entidades) && lista.entidades.some(entidad => String(entidad.id) === String(id))
+          ).length > 0 ? (
             <p>Esta entidad ya está en una de tus listas.</p>
           ) : listas.length > 0 ? (
             <>
@@ -177,17 +229,56 @@ const VideoPage = ({ usuario }) => {
           )}
         </div>
       )}
-
+      <h3 className="text-2xl font-bold mt-8">Géneros</h3>
+                <ul className="text-center">
+                  {genres.map((genre) => (
+                  <li key={genre.id_genero}>
+                    <Link to={`/genre/${genre.id_genero}`}>{genre.nombre}</Link>
+                  </li>
+                ))}
+                </ul>
       <h3 className="text-2xl font-bold mt-8">Artistas</h3>
-      <ul className="grid grid-cols-3 gap-4">
-        {artists.map(artist => (
-          <li key={artist.id_artista} className="flex flex-col items-center">
-            <img
-              src={artist.foto_artista}
-              alt={artist.nombre_artista}
-              className="w-32 h-32 object-cover rounded-full"
-            />
-            <Link to={`/artist/${artist.id_artista}`} className="mt-2">{artist.nombre_artista}</Link>
+      <ul className="artist-grid gap-4 w-full justify-items-center mx-auto">
+        {artists.map((artist) => (
+          <li key={artist.id_artista}>
+            <Link to={`/artist/${artist.id_artista}`}>
+              <img
+                src={artist.foto_artista}
+                alt={artist.nombre_artista}
+                style={{ width: '255px', height: '255px', objectFit: 'cover' }}
+                className={`rounded-md ${valoradas.includes(`artista-${artist.id_artista}`) ? 'valorada-img' : ''}`}
+              />
+              <p className={`text-center mt-2 text-xs font-semibold ${valoradas.includes(`artista-${artist.id_artista}`) ? 'valorada' : ''}`}>
+                {artist.nombre_artista}
+                {valoradas.includes(`artista-${artist.id_artista}`) && <span style={{ marginLeft: 6 }}>⭐</span>}
+              </p>
+            </Link>
+            {historial.length > 0 && (
+  <div className="mt-6">
+    <h4 className="font-bold">Historial de valoraciones</h4>
+    <ul>
+      {historial.map(h => (
+        <li key={h.id_historial}>
+          <span className="font-semibold">{new Date(h.fecha).toLocaleString()}:</span>
+          <span> {h.calificacion} ⭐ {h.comentario && `- "${h.comentario}"`}</span>
+        </li>
+      ))}
+    </ul>
+  </div>
+)}
+{listasDestacadas.length > 0 && (
+  <div className="mt-6">
+    <h4 className="font-bold">Listas destacadas con este video musical</h4>
+    <div className="flex gap-4">
+      {listasDestacadas.map(lista => (
+        <div key={lista.id_lista} className="tendencia-card">
+          <img src={lista.imagen ? `${API_URL}/uploads/${lista.imagen}?t=${Date.now()}` : '/default_playlist.png'} alt={lista.nombre_lista} className="tendencia-imagen" />
+          <Link to={`/list/${lista.id_lista}`} className="font-bold">{lista.nombre_lista}</Link>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
           </li>
         ))}
       </ul>

@@ -10,8 +10,24 @@ const Home = ({ usuario }) => {
   return (
     <div className="flex flex-col min-h-screen">
       <main className="p-4 flex-grow mt-16">
-        <h2 className="text-4xl font-bold my-4">Bienvenido a MusicTree</h2>
-        <p>Explora artistas, álbumes, canciones y más.</p>
+        <div className="welcome-banner" style={{
+  background: 'linear-gradient(90deg, #065F46 0%, #16a34a 100%)',
+  color: 'white',
+  borderRadius: '18px',
+  padding: '32px 18px',
+  margin: '0 auto 32px auto',
+  maxWidth: 700,
+  textAlign: 'center',
+  boxShadow: '0 2px 16px #0002'
+}}>
+  <h1 style={{ fontSize: '2.8rem', fontWeight: 'bold', marginBottom: 8, letterSpacing: 1 }}>
+    🎵 Bienvenido a <span style={{ color: '#eab308' }}>MusicTree</span>
+  </h1>
+  <p style={{ fontSize: '1.3rem', marginBottom: 0 }}>
+    Explora, conecta y comparte tu pasión por la música.<br />
+    Descubre artistas, álbumes, canciones y videos de todo el mundo.
+  </p>
+</div>
 
         <div className="tabs my-4">
           <button

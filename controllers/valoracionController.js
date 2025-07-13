@@ -1,5 +1,7 @@
 const supabase = require("../db");
 const { registrarTendencia } = require("./tendenciaController");
+const { registrarActividad } = require("./utils/actividadUtils"); // <-- AGREGA ESTA LÍNEA
+const { notificarCatalogoCompletado } = require('./utils/notifyHelpers');
 
 const obtenerPromedio = async (req, res) => {
   const { entidad_tipo, entidad_id } = req.query;
@@ -77,10 +79,22 @@ const obtenerValoracion = async (req, res) => {
         return res.status(400).json({ error: "Tipo de entidad no válido" });
     }
 
-    if (!usuario || !entidad_id) {
+    if (!usuario) {
       return res.status(400).json({ error: "Parámetros faltantes" });
     }
 
+    // Si NO se pasa entidad_id, devuelve todas las valoraciones del usuario para ese tipo
+    if (!entidad_id) {
+      const { data, error } = await supabase
+        .from(tableName)
+        .select('*')
+        .eq('usuario', usuario);
+
+      if (error) throw error;
+      return res.status(200).json(data);
+    }
+
+    // Si se pasa entidad_id, devuelve solo esa valoración
     const { data, error } = await supabase
       .from(tableName)
       .select('*')
@@ -92,7 +106,7 @@ const obtenerValoracion = async (req, res) => {
     if (data.length === 1) {
       res.status(200).json(data[0]);
     } else {
-      res.status(200).json({ calificacion: 0, comentario: '', emocion: '' }); // Devuelve valores predeterminados
+      res.status(200).json({ calificacion: 0, comentario: '', emocion: '' });
     }
   } catch (error) {
     console.error("❌ Error al obtener la valoración:", error);
@@ -215,15 +229,42 @@ const contarEmociones = async (req, res) => {
 };
 
 const registrarCambioEnHistorial = async (valoracion) => {
-  const { id_valoracion, usuario, entidad_tipo, entidad_id, calificacion, comentario } = valoracion;
+  const entidad_tipo = valoracion.entidad_tipo || (
+    valoracion.album ? 'album' :
+    valoracion.artista ? 'artista' :
+    valoracion.cancion ? 'cancion' :
+    valoracion.video ? 'video' : null
+  );
 
-  try {
-    await supabase
-      .from('historial_valoraciones')
-      .insert([{ id_valoracion, usuario, entidad_tipo, entidad_id, calificacion, comentario, fecha: new Date() }]);
-  } catch (error) {
-    console.error('❌ Error al registrar historial de valoraciones:', error);
+  const entidad_id = valoracion.album || valoracion.artista || valoracion.cancion || valoracion.video || valoracion.entidad_id;
+
+  // Evitar duplicados si ya se registró en el mismo segundo
+  const { data: existente } = await supabase
+    .from('historial_valoraciones')
+    .select('*')
+    .eq('id_valoracion', valoracion.id_valoracion)
+    .order('fecha', { ascending: false })
+    .limit(1);
+
+  if (existente.length > 0) {
+    const diferencia = Math.abs(new Date() - new Date(existente[0].fecha));
+    if (diferencia < 500) {
+      console.warn("⛔ Historial ya registrado recientemente, omitiendo...");
+      return;
+    }
   }
+
+  await supabase
+    .from('historial_valoraciones')
+    .insert([{
+      id_valoracion: valoracion.id_valoracion,
+      usuario: valoracion.usuario,
+      entidad_tipo,
+      entidad_id,
+      calificacion: valoracion.calificacion,
+      comentario: valoracion.comentario,
+      fecha: new Date()
+    }]);
 };
 
 const haPasadoUnDia = (ultimaFecha) => {
@@ -260,7 +301,7 @@ const obtenerValoracionesGlobales = async (req, res) => {
         return res.status(400).json({ error: "Tipo de entidad no válido" });
     }
 
-    // Consulta principal para obtener valoraciones con datos del usuario como subconsulta
+    // Valoraciones con datos de usuario
     const { data: valoraciones, error: valoracionesError } = await supabase
       .from(tableName)
       .select(`
@@ -269,6 +310,7 @@ const obtenerValoracionesGlobales = async (req, res) => {
         comentario,
         usuarios:usuario (
           nombre,
+          username,
           foto_perfil
         )
       `)
@@ -276,7 +318,7 @@ const obtenerValoracionesGlobales = async (req, res) => {
 
     if (valoracionesError) throw valoracionesError;
 
-    // Consulta separada para obtener las emociones asociadas
+    // Emociones asociadas
     const { data: emociones, error: emocionesError } = await supabase
       .from('emociones')
       .select('usuario, emocion')
@@ -285,16 +327,30 @@ const obtenerValoracionesGlobales = async (req, res) => {
 
     if (emocionesError) throw emocionesError;
 
-    // Combinar las valoraciones con las emociones
-    const valoracionesConEmociones = valoraciones.map((valoracion) => {
+    // Familiaridad asociada
+    const { data: familiaridades, error: famError } = await supabase
+      .from('familiaridad')
+      .select('usuario, nivel')
+      .eq('entidad_tipo', entidad_tipo)
+      .eq('entidad_id', entidad_id);
+
+    if (famError) throw famError;
+
+    // Combina todo
+    const valoracionesCompletas = valoraciones.map((valoracion) => {
       const emocionUsuario = emociones.find((e) => e.usuario === valoracion.usuario);
+      const familiaridadUsuario = familiaridades.find((f) => f.usuario === valoracion.usuario);
       return {
         ...valoracion,
         emocion: emocionUsuario ? emocionUsuario.emocion : null,
+        familiaridad: familiaridadUsuario ? familiaridadUsuario.nivel : null,
       };
     });
 
-    res.status(200).json(valoracionesConEmociones);
+    // Filtra solo valoraciones reales (con calificación > 0)
+    const soloReales = valoracionesCompletas.filter(v => v.calificacion && v.calificacion > 0);
+
+    res.status(200).json(soloReales);
   } catch (error) {
     console.error("❌ Error al obtener las valoraciones globales:", error);
     res.status(500).json({ error: "Error en el servidor", detalle: error.message });
@@ -452,13 +508,91 @@ const crearValoracion = async (req, res) => {
     // Recalcular el ranking personal del usuario
     await recalcularRankingPersonal(usuario, entidad_tipo);
 
+    // REGISTRAR ACTIVIDAD DE VALORACIÓN EN EL FEED
+    await registrarActividad(usuario, 'valoracion', entidad_tipo, entidad_id); // <-- AGREGA ESTA LÍNEA
+
+    if (entidad_tipo === 'artista' || entidad_tipo === 'album' || entidad_tipo === 'cancion' || entidad_tipo === 'video') {
+      // Verifica progreso de catálogo para cada artista relacionado
+      let artistasIds = [];
+      if (entidad_tipo === 'artista') {
+        artistasIds = [entidad_id];
+      } else if (entidad_tipo === 'album') {
+        // Busca artistas del álbum
+        const { data: albumArtistas } = await supabase.from('album_artistas').select('artista_id').eq('album_id', entidad_id);
+        artistasIds = (albumArtistas || []).map(a => a.artista_id);
+      } else if (entidad_tipo === 'cancion') {
+        // Busca artistas de la canción
+        const { data: cancionArtistas } = await supabase.from('cancion_artistas').select('artista_id').eq('cancion_id', entidad_id);
+        artistasIds = (cancionArtistas || []).map(a => a.artista_id);
+      } else if (entidad_tipo === 'video') {
+        // Busca artistas del video
+        const { data: videoArtistas } = await supabase.from('video_artistas').select('artista_id').eq('video_id', entidad_id);
+        artistasIds = (videoArtistas || []).map(a => a.artista_id);
+      }
+
+      for (const artista_id of artistasIds) {
+        // Trae progreso actual
+        const { data: progresoData } = await supabase
+          .from('vista_progreso_catalogos')
+          .select('progreso')
+          .eq('usuario_id', usuario)
+          .eq('id_artista', artista_id)
+          .single();
+
+        if (progresoData && progresoData.progreso >= 100) {
+          // Busca si ya notificó antes (opcional, para no duplicar)
+          const { data: yaNotificada } = await supabase
+            .from('notificaciones')
+            .select('id_notificacion')
+            .eq('usuario_id', usuario)
+            .eq('entidad_tipo', 'artista')
+            .eq('entidad_id', artista_id)
+            .eq('tipo_notificacion', 'catalogo_completado')
+            .maybeSingle();
+
+          if (!yaNotificada) {
+            await notificarCatalogoCompletado(usuario, artista_id);
+          }
+        }
+      }
+    }
+
     res.status(200).json({ 
       success: true, 
       id_valoracion: valoracionId,
       mensaje: "Valoración registrada correctamente" 
     });
 
-  }   catch (error) {
+    // Asegura que el elemento esté en ranking_elementos
+    const { data: rankingExistente, error: rankingError } = await supabase
+      .from('ranking_elementos')
+      .select('*')
+      .eq('ranking_id', usuario)
+      .eq('entidad_id', entidad_id)
+      .eq('tipo_entidad', entidad_tipo)
+      .single();
+
+    if (rankingError && rankingError.code !== 'PGRST116') throw rankingError;
+
+    if (!rankingExistente) {
+      await supabase
+        .from('ranking_elementos')
+        .insert([{
+          ranking_id: usuario,
+          entidad_id,
+          tipo_entidad: entidad_tipo,
+          valoracion: calificacion
+        }]);
+    } else {
+      await supabase
+        .from('ranking_elementos')
+        .update({ valoracion: calificacion })
+        .eq('id', rankingExistente.id);
+    }
+
+    // Ahora sí, recalcula el ranking personal
+    await recalcularRankingPersonal(usuario, entidad_tipo);
+}   catch (error) {
     console.error("❌ Error al crear valoración:", error);
     res.status(500).json({ error: "Error al crear la valoración", detalle: error.message });
   }
@@ -561,4 +695,136 @@ const eliminarComentario = async (req, res) => {
   }
 };
 
-module.exports = { eliminarComentario, crearValoracion, obtenerValoracion, eliminarValoracion, agregarComentario, obtenerPromedio, agregarEmocion, contarEmociones, obtenerValoracionesGlobales };
+const segmentacionPersonal = async (req, res) => {
+  const { usuario, entidad_tipo, entidad_id } = req.query;
+  if (!usuario || !entidad_tipo || !entidad_id) {
+    return res.status(400).json({ error: "Faltan parámetros" });
+  }
+
+  let tableName, refId, totalQuery, segmentacionQuery;
+  switch (entidad_tipo) {
+    case "artista":
+      tableName = "valoraciones_albumes";
+      refId = "album";
+      // 1. Álbumes del artista
+      const { data: albumes, error: albErr } = await supabase
+        .from("album_artistas")
+        .select("album_id")
+        .eq("artista_id", entidad_id);
+      if (albErr) return res.status(500).json({ error: albErr.message });
+      const albumIds = albumes.map(a => a.album_id);
+      // 2. Valoraciones del usuario sobre esos álbumes
+      const { data: vals, error: valErr } = await supabase
+        .from("valoraciones_albumes")
+        .select("calificacion")
+        .eq("usuario", usuario)
+        .in("album", albumIds);
+      if (valErr) return res.status(500).json({ error: valErr.message });
+      // 3. Segmentación
+      const seg = {};
+      vals.forEach(v => {
+        const key = v.calificacion.toFixed(1);
+        seg[key] = (seg[key] || 0) + 1;
+      });
+      // 4. % completado
+      const total = albumIds.length;
+      const valorados = vals.length;
+      const porcentaje = total ? Math.round((valorados / total) * 100) : 0;
+      return res.json({
+        total,
+        valorados,
+        porcentaje,
+        segmentacion: seg
+      });
+    case "album":
+      tableName = "valoraciones_canciones";
+      refId = "cancion";
+      // 1. Canciones del álbum
+      const { data: canciones, error: canErr } = await supabase
+        .from("canciones")
+        .select("id_cancion")
+        .eq("album", entidad_id);
+      if (canErr) return res.status(500).json({ error: canErr.message });
+      const canIds = canciones.map(c => c.id_cancion);
+      // 2. Valoraciones del usuario sobre esas canciones
+      const { data: valsA, error: valErrA } = await supabase
+        .from("valoraciones_canciones")
+        .select("calificacion")
+        .eq("usuario", usuario)
+        .in("cancion", canIds);
+      if (valErrA) return res.status(500).json({ error: valErrA.message });
+      // 3. Segmentación
+      const segA = {};
+      valsA.forEach(v => {
+        const key = v.calificacion.toFixed(1);
+        segA[key] = (segA[key] || 0) + 1;
+      });
+      // 4. % completado
+      const totalA = canIds.length;
+      const valoradosA = valsA.length;
+      const porcentajeA = totalA ? Math.round((valoradosA / totalA) * 100) : 0;
+      return res.json({
+        total: totalA,
+        valorados: valoradosA,
+        porcentaje: porcentajeA,
+        segmentacion: segA
+      });
+        case "cancion":
+      // Puede ser un solo ID o varios separados por coma
+      let cancionIds = entidad_id.split(",").map(Number);
+      const { data: valC, error: valErrC } = await supabase
+        .from("valoraciones_canciones")
+        .select("calificacion")
+        .eq("usuario", usuario)
+        .in("cancion", cancionIds);
+      if (valErrC) return res.status(500).json({ error: valErrC.message });
+      const segC = {};
+      valC.forEach(v => {
+        const key = v.calificacion.toFixed(1);
+        segC[key] = (segC[key] || 0) + 1;
+      });
+      return res.json({
+        total: cancionIds.length,
+        valorados: valC.length,
+        porcentaje: cancionIds.length ? Math.round((valC.length / cancionIds.length) * 100) : 0,
+        segmentacion: segC
+      });
+    case "video":
+      // Puede ser un solo ID o varios separados por coma
+      let videoIds = entidad_id.split(",").map(Number);
+      const { data: valV, error: valErrV } = await supabase
+        .from("valoraciones_videos_musicales")
+        .select("calificacion")
+        .eq("usuario", usuario)
+        .in("video", videoIds);
+      if (valErrV) return res.status(500).json({ error: valErrV.message });
+      const segV = {};
+      valV.forEach(v => {
+        const key = v.calificacion.toFixed(1);
+        segV[key] = (segV[key] || 0) + 1;
+      });
+      return res.json({
+        total: videoIds.length,
+        valorados: valV.length,
+        porcentaje: videoIds.length ? Math.round((valV.length / videoIds.length) * 100) : 0,
+        segmentacion: segV
+      });
+    default:
+      return res.status(400).json({ error: "Tipo de entidad no válido" });
+  }
+};
+
+const obtenerHistorialValoraciones = async (req, res) => {
+  const { usuario, entidad_tipo, entidad_id } = req.query;
+  const { data, error } = await supabase
+    .from('historial_valoraciones')
+    .select('*')
+    .eq('usuario', usuario)
+    .eq('entidad_tipo', entidad_tipo)
+    .eq('entidad_id', entidad_id)
+    .order('fecha', { ascending: false });
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+};
+
+module.exports = { obtenerHistorialValoraciones, eliminarComentario, crearValoracion, obtenerValoracion, eliminarValoracion, agregarComentario, obtenerPromedio, agregarEmocion, contarEmociones, obtenerValoracionesGlobales, segmentacionPersonal };

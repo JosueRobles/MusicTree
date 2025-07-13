@@ -1,18 +1,46 @@
 const supabase = require('../db');
 
-// Álbum -> Canciones
+// Álbum -> Canciones con promedio y conteo de valoraciones
 const obtenerCancionesDeAlbum = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const { data, error } = await supabase
+    // 1. Obtener las canciones del álbum
+    const { data: canciones, error: cancionesError } = await supabase
       .from('canciones')
       .select('*')
-      .eq('album', id); // Cambié "album" para que coincida con la columna en tu tabla
+      .eq('album', id);
 
-    if (error) throw error;
+    if (cancionesError) throw cancionesError;
 
-    res.status(200).json({ canciones: data });
+    const cancionesConValoraciones = [];
+
+    // 2. Para cada canción, obtener promedio y conteo de valoraciones
+    for (const cancion of canciones) {
+      const { data: valoraciones, error: valoracionesError } = await supabase
+        .from('valoraciones_canciones')
+        .select('calificacion')
+        .eq('cancion', cancion.id_cancion);
+
+      if (valoracionesError) {
+        console.error(`❌ Error al obtener valoraciones de canción ${cancion.id_cancion}:`, valoracionesError);
+        continue;
+      }
+
+      const valoracionesCount = valoraciones.length;
+      const promedioValoracion =
+        valoracionesCount > 0
+          ? (valoraciones.reduce((sum, v) => sum + parseFloat(v.calificacion), 0) / valoracionesCount).toFixed(1)
+          : null;
+
+      cancionesConValoraciones.push({
+        ...cancion,
+        valoraciones_count: valoracionesCount,
+        promedio_valoracion: promedioValoracion,
+      });
+    }
+
+    res.status(200).json({ canciones: cancionesConValoraciones });
   } catch (error) {
     console.error("❌ Error al obtener canciones del álbum:", error);
     res.status(500).json({ error: "Error en el servidor" });
@@ -27,7 +55,7 @@ const obtenerAlbumDeCancion = async (req, res) => {
     const { data: cancion, error: cancionError } = await supabase
       .from('canciones')
       .select('album')
-      .eq('id_cancion', id) // Cambié "id_cancion" para que coincida con tu tabla
+      .eq('id_cancion', id)
       .single();
 
     if (cancionError || !cancion) {
@@ -38,7 +66,7 @@ const obtenerAlbumDeCancion = async (req, res) => {
     const { data: album, error: albumError } = await supabase
       .from('albumes')
       .select('id_album, titulo, anio, foto_album')
-      .eq('id_album', cancion.album) // Cambié "id_album" para que coincida con tu tabla
+      .eq('id_album', cancion.album)
       .single();
 
     if (albumError || !album) {

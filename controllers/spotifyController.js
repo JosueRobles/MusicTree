@@ -2,19 +2,34 @@ const {
   searchFamousArtists,
   searchArtistsFromList,
 } = require('./handlers/artistHandler');
-const { importFullArtistCatalog, searchArtistsFromAlbums } = require('./handlers/albumHandler'); // Nuevo método importado
+const { searchArtistsFromAlbums } = require('./handlers/albumHandler'); // Nuevo método importado
 const {
   updateAlbumAndTrackPopularity,
   updateAllAlbumPopularity,
   updateAllArtistPopularity,
   updateAllArtistPopularityAndPhotos,
 } = require('./handlers/popularityHandler');
-const { updateArtistRelated } = require('./handlers/relatedHandler');
 const {
   extractSpotifyPlaylist,
   extractBillionPlaylist,
 } = require('./handlers/playlistHandler');
-const { processArtistList } = require('./utils/spotifyHelpers');
+const { processArtistList, importFullArtistCatalog } = require('./utils/spotifyHelpers');
+
+const importFullArtistCatalogController = async (req, res) => {
+  const { artistId } = req.params;
+  try {
+    await importFullArtistCatalog(artistId);
+    const supabase = require('../supabaseClient');
+    await supabase
+      .from('artistas')
+      .update({ es_principal: true })
+      .eq('id_artista', artistId);
+    res.status(200).send(`Catálogo importado y artista ${artistId} marcado como principal.`);
+  } catch (err) {
+    console.error("Error al importar catálogo:", err);
+    res.status(500).send("Error al importar catálogo.");
+  }
+};
 
 // Controladores de artistas
 const searchFamousArtistsController = async (req, res) => {
@@ -141,4 +156,5 @@ module.exports = {
   updateArtistsPopularityController,
   updateArtistPhotosController,
   searchArtistsFromAlbumsController, // Nuevo controlador exportado
+  importFullArtistCatalogController,
 };

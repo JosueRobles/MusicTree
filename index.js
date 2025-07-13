@@ -58,6 +58,9 @@ async function initializeServer() {
     const feedRoutes = require('./routes/feedRoutes');
     const feedActivityRoutes = require('./routes/feedActivityRoutes');
     const rankingRoutes = require('./routes/rankingRoutes');
+    const catalogosRoutes = require('./routes/catalogosRoutes');
+    const notificacionesRoutes = require('./routes/notificacionesRoutes');
+    const familiaridadRoutes = require('./routes/familiaridadRoutes');
 
     app.use("/auth", authRoutes);
     app.use("/usuarios", userRoutes);
@@ -84,6 +87,9 @@ async function initializeServer() {
     app.use('/feed', feedRoutes);
     app.use('/', feedActivityRoutes);
     app.use("/rankings", rankingRoutes);
+    app.use('/catalogos', catalogosRoutes);
+    app.use('/notificaciones', notificacionesRoutes);
+    app.use('/familiaridad', familiaridadRoutes);
 
     // Ruta para iniciar la autenticación de Spotify
     app.get('/login', (req, res) => {

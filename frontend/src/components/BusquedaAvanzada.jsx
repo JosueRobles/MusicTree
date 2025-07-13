@@ -12,7 +12,8 @@ const BusquedaAvanzada = ({
   canciones = [],
   videos = [],
   onSortOrderChange,
-  onReset, // Se recibe la función para restablecer filtros
+  onReset,
+  onBarraSearch, // NUEVO
 }) => {
   const [filtros, setFiltros] = useState({
     termino: '',
@@ -25,6 +26,7 @@ const BusquedaAvanzada = ({
   const [generos, setGeneros] = useState([]);
   const [anios, setAnios] = useState([]);
   const [sugerencias, setSugerencias] = useState([]);
+  const [entidadError, setEntidadError] = useState(false);
 
   useEffect(() => {
     const fetchGeneros = async () => {
@@ -73,6 +75,35 @@ const BusquedaAvanzada = ({
     setSugerencias(nuevasSugerencias);
   }, [artistas, albums, canciones, videos]);
 
+  useEffect(() => {
+    if (filtros.artista) {
+      // Normaliza artistas a array de números
+      const trabajosAnios = [
+        ...albums.filter(a => {
+          const artistasArr = Array.isArray(a.artistas)
+            ? a.artistas
+            : typeof a.artistas === 'string'
+              ? a.artistas.split(',').map(Number)
+              : [];
+          return artistasArr.includes(Number(filtros.artista));
+        }).map(a => a.anio),
+        ...videos.filter(v => {
+          const artistasArr = Array.isArray(v.artistas)
+            ? v.artistas
+            : typeof v.artistas === 'string'
+              ? v.artistas.split(',').map(Number)
+              : [];
+          return artistasArr.includes(Number(filtros.artista));
+        }).map(v => v.anio)
+      ];
+      setAnios([...new Set(trabajosAnios)].sort((a, b) => b - a));
+    } else {
+      // Recopila todos los años únicos de álbumes y videos
+      const todosAnios = [...new Set([...albums.map(album => album.anio), ...videos.map(video => video.anio)])].sort((a, b) => b - a);
+      setAnios(todosAnios);
+    }
+  }, [filtros.artista, albums, videos]);
+
   const handleFiltroChange = (campo, valor) => {
     const nuevosFiltros = { ...filtros, [campo]: valor };
     setFiltros(nuevosFiltros);
@@ -80,9 +111,8 @@ const BusquedaAvanzada = ({
   };
 
   const handleSearchInput = (termino) => {
-    const nuevosFiltros = { ...filtros, termino };
-    setFiltros(nuevosFiltros);
-    onSearch(nuevosFiltros);
+    setFiltros({ ...filtros, termino });
+    if (onBarraSearch) onBarraSearch(termino); // NUEVO: solo actualiza el término
   };
 
   const handleResetFilters = () => {
@@ -92,17 +122,21 @@ const BusquedaAvanzada = ({
       artista: '',
       genero: '',
       entidad: '',
+      orden: 'predeterminado',
     });
+    onSortOrderChange('predeterminado'); // <-- Añade esto
     onReset(); // Llama la función para restablecer la vista predeterminada
   };
 
   const handleSortChange = (e) => {
     const order = e.target.value;
-  
-    if (order === 'ranking_personal') {
-      onSortOrderChange('ranking_personal');
-    } else if (order === 'ranking_comunitario') {
-      onSortOrderChange('ranking_comunitario');
+    if ((order === 'ranking_comunitario') && !filtros.entidad) {
+      setEntidadError(true);
+      return;
+    }
+    setEntidadError(false);
+    if (order === 'ranking_comunitario') {
+      onSortOrderChange('ranking_comunitario', filtros.entidad);
     } else if (order === 'popularidad') {
       onSortOrderChange('popularidad');
     } else if (order === 'valoracion') {
@@ -118,9 +152,9 @@ const BusquedaAvanzada = ({
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="col-span-full">
-          <BarraDeBusqueda 
-            onSearch={handleSearchInput} 
-            placeholder="Artistas, álbumes, canciones..." 
+          <BarraDeBusqueda
+            onSearch={handleSearchInput}
+            placeholder="Artistas, álbumes, canciones, videos musicales..."
             sugerencias={sugerencias}
           />
         </div>
@@ -164,24 +198,36 @@ const BusquedaAvanzada = ({
           >
             <option value="">Todos los géneros</option>
             {generos.map((genero) => (
-              <option key={genero.id_genero} value={genero.id_genero}>{genero.nombre}</option>
+              <option key={genero.id_genero} value={genero.nombre}>{genero.nombre}</option>
             ))}
           </select>
         </div>
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">Entidad:</label>
-          <select 
-            className="w-full border rounded px-3 py-2"
+          <select
+            className={`w-full border rounded px-3 py-2 ${entidadError ? 'border-red-500' : ''}`}
             value={filtros.entidad}
-            onChange={(e) => handleFiltroChange('entidad', e.target.value)}
+            onChange={(e) => {
+              handleFiltroChange('entidad', e.target.value);
+              setEntidadError(false);
+              // Si el orden actual es ranking_comunitario, dispara el filtro de ranking
+              if (filtros.orden === 'ranking_comunitario' && e.target.value) {
+                onSortOrderChange('ranking_comunitario', e.target.value);
+              }
+            }}
           >
             <option value="">Todas las entidades</option>
-            <option value="artist">Artistas</option>
+            <option value="artist" disabled={!!filtros.anio}>Artistas</option>
             <option value="album">Álbumes</option>
             <option value="song">Canciones</option>
             <option value="video">Videos Musicales</option>
           </select>
+          {entidadError && (
+            <div style={{ color: 'red', fontWeight: 'bold', marginTop: 4 }}>
+              Debes seleccionar una entidad para usar el ranking.
+            </div>
+          )}
         </div>
         <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">Ordenar por:</label>
@@ -192,7 +238,6 @@ const BusquedaAvanzada = ({
             <option value="predeterminado">Predeterminado</option>
             <option value="popularidad">Popularidad</option>
             <option value="valoracion">Valoración promedio</option>
-            <option value="ranking_personal">Ranking Personal</option>
             <option value="ranking_comunitario">Ranking Comunitario</option>
           </select>
         </div>
@@ -217,6 +262,7 @@ BusquedaAvanzada.propTypes = {
   videos: PropTypes.array,
   onSortOrderChange: PropTypes.func.isRequired,
   onReset: PropTypes.func.isRequired, // Nueva prop para restablecer filtros
+  onBarraSearch: PropTypes.func, // NUEVO
 };
 
 export default BusquedaAvanzada;

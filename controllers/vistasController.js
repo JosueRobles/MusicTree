@@ -6,7 +6,7 @@ const obtenerVista = async (req, res) => {
 
   try {
     // Validar que la vista solicitada sea válida
-    const vistasValidas = ['vista_orden_predeterminado', 'vista_popularidad', 'vista_valoracion_promedio'];
+    const vistasValidas = ['vista_orden_predeterminado', 'vista_popularidad', 'vista_valoracion_promedio', 'vista_valoracion_promedio_ordenada', 'vista_orden_intercalada'];
     if (!vistasValidas.includes(vista)) {
       return res.status(400).json({ error: 'Vista no válida' });
     }

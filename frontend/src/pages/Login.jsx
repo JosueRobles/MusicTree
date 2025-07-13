@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
 import axios from 'axios';
+import { useNavigate, Link } from 'react-router-dom'; // <-- Asegúrate de importar Link
 
 const API_URL = "http://localhost:5000";
 
@@ -8,6 +9,7 @@ const Login = ({ onLoginExitoso }) => {
   const [emailOrUsername, setEmailOrUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -17,7 +19,8 @@ const Login = ({ onLoginExitoso }) => {
       if (token) {
         localStorage.setItem('token', token);
         onLoginExitoso(user);
-        console.log('Token guardado:', token);
+        navigate("/", { replace: true });
+        window.location.reload();
       } else {
         setError('No se recibió un token.');
       }
@@ -59,6 +62,14 @@ const Login = ({ onLoginExitoso }) => {
           Iniciar Sesión
         </button>
       </form>
+
+      {/* Registro Link */}
+      <p className="text-sm text-center mt-4">
+        ¿No tienes cuenta?{' '}
+        <Link to="/register" className="text-green-600 hover:underline">
+          Regístrate aquí
+        </Link>
+      </p>
     </div>
   );
 };

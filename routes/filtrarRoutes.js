@@ -1,8 +1,13 @@
 const express = require('express');
 const router = express.Router();
-const { filtrarEntidades } = require('../controllers/filtrarController');
+const filtrarController = require('../controllers/filtrarController');
 
 // Endpoint para filtrar entidades
-router.get('/filtrar', filtrarEntidades);
+router.get('/filtrar', filtrarController.filtrarEntidades);
+router.get('/filtrar/contar', filtrarController.contarEntidades);
+router.get('/contar/artistas', filtrarController.contarArtistas);
+router.get('/contar/albumes', filtrarController.contarAlbumes);
+router.get('/contar/canciones', filtrarController.contarCanciones);
+router.get('/contar/videos', filtrarController.contarVideos);
 
 module.exports = router;

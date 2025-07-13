@@ -11,13 +11,18 @@ const registrarActividad = async (usuario_id, tipo_actividad, entidad_tipo, id_e
   }
 
   // Insertar en actividad_usuario (resumen)
+  const referencia_entidad = tipo_actividad === 'seguimiento' ? 'usuario'
+    : tipo_actividad === 'seguimiento_artista' ? 'artista'
+    : entidad_tipo;
   const { error: errorResumen } = await supabase
     .from('actividad_usuario')
-    .insert([{ usuario: usuario_id, tipo_actividad, referencia_id: id_entidad }]);
+    .insert([{ usuario: usuario_id, tipo_actividad, referencia_id: id_entidad, referencia_entidad }]);
 
   if (errorResumen) {
     console.error("❌ Error al registrar actividad resumen:", errorResumen);
   }
 };
+
+
 
 module.exports = { registrarActividad };

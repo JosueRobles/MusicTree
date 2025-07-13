@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 
 const PieDePagina = () => {
   return (
-    <footer style={{ backgroundColor: '#065F46', color: 'white', padding: '1rem', marginTop: '2.5rem', width: '100%' }}>
+    <footer style={{ backgroundColor: '#064E3B', color: 'white', padding: '1rem', alignItems: 'center', width: '100%', bottom: 0, left: 0 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
         <div>
           <h3 style={{ fontSize: '1.25rem', fontWeight: 'bold' }}>MusicTree</h3>

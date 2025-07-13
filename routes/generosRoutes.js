@@ -9,8 +9,14 @@ const {
   updateAlbumGenres,
   updateSongGenres,
   deleteLowMentionGenres,
-  loadMainGenres
+  loadMainGenres,
+  getGeneroPorId,
+  getVideosPorGenero,
+  updateVideoGenres,
 } = require('../controllers/generosController');
+
+// Actualizar géneros de videos musicales
+router.get('/update/videos', updateVideoGenres);
 
 // Ruta para obtener todos los géneros
 router.get('/', getGeneros);
@@ -19,6 +25,7 @@ router.get('/', getGeneros);
 router.get('/:id/artistas', getArtistasPorGenero);
 router.get('/:id/albumes', getAlbumesPorGenero);
 router.get('/:id/canciones', getCancionesPorGenero);
+router.get('/:id', getGeneroPorId); // <-- Agrega esta línea
 
 // Rutas adicionales para extracción y normalización
 router.get('/update/artists', updateArtistGenres); // Actualizar géneros de artistas
@@ -28,5 +35,8 @@ router.post('/delete-low-mentions', deleteLowMentionGenres); // Eliminar género
 
 // Ruta para cargar géneros principales
 router.get('/load-main-genres', loadMainGenres);
+
+// Obtener videos musicales por género
+router.get('/:id/videos', getVideosPorGenero);
 
 module.exports = router;

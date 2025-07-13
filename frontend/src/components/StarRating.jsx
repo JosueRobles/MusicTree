@@ -22,6 +22,14 @@ const StarRating = ({
   const [comentarioGuardado, setComentarioGuardado] = useState(false);
   const [emocion, setEmocion] = useState('');
   const [emocionesCount, setEmocionesCount] = useState({});
+  const [familiaridad, setFamiliaridad] = useState("");
+  const [familiaridadCounts, setFamiliaridadCounts] = useState({});
+
+  const familiaridadNiveles = [
+    { key: "primera_vez", label: "Primera vez que escucho", img: "/familiaridad/primera_vez.png" },
+    { key: "algunas_veces", label: "La he escuchado algunas veces", img: "/familiaridad/algunas_veces.png" },
+    { key: "muchas_veces", label: "La he escuchado mucho", img: "/familiaridad/muchas_veces.png" },
+  ];
 
   useEffect(() => {
     setRating(valoracionInicial);
@@ -61,6 +69,7 @@ const StarRating = ({
           setComentario(data.comentario || '');
           setComentarioGuardado(!!data.comentario);
           setEmocion(data.emocion || '');
+          setRating(data.calificacion || 0);
 
           const emocionesResponse = await axios.get(`${API_URL}/emociones`, {
             params: {
@@ -84,6 +93,52 @@ const StarRating = ({
       }
     };
     fetchData();
+  }, [usuario, entidadTipo, entidadId]);
+
+  useEffect(() => {
+    // Obtener familiaridad del usuario
+    if (usuario) {
+      axios.get(`${API_URL}/familiaridad`, {
+        params: { usuario: usuario.id_usuario, entidad_tipo: entidadTipo, entidad_id: entidadId }
+      }).then(res => setFamiliaridad(res.data?.nivel || ""));
+    }
+    // Obtener conteo global
+    axios.get(`${API_URL}/familiaridad/contar`, {
+      params: { entidad_tipo: entidadTipo, entidad_id: entidadId }
+    }).then(res => {
+      const obj = {};
+      (res.data || []).forEach(item => { obj[item.nivel] = Number(item.count) || 0; });
+      setFamiliaridadCounts(obj);
+    });
+  }, [usuario, entidadTipo, entidadId]);
+
+  useEffect(() => {
+    if (usuario) {
+      axios.get(`${API_URL}/emociones`, {
+        params: { entidad_tipo: entidadTipo, entidad_id: entidadId }
+      }).then(res => {
+        // Actualiza los contadores
+        const emocionesData = (res.data || []).reduce((acc, item) => {
+          acc[item.emocion] = Number(item.count) || 0;
+          return acc;
+        }, {});
+        setEmocionesCount(emocionesData);
+      });
+
+      // Trae la emoción del usuario actual
+      axios.get(`${API_URL}/emociones`, {
+        params: {
+          entidad_tipo: entidadTipo,
+          entidad_id: entidadId,
+          usuario: usuario.id_usuario
+        }
+      }).then(res => {
+        // Si el backend soporta filtrar por usuario, usa esto:
+        if (Array.isArray(res.data) && res.data.length > 0) {
+          setEmocion(res.data[0].emocion);
+        }
+      });
+    }
   }, [usuario, entidadTipo, entidadId]);
 
   const handleRating = async (newRating) => {
@@ -131,7 +186,6 @@ const StarRating = ({
         },
       });
       setComentarioGuardado(true);
-      alert('Comentario agregado correctamente.');
     } catch (error) {
       console.error('Error al agregar comentario:', error);
     }
@@ -158,8 +212,7 @@ const StarRating = ({
         ...prevState,
         [emocion]: Math.max((prevState[emocion] || 1) - 1, 0),
       }));
-  
-      alert('Emoción eliminada correctamente.');
+
     } catch (error) {
       console.error('Error al eliminar emoción:', error);
     }
@@ -168,11 +221,6 @@ const StarRating = ({
   const handleAgregarOReemplazarEmocion = async (emocionSeleccionada) => {
     try {
       const token = localStorage.getItem('token');
-  
-      if (emocion === emocionSeleccionada) {
-        alert('Ya has seleccionado esta emoción.');
-        return;
-      }
   
       await axios.put(
         `${API_URL}/emociones`,
@@ -198,8 +246,7 @@ const StarRating = ({
         [emocionSeleccionada]: (prevState[emocionSeleccionada] || 0) + 1,
         [emocion]: Math.max((prevState[emocion] || 1) - 1, 0),
       }));
-  
-      alert('Emoción modificada correctamente.');
+
     } catch (error) {
       console.error('Error al modificar emoción:', error);
     }
@@ -219,10 +266,27 @@ const StarRating = ({
       });
       setComentario('');
       setComentarioGuardado(false);
-      alert('Comentario eliminado correctamente.');
     } catch (error) {
       console.error('Error al eliminar comentario:', error);
     }
+  };
+
+  const handleFamiliaridad = async (nivelSeleccionado) => {
+    if (!usuario) return;
+    setFamiliaridad(nivelSeleccionado);
+    await axios.post(`${API_URL}/familiaridad`, {
+      usuario: usuario.id_usuario,
+      entidad_tipo: entidadTipo,
+      entidad_id: entidadId,
+      nivel: nivelSeleccionado,
+    });
+    // Actualiza conteo global
+    const res = await axios.get(`${API_URL}/familiaridad/contar`, {
+      params: { entidad_tipo: entidadTipo, entidad_id: entidadId }
+    });
+    const obj = {};
+    (res.data || []).forEach(item => { obj[item.nivel] = item.count; });
+    setFamiliaridadCounts(obj);
   };
 
   const handleClick = (event, value) => {
@@ -295,26 +359,65 @@ const StarRating = ({
               Agregar Comentario
             </button>
           )}
-          <div className="flex mt-4">
-          <div className="emocion-container">
-          {['alegria', 'tristeza', 'energia', 'relajacion', 'romance', 'enojo', 'inspiracion', 'nostalgia'].map((em) => (
-            <div key={em} className="emocion-item">
-              <img
-                src={`/emojis/${em}.png`}
-                alt={em}
-                className={em === emocion ? 'selected' : ''}
-                onClick={() => handleAgregarOReemplazarEmocion(em)}
-              />
-              <span className="emocion-count">{emocionesCount[em] || 0}</span>
+
+          {/* EMOCIONES */}
+          <div className="flex flex-col items-center mt-4">
+            <div style={{ fontWeight: "bold", color: "#3b82f6", marginBottom: 4 }}>
+              <span style={{ fontSize: 18, marginRight: 4 }}></span>¿Qué emoción me produce?
             </div>
-          ))}
-        </div>
+            <div className="emocion-container">
+              {['alegria', 'tristeza', 'energia', 'relajacion', 'romance', 'enojo', 'inspiracion', 'nostalgia'].map((em) => (
+                <div key={em} className="emocion-item">
+                  <img
+                    src={`/emojis/${em}.png`}
+                    alt={em}
+                    className={em === emocion ? 'selected' : ''}
+                    onClick={() => handleAgregarOReemplazarEmocion(em)}
+                  />
+                  <span className="emocion-count">{Number(emocionesCount[em]) || 0}</span>
+                  <span className="emocion-label" style={{ fontSize: 12, color: "#bbb" }}>{em.charAt(0).toUpperCase() + em.slice(1)}</span>
+                </div>
+              ))}
+            </div>
           </div>
           {emocion && (
             <button onClick={handleEliminarEmocion} className="bg-red-500 text-white px-4 py-2 rounded mt-4">
               Eliminar Emoción
             </button>
           )}
+
+          {/* FAMILIARIDAD */}
+          <div className="familiaridad-container mt-4">
+            {familiaridadNiveles.map((nivel) => (
+              <div
+                key={nivel.key}
+                className="familiaridad-item"
+                style={{ textAlign: "center", margin: "0 16px", cursor: "pointer" }}
+                onClick={() => handleFamiliaridad(nivel.key)}
+              >
+                <img
+                  src={nivel.img}
+                  alt={nivel.label}
+                  className={`familiaridad-icon${familiaridad === nivel.key ? " selected" : ""}`}
+                  style={{
+                    width: 56,
+                    height: 56,
+                    border: familiaridad === nivel.key ? "3px solid #3b82f6" : "2px solid #ccc",
+                    borderRadius: 12,
+                    marginBottom: 4,
+                    transition: "border 0.2s",
+                    cursor: "pointer"
+                  }}
+                />
+                <span className="familiaridad-count" style={{ fontSize: 13, color: "#16a34a", fontWeight: "bold" }}>
+                  {Number(familiaridadCounts[nivel.key]) || 0}
+                </span>
+                <div className="familiaridad-label" style={{ fontSize: 12, color: "#bbb", marginTop: 2 }}>
+                  {nivel.label}
+                </div>
+              </div>
+            ))}
+          </div>
         </>
       )}
     </div>

@@ -1,4 +1,5 @@
 const supabase = require("../db");
+const { notificarNuevosLanzamientos } = require('./utils/notifyHelpers');
 
 const crearCancion = async (req, res) => {
   const { titulo, album_id, orden, duracion_segundos } = req.body;
@@ -10,6 +11,19 @@ const crearCancion = async (req, res) => {
       .single();
 
     if (error) throw error;
+
+    // Notificar a los artistas sobre el nuevo lanzamiento
+    if (data && data.id_cancion && album_id) {
+      const { data: albumArtistas } = await supabase.from('album_artistas').select('artista_id').eq('album_id', album_id);
+      for (const artista of (albumArtistas || [])) {
+        await notificarNuevosLanzamientos(
+          artista.artista_id,
+          'cancion',
+          data.id_cancion,
+          `¡Nueva canción en álbum de ${titulo}!`
+        );
+      }
+    }
 
     res.status(201).json(data);
   } catch (error) {

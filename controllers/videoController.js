@@ -1,4 +1,5 @@
 const supabase = require("../db");
+const { notificarNuevosLanzamientos } = require('./utils/notifyHelpers');
 
 const crearVideoMusical = async (req, res) => {
   const { titulo, album_id, url_video, duracion, artistas } = req.body;
@@ -20,6 +21,16 @@ const crearVideoMusical = async (req, res) => {
         .insert([{ video_id: data.id_video, artista_id }]);
 
       if (videoArtistaError) throw videoArtistaError;
+    }
+
+    // Notificar a los artistas sobre el nuevo lanzamiento
+    for (const artista_id of artistas) {
+      await notificarNuevosLanzamientos(
+        artista_id,
+        'video',
+        data.id_video,
+        `¡Nuevo video de ${titulo}!`
+      );
     }
 
     res.status(201).json(data);

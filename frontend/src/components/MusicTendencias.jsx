@@ -5,7 +5,7 @@ import "react-multi-carousel/lib/styles.css";
 import { Link } from "react-router-dom";
 import PropTypes from 'prop-types';
 
-const API_URL = "http://localhost:5000/tendencias/orden";
+const API_URL = "http://localhost:5000/tendencias/feed";
 
 const MusicTendencias = ({ limit, itemsPerPage }) => {
   const [tendencias, setTendencias] = useState([]);
@@ -36,7 +36,7 @@ const MusicTendencias = ({ limit, itemsPerPage }) => {
 
   const responsive = {
     desktop: { breakpoint: { max: 3000, min: 1024 }, items: itemsPerPage, slidesToSlide: itemsPerPage },
-    tablet: { breakpoint: { max: 1024, min: 464 }, items: 2, slidesToSlide: 2 },
+    tablet: { breakpoint: { max: 1024, min: 464 }, items: 3, slidesToSlide: 3 },
     mobile: { breakpoint: { max: 464, min: 0 }, items: 1, slidesToSlide: 1 },
   };
 
@@ -55,21 +55,6 @@ const MusicTendencias = ({ limit, itemsPerPage }) => {
     }
   };
 
-  const getImage = (item, tipo) => {
-    switch (tipo) {
-      case "artista":
-        return item.foto_artista;
-      case "album":
-        return item.foto_album;
-      case "cancion":
-        return item.foto_album; // Asumimos que la canción usa la foto del álbum
-      case "video":
-        return item.miniatura;
-      default:
-        return "";
-    }
-  };
-
   return (
     <div className="tendencias-container">
       <h2>Tendencias Semanales</h2>
@@ -85,28 +70,29 @@ const MusicTendencias = ({ limit, itemsPerPage }) => {
           <div key={tipo}>
             <h3>{categorias[tipo]}</h3>
             <Carousel 
-              responsive={responsive} 
-              infinite 
-              autoPlay 
-              autoPlaySpeed={3000}
-              containerClass="carousel-container"
-              itemClass="carousel-item"
+              responsive={responsive}
+              infinite={true}
+              autoPlay
+              autoPlaySpeed={4000}
+              containerClass="music-carousel-container"
+              itemClass="music-carousel-item"
             >
               {tendenciasFiltradas.map((item, index) => (
-                <div 
-                  key={index} 
-                  className="tendencia-card"
-                  style={{ width: 'calc(20% - 10px)', margin: '0 5px', border: '2px solid green' }} // Ajustamos el tamaño de los cuadros y agregamos el borde verde
-                >
+                <div key={index} className="music-tendencia-card">
                   <Link to={getLink(tipo, item.entidad_id)}>
-                    <img 
-                      src={getImage(item, tipo)}
-                      alt={item.nombre} 
-                      className="tendencia-imagen" 
+                    <img
+                      src={item.imagen ? item.imagen : "/placeholder.png"}
+                      alt={item.nombre}
+                      className="music-tendencia-imagen"
                     />
-                    <h4 className="text-center mt-1 text-sm">{item.nombre}</h4> {/* Mostramos el nombre */}
+                    <h4>{item.nombre}</h4>
+                    <p>
+                      Valoraciones: {item.valoraciones}
+                      {item.promedio_valoracion != null && (
+                        <> | Promedio: {Number(item.promedio_valoracion).toFixed(1)} ⭐</>
+                      )}
+                    </p>
                   </Link>
-                  <p className="text-center mt-1 text-xs">Valoraciones: {item.valoraciones}</p>
                 </div>
               ))}
             </Carousel>
@@ -119,7 +105,7 @@ const MusicTendencias = ({ limit, itemsPerPage }) => {
 
 MusicTendencias.propTypes = {
   limit: PropTypes.number.isRequired,
-  itemsPerPage: PropTypes.number.isRequired
+  itemsPerPage: PropTypes.number.isRequired,
 };
 
 export default MusicTendencias;

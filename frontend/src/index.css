@@ -33,19 +33,6 @@ a:hover {
   color: white;
 }
 
-.carousel-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  overflow: hidden; /* Asegurarnos de que no haya desbordamiento */
-}
-
-.carousel-item {
-  flex: 0 0 15%; /* Ajustar el tamaño de los cuadros */
-  text-align: center;
-  margin: 0 0px; /* Reducir el espacio entre los cuadros */
-}
-
 .static-container {
   display: flex;
   justify-content: center;
@@ -58,22 +45,6 @@ a:hover {
   margin: 0 1px; /* Reducir el espacio entre los cuadros */
 }
 
-.tendencia-card {
-  padding: 10px;
-  box-sizing: border-box;
-  border: 2px solid green; /* Agregamos el borde verde */
-}
-
-.tendencia-imagen {
-  width: 100%;
-  height: auto;
-  display: block;
-  margin: 0 auto;
-}
-
-.tendencia-card.centrado {
-  margin: 0 auto;
-}
 
 .grid-container {
   display: grid;
@@ -82,29 +53,35 @@ a:hover {
   width: 100%;
 }
 
-.cell {
-  width: 100%;
-  height: 150px; /* Ajuste de altura para las celdas */
-  background-color: #f0f0f0;
-  border: 1px solid #ddd;
+.cell, .planilla-paginacion-btn {
   display: flex;
   flex-direction: column;
-  justify-content: center;
   align-items: center;
+  justify-content: flex-start;
+  background: #181818;
+  border-radius: 8px;
+  padding: 8px 4px;
+  height: 150px;
+  overflow: hidden;
 }
 
 .cell img {
-  width: 100%;
-  height: 70%;
+  width: 100px;
+  height: 100px;
   object-fit: cover;
-  border-bottom: 1px solid #ddd;
+  border-radius: 8px;
+  margin-bottom: 8px;
+  background: #222;
 }
 
 .cell p {
   width: 100%;
   text-align: center;
-  padding: 5px;
-  box-sizing: border-box;
+  font-size: 0.95rem;
+  color: #c9d1d9;
+  margin: 0;
+  line-height: 1.2;
+  word-break: break-word;
 }
 
 body {

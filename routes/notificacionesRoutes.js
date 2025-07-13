@@ -11,4 +11,6 @@ router.get('/usuario/:usuarioId', notificacionesController.obtenerNotificaciones
 // Marcar notificación como vista
 router.put('/:id/visto', notificacionesController.marcarNotificacionComoVista);
 
+router.put('/usuario/:usuarioId/visto', notificacionesController.marcarTodasComoVistas);
+
 module.exports = router;
