@@ -87,31 +87,42 @@ async function updateArtistType(artistId, coleccionable) {
 
 async function insertOrUpdateArtist(artist) {
   try {
-    // Validar que el nombre del artista no sea nulo
     if (!artist.name) {
       throw new Error(`El artista con ID ${artist.id} no tiene un nombre válido.`);
+    }
+
+    // Consulta actual
+    const { data: existingArtist } = await supabase
+      .from('artistas')
+      .select('id_artista, es_principal')
+      .eq('spotify_id', artist.id)
+      .maybeSingle();
+
+    let esPrincipal = false;
+    if (existingArtist && existingArtist.es_principal === true) {
+      esPrincipal = true;
     }
 
     const { data, error } = await supabase.from('artistas').upsert(
       {
         spotify_id: artist.id,
         nombre_artista: artist.name,
-        foto_artista: artist.images?.[0]?.url || null, // Foto principal
-        popularidad_artista: artist.popularity || 0,  // Popularidad
-        es_principal: false, // Inicialmente falso
+        foto_artista: artist.images?.[0]?.url || null,
+        popularidad_artista: artist.popularity || 0,
+        es_principal: esPrincipal, // Solo lo pones en false si es nuevo
       },
-      { onConflict: ['spotify_id'] } // Evitar duplicados
-    ).select('id_artista'); // Devuelve el ID del artista
+      { onConflict: ['spotify_id'] }
+    ).select('id_artista');
 
     if (error) {
       console.error("Error al insertar o actualizar artista:", error);
       throw error;
     }
 
-    return data?.[0]?.id_artista; // Devuelve el ID del artista
+    return data?.[0]?.id_artista;
   } catch (err) {
     console.error("Error en insertOrUpdateArtist:", err.message || err);
-    return null; // Devolver null si falla
+    return null;
   }
 }
 
@@ -142,24 +153,31 @@ const insertOrUpdateAlbum = async (album) => {
   }
 };
 
-const insertOrUpdateTrack = async (track, albumId) => {
+const insertOrUpdateTrack = async (track, albumId, categoria = 'catalogo') => {
   try {
+    let categoriaFinal = categoria;
+    const { data: existing, error: existingError } = await supabase
+      .from('canciones')
+      .select('categoria')
+      .eq('spotify_id', track.id)
+      .maybeSingle();
+    if (existing && existing.categoria && !existing.categoria.includes(categoria)) {
+      categoriaFinal = existing.categoria + ' ' + categoria;
+    }
     const { data, error } = await supabase.from('canciones').upsert({
       spotify_id: track.id,
       titulo: track.name,
-      album: albumId, // Usar el ID interno del álbum
+      album: albumId,
       duracion_ms: track.duration_ms,
       popularidad: track.popularity,
       orden: track.track_number,
-      categoria: 'billion', // Por ahora, todas las canciones son normales
+      categoria: categoriaFinal,
     }, { onConflict: ['spotify_id'] }).select('id_cancion');
-
     if (error) {
       console.error("Error al insertar o actualizar canción:", error);
       throw error;
     }
-
-    return data?.[0]?.id_cancion; // Retorna el ID interno de la canción
+    return data?.[0]?.id_cancion;
   } catch (err) {
     console.error("Error en insertOrUpdateTrack:", err);
     throw err;

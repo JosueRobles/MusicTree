@@ -5,27 +5,29 @@ const router = express.Router();
 const {
   searchFamousArtistsController,
   searchArtistsFromListController,
-  updateArtistRelatedController,
-  extractBillionPlaylistController,
   updateAlbumsPopularityController,
   updateArtistsPopularityController,
   updateArtistPhotosController,
   searchArtistsFromAlbumsController, // Nuevo controlador
   processArtistListController,
-  importFullArtistCatalogController
+  importFullArtistCatalogController,
+  processPlaylistController,
+  updateCollectionFromPlaylistController,
+  updateValidatedArtistCatalogController
 } = require('../controllers/spotifyController');
 
 router.get('/import-catalog/:artistId', importFullArtistCatalogController);
+router.get('/update-catalog/:artistId', updateValidatedArtistCatalogController);
 
 // Rutas principales
 router.get('/search/famous', searchFamousArtistsController);
 router.get('/search/newlist', searchArtistsFromListController);
 
-// Rutas para procesar la playlist "Billion Club"
-router.get('/process-billion-playlist', extractBillionPlaylistController);
+// Rutas para procesar las playlists
+router.get('/process-playlist/:playlistId', processPlaylistController);
+router.get('/update-collection-from-playlist/:coleccionId', updateCollectionFromPlaylistController);
 
 // Rutas para actualizar popularidad y fotos
-router.get('/search/popularity', updateAlbumsPopularityController);
 router.get('/search/update-album-popularity', updateAlbumsPopularityController);
 router.get('/search/update-artist-popularity', updateArtistsPopularityController);
 router.get('/search/update-artist-photos', updateArtistPhotosController);
