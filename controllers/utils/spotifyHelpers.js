@@ -1,7 +1,17 @@
 const axios = require('axios');
-const { getSpotifyApi } = require('../config/spotifyAuth'); // ← ESTA LÍNEA FALTABA
+const { getSpotifyApi, initializeToken } = require('../config/spotifyAuth'); // <-- AGREGA initializeToken
 const supabase = require('../../supabaseClient');
 const { insertOrUpdateAlbum, insertOrUpdateTrack, insertOrUpdateArtist, linkAlbumWithArtist } = require('./supabaseHelpers');
+const {
+  updateArtistsPopularityAndPhotosByIds,
+  updateAlbumsPopularityByIds,
+  updateTracksPopularityByIds,
+  updateArtistGenresByIds,
+  updateAlbumGenresByIds,
+  updateSongGenresByIds,
+} = require('../handlers/batchUpdateHandler');
+const { getArtistDetails } = require('./spotifyApiHelpers');
+const { safeSpotifyCall } = require('./spotifySafeCall');
 
 async function getPlaylistTracks(spotifyApi, playlistId) {
   try {
@@ -13,10 +23,10 @@ async function getPlaylistTracks(spotifyApi, playlistId) {
     const limit = 100;
 
     while (offset < totalTracks) {
-      const response = await spotifyApi.getPlaylistTracks(playlistId, {
+      const response = await safeSpotifyCall(() => spotifyApi.getPlaylistTracks(playlistId, {
         offset,
         limit
-      });
+      }));
       tracks.push(...response.body.items);
       offset += limit;
     }
@@ -35,14 +45,14 @@ async function getArtistFromSpotify(name) {
 
 async function getAlbumsFromArtist(artistId) {
   const spotifyApi = getSpotifyApi();
-  const data = await spotifyApi.getArtistAlbums(artistId, { limit: 50 });
-  return data.body.items;
+  const albums = await safeSpotifyCall(() => spotifyApi.getArtistAlbums(artistId, { limit: 50 }));
+  return albums.body.items;
 }
 
 async function getTracksFromAlbum(albumId) {
   const spotifyApi = getSpotifyApi();
-  const data = await spotifyApi.getAlbumTracks(albumId);
-  return data.body.items;
+  const albums = await safeSpotifyCall(() => spotifyApi.getAlbumTracks(albumId, { limit: 50 }));
+  return albums.body.items;
 }
 
 async function importFullArtistCatalog(spotifyId, id_artista = null) {
@@ -59,38 +69,46 @@ async function importFullArtistCatalog(spotifyId, id_artista = null) {
     id_artista = data.id_artista;
   }
 
-  // 2. Obtener todos los álbumes del artista desde Spotify
+  // 2. Inicializar sets para acumulación
+  const newArtistIds = new Set();
+  const newAlbumIds = new Set();
+  const newTrackIds = new Set();
+
+  // 3. Obtener todos los álbumes del artista desde Spotify
   const spotifyApi = getSpotifyApi();
-  const albums = await spotifyApi.getArtistAlbums(spotifyId, { limit: 50 });
+  await initializeToken();
+  const albums = await safeSpotifyCall(() => spotifyApi.getArtistAlbums(spotifyId, { limit: 50 }));
   const albumItems = albums.body.items;
 
   for (const album of albumItems) {
-    // 3. Insertar o actualizar el álbum
-    const albumData = await insertOrUpdateAlbum(album);
+    const albumData = await insertOrUpdateAlbum(album, 'catalogo');
     const albumId = albumData.id_album;
+    newAlbumIds.add(albumId);
+
+    const artistIds = [];
 
     // 4. Obtener todos los artistas del álbum y vincularlos
     for (const artist of album.artists) {
-      // Insertar o actualizar artista
       const relatedArtistId = await insertOrUpdateArtist({
         id: artist.id,
         name: artist.name,
         images: [],
         popularity: 0
       });
-      // Relacionar álbum con artista
+      artistIds.push(relatedArtistId);
+      newArtistIds.add(relatedArtistId);
       await linkAlbumWithArtist(albumId, relatedArtistId);
     }
 
     // 5. Obtener todas las canciones del álbum
-    const tracksData = await spotifyApi.getAlbumTracks(album.id);
+    await initializeToken();
+    const tracksData = await safeSpotifyCall(() => spotifyApi.getAlbumTracks(album.id));
     const tracks = tracksData.body.items;
 
     for (const track of tracks) {
-      // 6. Insertar o actualizar la canción
       const trackId = await insertOrUpdateTrack(track, albumId);
+      newTrackIds.add(trackId);
 
-      // 7. Relacionar canción con todos sus artistas
       for (const artist of track.artists) {
         const relatedArtistId = await insertOrUpdateArtist({
           id: artist.id,
@@ -98,7 +116,8 @@ async function importFullArtistCatalog(spotifyId, id_artista = null) {
           images: [],
           popularity: 0
         });
-        // Relacionar canción con artista
+        newArtistIds.add(relatedArtistId);
+
         await supabase.from('cancion_artistas').upsert({
           cancion_id: trackId,
           artista_id: relatedArtistId
@@ -107,17 +126,111 @@ async function importFullArtistCatalog(spotifyId, id_artista = null) {
     }
   }
 
-  // 8. Marcar artista como principal
-  await supabase
-    .from('artistas')
-    .update({ es_principal: true })
-    .eq('id_artista', id_artista);
+  // 6. Actualizaciones por lote
+  await updateArtistsPopularityAndPhotosByIds([...newArtistIds]);
+  await updateAlbumsPopularityByIds([...newAlbumIds]);
+  await updateTracksPopularityByIds([...newTrackIds]);
+  await updateArtistGenresByIds([...newArtistIds]);
+  await updateAlbumGenresByIds([...newAlbumIds]);
+  await updateSongGenresByIds([...newTrackIds]);
 
   console.log(`✅ Catálogo completo importado y relaciones creadas para artista: ${spotifyId}`);
+
+  // Al final, retorna los IDs modificados
+  return {
+    artistIds: [...newArtistIds],
+    albumIds: [...newAlbumIds],
+    trackIds: [...newTrackIds]
+  };
 }
 
+const updateMissingFromArtistCatalog = async (spotifyId, id_artista) => {
+  console.log(`🔍 Actualizando catálogo faltante del artista: ${spotifyId}`);
+
+  const spotifyApi = getSpotifyApi();
+  await initializeToken();
+
+  // Obtener álbumes existentes en tu DB
+  const { data: existingAlbums } = await supabase
+    .from('albumes')
+    .select('spotify_id')
+    .eq('id_artista_principal', id_artista);
+
+  const existingAlbumIds = new Set((existingAlbums || []).map(a => a.spotify_id));
+
+  const newArtistIds = new Set();
+  const newAlbumIds = new Set();
+  const newTrackIds = new Set();
+
+  const albums = await safeSpotifyCall(() =>
+    spotifyApi.getArtistAlbums(spotifyId, { limit: 50 })
+  );
+  const albumItems = albums.body.items;
+
+  for (const album of albumItems) {
+    if (existingAlbumIds.has(album.id)) continue;
+
+    const albumData = await insertOrUpdateAlbum(album, 'catalogo');
+    const albumId = albumData.id_album;
+    newAlbumIds.add(albumId);
+
+    for (const artist of album.artists) {
+      const relatedArtistId = await insertOrUpdateArtist({
+        id: artist.id,
+        name: artist.name,
+        images: [],
+        popularity: 0,
+      });
+      newArtistIds.add(relatedArtistId);
+      await linkAlbumWithArtist(albumId, relatedArtistId);
+    }
+
+    const tracksData = await safeSpotifyCall(() =>
+      spotifyApi.getAlbumTracks(album.id)
+    );
+    const tracks = tracksData.body.items;
+
+    for (const track of tracks) {
+      const trackId = await insertOrUpdateTrack(track, albumId);
+      newTrackIds.add(trackId);
+
+      for (const artist of track.artists) {
+        const relatedArtistId = await insertOrUpdateArtist({
+          id: artist.id,
+          name: artist.name,
+          images: [],
+          popularity: 0,
+        });
+        newArtistIds.add(relatedArtistId);
+
+        await supabase.from('cancion_artistas').upsert({
+          cancion_id: trackId,
+          artista_id: relatedArtistId,
+        }, { onConflict: ['cancion_id', 'artista_id'] });
+      }
+    }
+  }
+
+  // Actualizaciones en lote
+  await updateArtistsPopularityAndPhotosByIds([...newArtistIds]);
+  await updateAlbumsPopularityByIds([...newAlbumIds]);
+  await updateTracksPopularityByIds([...newTrackIds]);
+  await updateArtistGenresByIds([...newArtistIds]);
+  await updateAlbumGenresByIds([...newAlbumIds]);
+  await updateSongGenresByIds([...newTrackIds]);
+
+  console.log(`✅ Elementos faltantes agregados para artista: ${spotifyId}`);
+  
+  // Al final, retorna los IDs modificados
+  return {
+    artistIds: [...newArtistIds],
+    albumIds: [...newAlbumIds],
+    trackIds: [...newTrackIds]
+  };
+};
+
 async function getArtistsFromPlaylist(playlistId) {
-  const data = await spotifyApi.getPlaylistTracks(playlistId);
+  const data = await safeSpotifyCall(() => spotifyApi.getPlaylistTracks(playlistId));
   const tracks = data.body.items;
   const artists = [];
 
@@ -130,52 +243,10 @@ async function getArtistsFromPlaylist(playlistId) {
   return [...new Map(artists.map(a => [a.id, a])).values()];
 }
 
-// Obtener la foto y popularidad de un artista desde Spotify
-async function getArtistDetails(spotifyId, spotifyApi) {
-  try {
-    const data = await spotifyApi.getArtist(spotifyId);
-
-    if (!data.body.name) {
-      throw new Error(`El artista con ID ${spotifyId} no tiene un nombre válido.`);
-    }
-
-    return {
-      name: data.body.name,
-      popularity: data.body.popularity || 0,
-      images: data.body.images || [],
-    };
-  } catch (err) {
-    console.error(`Error al obtener detalles del artista ${spotifyId}:`, err.message || err);
-    return null; // Devolver null si no se encuentran datos
-  }
-}
-
-async function getAlbumPopularity(albumId) {
-  try {
-    const data = await spotifyApi.getAlbum(albumId);
-    return data.body.popularity || 0;
-  } catch (err) {
-    console.error(`Error al obtener popularidad del álbum ${albumId}:`, err);
-    throw err;
-  }
-}
-
-async function getArtistPopularity(artistId) {
-  try {
-    const data = await spotifyApi.getArtist(artistId);
-    return data.body.popularity || 0;
-  } catch (err) {
-    console.error(`Error al obtener popularidad del artista ${artistId}:`, err);
-    throw err;
-  }
-}
-
 async function syncAlbumArtists(albumSpotifyId) {
   try {
     const spotifyApi = getSpotifyApi();
-
-    // Obtener detalles del álbum desde la API de Spotify
-    const album = await spotifyApi.getAlbum(albumSpotifyId);
+    await safeSpotifyCall(() => spotifyApi.getAlbum(albumSpotifyId));
 
     // Validar si album.artists es un array
     if (!Array.isArray(album.artists) || album.artists.length === 0) {
@@ -209,7 +280,8 @@ async function syncAlbumArtists(albumSpotifyId) {
 async function getAlbumArtistsFromAPI(albumSpotifyId) {
   try {
     // Obtener detalles del álbum desde la API de Spotify
-    const albumData = await spotifyApi.getAlbum(albumSpotifyId);
+    const spotifyApi = getSpotifyApi();
+    const albumData = await safeSpotifyCall(() => spotifyApi.getAlbum(albumSpotifyId));
 
     // Validar si albumData.artists es un array
     if (!Array.isArray(albumData.body.artists) || albumData.body.artists.length === 0) {
@@ -224,7 +296,7 @@ async function getAlbumArtistsFromAPI(albumSpotifyId) {
   }
 }
 
-(async () => {
+/*(async () => {
   const artistEntries = [
   ];
 
@@ -234,7 +306,7 @@ async function getAlbumArtistsFromAPI(albumSpotifyId) {
     console.log("🔄 Reprocesando artistas fallidos...");
     await processArtistList(failedArtists);
   }
-})();
+})();*/
 
 async function processArtistList(artistEntries) {
   const spotifyApi = getSpotifyApi(); // ← ESTA LÍNEA FUNCIONA GRACIAS A LA IMPORTACIÓN
@@ -286,13 +358,12 @@ async function processArtistList(artistEntries) {
 module.exports = {
   processArtistList,
   getAlbumArtistsFromAPI, // Nuevo helper exportado
-  getAlbumPopularity,
-  getArtistPopularity,
   getArtistFromSpotify,
   getAlbumsFromArtist,
   getTracksFromAlbum,
   getArtistsFromPlaylist,
   getPlaylistTracks,
-  getArtistDetails, syncAlbumArtists,
-  importFullArtistCatalog
+  syncAlbumArtists,
+  importFullArtistCatalog,
+  updateMissingFromArtistCatalog,
 };

@@ -238,7 +238,7 @@ const registrarCambioEnHistorial = async (valoracion) => {
 
   const entidad_id = valoracion.album || valoracion.artista || valoracion.cancion || valoracion.video || valoracion.entidad_id;
 
-  // Evitar duplicados si ya se registró en el mismo segundo
+  // Evitar duplicados si ya se registró en el mismo segundo (ahora 2 segundos)
   const { data: existente } = await supabase
     .from('historial_valoraciones')
     .select('*')
@@ -248,7 +248,7 @@ const registrarCambioEnHistorial = async (valoracion) => {
 
   if (existente.length > 0) {
     const diferencia = Math.abs(new Date() - new Date(existente[0].fecha));
-    if (diferencia < 500) {
+    if (diferencia < 2000) { // 2 segundos de margen
       console.warn("⛔ Historial ya registrado recientemente, omitiendo...");
       return;
     }
@@ -414,9 +414,17 @@ const calcularPromedio = async (tableName, referenciaId, entidad_id) => {
 
 // Modificación en crearValoracion para llamar a recalcularRankingPersonal
 const crearValoracion = async (req, res) => {
-  const { usuario, entidad_tipo, entidad_id, calificacion, comentario } = req.body;
+  const { usuario, entidad_tipo, entidad_id, calificacion, comentario, automatica } = req.body;
 
-  if (!usuario || !entidad_tipo || !entidad_id || !calificacion) {
+  // Cambia esta línea:
+  // if (!usuario || !entidad_tipo || !entidad_id || !calificacion) {
+  // Por esto:
+  if (
+    usuario == null ||
+    !entidad_tipo ||
+    entidad_id == null ||
+    calificacion == null
+  ) {
     console.error("🚨 Parámetros faltantes:", { usuario, entidad_tipo, entidad_id, calificacion });
     return res.status(400).json({ error: "Parámetros faltantes" });
   }
@@ -446,10 +454,6 @@ const crearValoracion = async (req, res) => {
         return res.status(400).json({ error: "Tipo de entidad no válido" });
     }
 
-    if (!usuario || !entidad_id || !calificacion) {
-      return res.status(400).json({ error: "Parámetros faltantes" });
-    }
-
     // Verificar si ya existe una valoración
     const { data: valoracionExistente, error: errorExistente } = await supabase
       .from(tableName)
@@ -465,10 +469,34 @@ const crearValoracion = async (req, res) => {
     }
 
     if (valoracionExistente) {
-      // Si ya existe una valoración, verificar si ha pasado un día
-      if (haPasadoUnDia(valoracionExistente.registrado)) {
-        // Mover versión actual al historial
-        await registrarCambioEnHistorial(valoracionExistente);
+      // Solo guarda en historial si cambió la calificación o comentario
+      const cambioCalificacion = valoracionExistente.calificacion !== calificacion;
+      const cambioComentario = valoracionExistente.comentario !== comentario;
+
+      if (haPasadoUnDia(valoracionExistente.registrado) && (cambioCalificacion || cambioComentario)) {
+        // Verifica si ya existe un historial igual
+        const { data: historialExistente } = await supabase
+          .from('historial_valoraciones')
+          .select('id_historial')
+          .eq('usuario', usuario)
+          .eq('entidad_tipo', entidad_tipo)
+          .eq('entidad_id', entidad_id)
+          .eq('fecha', valoracionExistente.registrado)
+          .maybeSingle();
+
+        if (!historialExistente) {
+          await supabase
+            .from('historial_valoraciones')
+            .insert([{
+              id_valoracion: valoracionExistente.id_valoracion,
+              usuario,
+              entidad_tipo,
+              entidad_id,
+              calificacion: valoracionExistente.calificacion,
+              comentario: valoracionExistente.comentario,
+              fecha: valoracionExistente.registrado // Usa la fecha original
+            }]);
+        }
       }
 
       // Actualizar valoración existente
@@ -827,4 +855,196 @@ const obtenerHistorialValoraciones = async (req, res) => {
   res.json(data);
 };
 
-module.exports = { obtenerHistorialValoraciones, eliminarComentario, crearValoracion, obtenerValoracion, eliminarValoracion, agregarComentario, obtenerPromedio, agregarEmocion, contarEmociones, obtenerValoracionesGlobales, segmentacionPersonal };
+// Utilidad para calcular promedio, mediana, moda, ponderado
+function calcularAgregado(valores, metodo, opciones = {}) {
+  if (!valores || valores.length === 0) return 0;
+  if (metodo === "promedio") {
+    return valores.reduce((a, b) => a + b, 0) / valores.length;
+  }
+  if (metodo === "mediana") {
+    const sorted = [...valores].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 === 0
+      ? (sorted[mid - 1] + sorted[mid]) / 2
+      : sorted[mid];
+  }
+  if (metodo === "moda") {
+    const freq = {};
+    valores.forEach(v => { freq[v] = (freq[v] || 0) + 1; });
+    const max = Math.max(...Object.values(freq));
+    // Si empate, el valor más alto
+    return Math.max(...Object.keys(freq).filter(k => freq[k] === max).map(Number));
+  }
+  if (metodo === "minimo") {
+    return Math.min(...valores);
+  }
+  if (metodo === "maximo") {
+    return Math.max(...valores);
+  }
+  if (metodo === "redondear_arriba") {
+    return Math.ceil(valores.reduce((a, b) => a + b, 0) / valores.length * 2) / 2;
+  }
+  if (metodo === "redondear_abajo") {
+    return Math.floor(valores.reduce((a, b) => a + b, 0) / valores.length * 2) / 2;
+  }
+  if (metodo === "redondear_cercano") {
+    return Math.round(valores.reduce((a, b) => a + b, 0) / valores.length * 2) / 2;
+  }
+  if (metodo === "ponderado" && opciones.ponderado) {
+    let total = 0, pesoTotal = 0;
+    for (const key of ["albumes", "canciones", "videos"]) {
+      if (opciones.ponderado[key] && opciones[key] && opciones[key].length > 0) {
+        const promedio = opciones[key].reduce((a, b) => a + b, 0) / opciones[key].length;
+        total += promedio * (opciones.ponderado[key] / 100);
+        pesoTotal += opciones.ponderado[key];
+      }
+    }
+    return pesoTotal ? total : 0;
+  }
+  return 0;
+}
+
+// NUEVO: Obtener valoración agregada según preferencias del usuario
+const obtenerValoracionAgregada = async (req, res) => {
+  const { usuario, entidad_tipo, entidad_id } = req.query;
+  if (!usuario || !entidad_tipo || !entidad_id) return res.status(400).json({ error: "Faltan parámetros" });
+
+  // 1. Obtener preferencias del usuario
+  const { data: userData } = await supabase
+    .from("usuarios")
+    .select("metodologia_valoracion")
+    .eq("id_usuario", usuario)
+    .single();
+  const prefs = userData?.metodologia_valoracion || {};
+
+  // 2. Si modo manual, busca la valoración directa
+  if (prefs.modo === "manual" || !prefs.modo) {
+    return obtenerValoracion(req, res);
+  }
+
+  // 3. Si modo semiautomático, calcula según método y opciones avanzadas
+  if (entidad_tipo === "album") {
+    // Obtener valoraciones de canciones del álbum
+    const { data: canciones } = await supabase
+      .from("canciones")
+      .select("id_cancion")
+      .eq("album", entidad_id);
+    const cancionIds = canciones.map(c => c.id_cancion);
+    const { data: vals } = await supabase
+      .from("valoraciones_canciones")
+      .select("calificacion")
+      .eq("usuario", usuario)
+      .in("cancion", cancionIds);
+    const califs = vals.map(v => Number(v.calificacion));
+    const metodo = prefs.metodo_album || "promedio";
+    // Opciones avanzadas
+    let resultado = 0;
+    if (prefs.album_por_entidad) {
+      // Si por entidad, aquí solo hay canciones, así que igual
+      resultado = calcularAgregado(califs, metodo);
+    } else if (prefs.album_por_conjunto) {
+      resultado = calcularAgregado(califs, metodo);
+    } else {
+      resultado = calcularAgregado(califs, metodo);
+    }
+    return res.json({ calificacion: resultado });
+  }
+  if (entidad_tipo === "artista") {
+    // Obtener valoraciones de álbumes, canciones y videos del artista
+    const { data: albumes } = await supabase
+      .from("album_artistas")
+      .select("album_id")
+      .eq("artista_id", entidad_id);
+    const albumIds = albumes.map(a => a.album_id);
+    const { data: valsAlbum } = await supabase
+      .from("valoraciones_albumes")
+      .select("calificacion")
+      .eq("usuario", usuario)
+      .in("album", albumIds);
+
+    const { data: canciones } = await supabase
+      .from("cancion_artistas")
+      .select("cancion_id")
+      .eq("artista_id", entidad_id);
+    const cancionIds = canciones.map(c => c.cancion_id);
+    const { data: valsCancion } = await supabase
+      .from("valoraciones_canciones")
+      .select("calificacion")
+      .eq("usuario", usuario)
+      .in("cancion", cancionIds);
+
+    const { data: videos } = await supabase
+      .from("video_artistas")
+      .select("video_id")
+      .eq("artista_id", entidad_id);
+    const videoIds = videos.map(v => v.video_id);
+    const { data: valsVideo } = await supabase
+      .from("valoraciones_videos_musicales")
+      .select("calificacion")
+      .eq("usuario", usuario)
+      .in("video", videoIds);
+
+    // Si menos de 10 entidades, no calcular
+    const totalEntidades = albumIds.length + cancionIds.length + videoIds.length;
+    if (totalEntidades < 10) return res.json({ calificacion: null });
+
+    const metodo = prefs.metodo_artista || "promedio";
+    let resultado = 0;
+
+    if (prefs.artista_por_entidad) {
+      // Por entidad: calcula por tipo y luego el método entre ellos
+      const vals = [
+        calcularAgregado(valsAlbum.map(v => Number(v.calificacion)), metodo),
+        calcularAgregado(valsCancion.map(v => Number(v.calificacion)), metodo),
+        calcularAgregado(valsVideo.map(v => Number(v.calificacion)), metodo),
+      ];
+      resultado = calcularAgregado(vals, metodo);
+    } else if (prefs.artista_por_conjunto) {
+      // Junta todas las valoraciones y aplica el método
+      const all = [
+        ...valsAlbum.map(v => Number(v.calificacion)),
+        ...valsCancion.map(v => Number(v.calificacion)),
+        ...valsVideo.map(v => Number(v.calificacion)),
+      ];
+      resultado = calcularAgregado(all, metodo);
+    } else if (prefs.artista_promedio_de_medianas) {
+      // Mediana de cada tipo, luego promedio
+      const medianas = [
+        calcularAgregado(valsAlbum.map(v => Number(v.calificacion)), "mediana"),
+        calcularAgregado(valsCancion.map(v => Number(v.calificacion)), "mediana"),
+        calcularAgregado(valsVideo.map(v => Number(v.calificacion)), "mediana"),
+      ];
+      resultado = calcularAgregado(medianas, "promedio");
+    } else if (prefs.artista_moda_de_modas) {
+      // Moda de cada tipo, luego moda entre ellas
+      const modas = [
+        calcularAgregado(valsAlbum.map(v => Number(v.calificacion)), "moda"),
+        calcularAgregado(valsCancion.map(v => Number(v.calificacion)), "moda"),
+        calcularAgregado(valsVideo.map(v => Number(v.calificacion)), "moda"),
+      ];
+      resultado = calcularAgregado(modas, "moda");
+    } else if (metodo === "ponderado" && prefs.ponderado) {
+      resultado = calcularAgregado([], "ponderado", {
+        ponderado: prefs.ponderado,
+        albumes: valsAlbum.map(v => Number(v.calificacion)),
+        canciones: valsCancion.map(v => Number(v.calificacion)),
+        videos: valsVideo.map(v => Number(v.calificacion)),
+      });
+    } else {
+      // Default: promedio de promedios
+      const vals = [
+        calcularAgregado(valsAlbum.map(v => Number(v.calificacion)), metodo),
+        calcularAgregado(valsCancion.map(v => Number(v.calificacion)), metodo),
+        calcularAgregado(valsVideo.map(v => Number(v.calificacion)), metodo),
+      ];
+      resultado = calcularAgregado(vals, metodo);
+    }
+    return res.json({ calificacion: resultado });
+  }
+  // Si no es album/artista, usa la directa
+  return obtenerValoracion(req, res);
+};
+
+module.exports = {
+  obtenerHistorialValoraciones, eliminarComentario, crearValoracion, obtenerValoracion, eliminarValoracion, agregarComentario, obtenerPromedio, agregarEmocion, contarEmociones, obtenerValoracionesGlobales, segmentacionPersonal, obtenerValoracionAgregada
+};

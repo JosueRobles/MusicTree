@@ -292,10 +292,14 @@ const handleAddToList = async () => {
         <>
           <h2 className="text-4xl font-bold my-4 text-center">
             {artist.nombre_artista}
-            {posicionRanking && (
-              <span className="ml-2 text-yellow-500 text-lg font-semibold"> - #{posicionRanking} en Ranking Global de Artistas</span>
-            )}
           </h2>
+          {posicionRanking && (
+            <div className="text-center mt-2">
+              <span className="ranking-global">
+                #{posicionRanking} en Ranking Global de Artistas
+              </span>
+            </div>
+          )}
           <img
             src={artist.foto_artista}
             alt={artist.nombre_artista}

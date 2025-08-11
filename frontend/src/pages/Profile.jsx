@@ -6,6 +6,7 @@ import { UsuarioContext } from '../context/UsuarioContext';
 import { Link } from 'react-router-dom';
 import ModifyPersonalRanking from '../components/ModifyPersonalRanking';
 import UserListGrid from '../components/UserListGrid';
+import ValoracionComentarioEntidad from '../components/ValoracionComentarioEntidad'; // Nuevo componente
 
 const API_URL = "http://localhost:5000";
 
@@ -28,6 +29,10 @@ const Profile = () => {
   const [usuariosSeguidos, setUsuariosSeguidos] = useState([]);
   const [artistasSeguidos, setArtistasSeguidos] = useState([]);
   const [copied, setCopied] = useState(false);
+  const [insignias, setInsignias] = useState([]);
+  const [valoraciones, setValoraciones] = useState([]);
+  const [listas, setListas] = useState([]);
+  const [valoracionesEnriquecidas, setValoracionesEnriquecidas] = useState([]);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -115,6 +120,144 @@ const Profile = () => {
   fetchUsuariosSeguidos();
   fetchArtistasSeguidos();
 }, [usuario, user, id]);
+
+useEffect(() => {
+  // Cargar insignias
+  if (user?.id_usuario) {
+    axios.get(`${API_URL}/insignias/usuario/${user.id_usuario}`)
+      .then(res => setInsignias(res.data.filter(i => i.progreso === 100)));
+  }
+  async function enrichValoraciones() {
+      if (!user?.id_usuario) {
+        setValoracionesEnriquecidas([]);
+        return;
+      }
+      // 1. Trae todas las valoraciones del usuario por tipo
+      const [artistas, albums, canciones, videos] = await Promise.all([
+        axios.get(`${API_URL}/valoraciones?usuario=${user.id_usuario}&entidad_tipo=artista`),
+        axios.get(`${API_URL}/valoraciones?usuario=${user.id_usuario}&entidad_tipo=album`),
+        axios.get(`${API_URL}/valoraciones?usuario=${user.id_usuario}&entidad_tipo=cancion`),
+        axios.get(`${API_URL}/valoraciones?usuario=${user.id_usuario}&entidad_tipo=video`)
+      ]);
+      // 2. Junta todas y ordénalas por fecha
+      const todas = [
+        ...artistas.data.map(v => ({ ...v, tipo: 'artista', entidad_id: v.artista })),
+        ...albums.data.map(v => ({ ...v, tipo: 'album', entidad_id: v.album })),
+        ...canciones.data.map(v => ({ ...v, tipo: 'cancion', entidad_id: v.cancion })),
+        ...videos.data.map(v => ({ ...v, tipo: 'video', entidad_id: v.video })),
+      ].sort((a, b) => new Date(b.registrado) - new Date(a.registrado));
+  
+      // 3. Trae info de usuario (solo una vez)
+      const usuarioInfo = {
+        nombre: user.nombre,
+        username: user.username,
+        foto_perfil: user.foto_perfil
+      };
+  
+      // 4. Trae info de entidades en lote
+      const idsPorTipo = {
+        artista: [],
+        album: [],
+        cancion: [],
+        video: []
+      };
+      todas.forEach(v => {
+        if (v.entidad_id) idsPorTipo[v.tipo].push(v.entidad_id);
+      });
+  
+      // Quita duplicados
+      Object.keys(idsPorTipo).forEach(tipo => {
+        idsPorTipo[tipo] = [...new Set(idsPorTipo[tipo])];
+      });
+  
+      // Fetch entidades en lote
+      const [artistasEnt, albumsEnt, cancionesEnt, videosEnt] = await Promise.all([
+        idsPorTipo.artista.length
+          ? axios.get(`${API_URL}/artistas`, { params: { ids: idsPorTipo.artista.join(',') } }).then(r => r.data)
+          : [],
+        idsPorTipo.album.length
+          ? axios.get(`${API_URL}/albumes`, { params: { ids: idsPorTipo.album.join(',') } }).then(r => r.data)
+          : [],
+        idsPorTipo.cancion.length
+          ? axios.get(`${API_URL}/canciones`, { params: { ids: idsPorTipo.cancion.join(',') } }).then(r => r.data)
+          : [],
+        idsPorTipo.video.length
+          ? axios.get(`${API_URL}/videos`, { params: { ids: idsPorTipo.video.join(',') } }).then(r => r.data)
+          : [],
+      ]);
+  
+      // Indexa por id
+      const artistasMap = Object.fromEntries(artistasEnt.map(a => [a.id_artista, a]));
+      const albumsMap = Object.fromEntries(albumsEnt.map(a => [a.id_album, a]));
+      const cancionesMap = Object.fromEntries(cancionesEnt.map(c => [c.id_cancion, c]));
+      const videosMap = Object.fromEntries(videosEnt.map(v => [v.id_video, v]));
+  
+      // 5. Enriquecer cada valoración con emoción y familiaridad
+      const enriquecidas = await Promise.all(todas.map(async v => {
+        let entidad = {};
+        if (v.tipo === 'artista') {
+          const a = artistasMap[v.entidad_id];
+          entidad = a ? { tipo: 'artista', id: a.id_artista, nombre: a.nombre_artista } : { tipo: 'artista', id: v.entidad_id };
+        } else if (v.tipo === 'album') {
+          const a = albumsMap[v.entidad_id];
+          entidad = a ? { tipo: 'album', id: a.id_album, nombre: a.titulo } : { tipo: 'album', id: v.entidad_id };
+        } else if (v.tipo === 'cancion') {
+          const c = cancionesMap[v.entidad_id];
+          entidad = c ? { tipo: 'cancion', id: c.id_cancion, nombre: c.titulo } : { tipo: 'cancion', id: v.entidad_id };
+        } else if (v.tipo === 'video') {
+          const vdo = videosMap[v.entidad_id];
+          entidad = vdo ? { tipo: 'video', id: vdo.id_video, nombre: vdo.titulo } : { tipo: 'video', id: v.entidad_id };
+        }
+
+        // Traer emoción y familiaridad (puedes optimizar con endpoints batch si tienes muchos)
+        let emocion = null;
+        let familiaridad = null;
+        try {
+          // Emoción
+          const emoRes = await axios.get(`${API_URL}/emociones`, {
+            params: { entidad_tipo: v.tipo, entidad_id: v.entidad_id, usuario: user.id_usuario }
+          });
+          if (Array.isArray(emoRes.data) && emoRes.data.length > 0) {
+            emocion = emoRes.data[0].emocion || null;
+          }
+        } catch {}
+        try {
+          // Familiaridad
+          const famRes = await axios.get(`${API_URL}/familiaridad`, {
+            params: { entidad_tipo: v.tipo, entidad_id: v.entidad_id, usuario: user.id_usuario }
+          });
+          if (famRes.data && famRes.data.nivel) {
+            familiaridad = famRes.data.nivel;
+          }
+        } catch {}
+
+        return {
+          ...v,
+          usuarios: usuarioInfo,
+          entidad,
+          fecha: v.registrado,
+          emocion,
+          familiaridad
+        };
+      }));
+
+      setValoracionesEnriquecidas(enriquecidas);
+    }
+    enrichValoraciones();
+  }, [user]);
+
+useEffect(() => {
+  if (user?.id_usuario) {
+    axios.get(`${API_URL}/listas-personalizadas/colaborativas-o-propias/${user.id_usuario}`)
+      .then(res => setListas(
+        res.data.filter(l =>
+          l.privacidad === 'publica' ||
+          (usuario && usuario.id_usuario === user.id_usuario) ||
+          l.privacidad === 'colaborativa'
+        )
+      ));
+  }
+}, [user, usuario]);
 
 const PieChart = ({ porcentaje }) => {
   const radius = 16;
@@ -226,6 +369,10 @@ const PieChart = ({ porcentaje }) => {
     return <div>Cargando...</div>;
   }
 
+  // Medallas e Insignias
+  const coleccionesCompletadas = colecciones.filter(c => (progresos[c.id_coleccion] || 0) >= 100);
+  const catalogosCompletados = catalogos.filter(c => c.progreso >= 100);
+
   return (
   <div>
     <main className="p-4">
@@ -286,6 +433,16 @@ const PieChart = ({ porcentaje }) => {
           </button>
         </div>
       )}
+          {usuario && usuario.id_usuario === user.id_usuario && (
+            <div className="my-4">
+              <button
+                className="bg-green-600 text-white px-4 py-2 rounded"
+                onClick={() => navigate('/personalizacion')}
+              >
+                Configurar preferencias de valoración
+              </button>
+            </div>
+          )}
   
       <div className="section mt-6">
         <h3 className="text-2xl font-bold my-4">Seguidores</h3>
@@ -310,50 +467,40 @@ const PieChart = ({ porcentaje }) => {
         )}
       </div>
 
-      {/* SOLO la sección de colecciones debe ir dentro de este bloque */}
-      {user && (
-        <div className="section mt-6">
-          <h3 className="text-2xl font-bold my-4">
-            Colecciones {usuario && usuario.id_usuario === user.id_usuario ? '— Tu progreso' : 'completadas'}
-          </h3>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
-            {colecciones.map(coleccion => {
-              const progreso = progresos[coleccion.id_coleccion] || 0;
-              const completada = progreso >= 100;
-              if (usuario && usuario.id_usuario !== user.id_usuario && !completada) return null;
-              return (
-                <div key={coleccion.id_coleccion} className={`profile-coleccion-card${completada ? ' completada' : ''}`}>
-                  <img src={coleccion.icono} alt={coleccion.nombre} />
-                  <div style={{ margin: '8px 0' }}>{coleccion.nombre}</div>
-                  {usuario && usuario.id_usuario === user.id_usuario ? (
+      {usuario && usuario.id_usuario === user.id_usuario && (
+        <>
+          <div className="section mt-6">
+            <h3 className="text-2xl font-bold my-4">
+              Colecciones — Tu progreso
+            </h3>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+              {colecciones.map(coleccion => {
+                const progreso = progresos[coleccion.id_coleccion] || 0;
+                const completada = progreso >= 100;
+                return (
+                  <div key={coleccion.id_coleccion} className={`profile-coleccion-card${completada ? ' completada' : ''}`}>
+                    <img src={coleccion.icono || '/default_collection.png'} alt={coleccion.nombre} />
+                    <div style={{ margin: '8px 0' }}>{coleccion.nombre}</div>
                     <div className="pie-chart"><PieChart porcentaje={progreso} /></div>
-                  ) : completada ? (
-                    <span className="medalla">🏅</span>
-                  ) : null}
-                </div>
-              );
-            })}
+                  </div>
+                );
+              })}
+            </div>
           </div>
-        </div>
+          <div className="section mt-6">
+            <h3 className="text-2xl font-bold my-4">Catálogos de Artistas</h3>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+              {catalogos.map(cat => (
+                <div key={cat.id_artista} className={`profile-catalogo-card${cat.progreso >= 100 ? ' completada' : ''}`}>
+                  <img src={cat.foto_artista || '/default-artist.png'} alt={cat.nombre_artista} />
+                  <div style={{ margin: '8px 0' }}>{cat.nombre_artista}</div>
+                  <div className="pie-chart"><PieChart porcentaje={cat.progreso} /></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
       )}
-
-      <div className="section mt-6">
-        <h3 className="text-2xl font-bold my-4">Catálogos de Artistas</h3>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
-          {catalogos.map(cat => {
-            const completado = cat.progreso >= 100;
-            if (usuario && usuario.id_usuario !== user.id_usuario && !completado) return null;
-            return (
-              <div key={cat.id_artista} className={`profile-catalogo-card${completado ? ' completada' : ''}`}>
-                <img src={cat.foto_artista || '/default-artist.png'} alt={cat.nombre_artista} />
-                <div style={{ margin: '8px 0' }}>{cat.nombre_artista}</div>
-                <div className="pie-chart"><PieChart porcentaje={cat.progreso} /></div>
-                {completado && <span className="medalla">🏅</span>}
-              </div>
-            );
-          })}
-        </div>
-      </div>
       {usuario && usuario.id_usuario === user.id_usuario ? (
         <ModifyPersonalRanking usuario={usuario} />
       ) : (
@@ -362,6 +509,71 @@ const PieChart = ({ porcentaje }) => {
           <ModifyPersonalRanking usuario={user} soloLectura={true} />
         </div>
       )}
+
+      <div className="section mt-6">
+        <h3 className="text-2xl font-bold my-4">Medallas e Insignias del usuario</h3>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+          {coleccionesCompletadas.map(coleccion => (
+            <div key={coleccion.id_coleccion} className="profile-coleccion-card completada">
+              <img src={coleccion.icono || '/default_collection.png'} alt={coleccion.nombre} />
+              <div style={{ margin: '8px 0' }}>{coleccion.nombre}</div>
+              <span className="medalla">🏅</span>
+            </div>
+          ))}
+          {catalogosCompletados.map(cat => (
+            <div key={cat.id_artista} className="profile-catalogo-card completada">
+              <img src={cat.foto_artista || '/default-artist.png'} alt={cat.nombre_artista} />
+              <div style={{ margin: '8px 0' }}>{cat.nombre_artista}</div>
+              <span className="medalla">🏅</span>
+            </div>
+          ))}
+          {insignias.map(ins => (
+            <div key={ins.insignia_id} className="profile-insignia-card completada" style={{ width: 180, textAlign: 'center' }}>
+              <img
+                src={ins.insignias?.icono || '/default-insignia.png'}
+                alt={ins.insignias?.nombre}
+                style={{ width: 80, height: 80, objectFit: 'contain', margin: '0 auto', display: 'block' }}
+              />
+              <div style={{ margin: '8px 0', fontWeight: 'bold' }}>{ins.insignias?.nombre}</div>
+            </div>
+          ))}
+        </div>
+        <div className="mt-2 font-bold">
+          Total medallas: {coleccionesCompletadas.length + catalogosCompletados.length + insignias.length}
+        </div>
+      </div>
+
+      {/* Listas personalizadas */}
+      <div className="section mt-6">
+        <h3 className="text-2xl font-bold my-4">Listas personalizadas creadas por este usuario</h3>
+        {listas.length === 0 ? (
+          <div>No hay listas públicas o colaborativas.</div>
+        ) : (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
+            {listas.map(lista => (
+              <Link to={`/list/${lista.id_lista}`} key={lista.id_lista} style={{ textDecoration: 'none', color: '#222' }}>
+                <div className="profile-lista-card" style={{ width: 180, background: '#222', borderRadius: 8, padding: 12 }}>
+                  <img src={lista.imagen ? `${API_URL}/uploads/${lista.imagen}` : '/default_collection.png'} alt={lista.nombre_lista} style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, margin: '0 auto', display: 'block' }} />
+                  <div style={{ margin: '8px 0', color: '#fff', fontWeight: 'bold' }}>{lista.nombre_lista}</div>
+                  <div style={{ color: '#aaa', fontSize: 12 }}>{lista.tipo_lista}</div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Feed de valoraciones */}
+      <div className="section mt-6">
+        <h3 className="text-2xl font-bold my-4">Valoraciones recientes</h3>
+        {valoracionesEnriquecidas.length === 0 ? (
+          <div>No hay valoraciones aún.</div>
+        ) : (
+          valoracionesEnriquecidas.map((valoracion, idx) => (
+            <ValoracionComentarioEntidad key={idx} valoracion={valoracion} />
+          ))
+        )}
+      </div>
     </main>
   </div>
 );

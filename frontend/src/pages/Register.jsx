@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useState, useContext } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
+import { UsuarioContext } from '../context/UsuarioContext';
 
 const API_URL = "http://localhost:5000";
 
@@ -9,20 +11,39 @@ const Register = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const navigate = useNavigate();
+  const { setUsuario } = useContext(UsuarioContext);
 
   const handleRegister = async (e) => {
     e.preventDefault();
+    setError('');
     try {
-      const response = await axios.post(`${API_URL}/auth/register`, {
+      await axios.post(`${API_URL}/auth/register`, {
         nombre,
         email,
         username,
         password,
       });
-      console.log(response.data);
-      // Redirigir a la página de inicio de sesión después del registro exitoso
-      window.location.href = '/login';
-    } catch {
+      // Espera hasta que el login funcione (reintenta si falla)
+      let loginRes = null;
+      for (let i = 0; i < 5; i++) {
+        try {
+          loginRes = await axios.post(`${API_URL}/auth/login`, {
+            emailOrUsername: email,
+            password,
+          });
+          break;
+        } catch {
+          await new Promise(res => setTimeout(res, 700));
+        }
+      }
+      if (!loginRes) throw new Error("No se pudo iniciar sesión tras el registro");
+      localStorage.setItem('token', loginRes.data.token);
+      setUsuario(loginRes.data.user);
+      setTimeout(() => {
+        window.location.href = '/personalizacion';
+      }, 2000);
+    } catch (err) {
       setError('Error al registrar usuario');
     }
   };

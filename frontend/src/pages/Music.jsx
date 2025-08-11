@@ -145,8 +145,39 @@ const Music = () => {
   // Modifica handleAdvancedSearch para NO incluir el término de búsqueda
   const handleAdvancedSearch = async (newFiltros) => {
     try {
-      setFiltros(newFiltros);
-      // NO incluyas 'termino' en la petición al backend
+      // Si es ranking comunitario, llama a la ruta especial
+      if (newFiltros.orden === 'ranking_comunitario' && newFiltros.entidad) {
+        const tipoEntidad = {
+          artist: 'artista',
+          album: 'album',
+          song: 'cancion',
+          video: 'video'
+        }[newFiltros.entidad] || newFiltros.entidad;
+
+        const params = new URLSearchParams();
+        params.append('tipo_entidad', tipoEntidad);
+        if (newFiltros.anio) params.append('anio', newFiltros.anio);
+        if (newFiltros.artista) params.append('artista', newFiltros.artista);
+        if (newFiltros.genero) params.append('genero', newFiltros.genero);
+
+        const { data } = await axios.get(`${API_URL}/ranking-comunitario?${params.toString()}`);
+        const filteredItems = data.map((item) => ({
+          id: `${newFiltros.entidad}-${item[`${tipoEntidad}_id`]}`,
+          nombre: item[`${tipoEntidad}_nombre`] || item.nombre_artista || item.titulo,
+          imagen:
+            item.foto_album ||
+            item.foto_artista ||
+            item.foto_album || // para canciones
+            item.miniatura ||
+            item.imagen ||
+            '/default-image.png',
+          url: generateEntityUrl(newFiltros.entidad, item[`${tipoEntidad}_id`]),
+        }));
+        setItems(filteredItems);
+        return;
+      }
+
+      // NO hagas setFiltros aquí
       const { termino, ...restFiltros } = newFiltros;
       const params = new URLSearchParams();
       Object.entries(restFiltros).forEach(([key, value]) => {
@@ -192,112 +223,11 @@ const Music = () => {
   };
 
   const handleSortOrderChange = (order, entidad) => {
-    const tipo_entidad = entityMap[entidad || filtros.entidad] || entidad || filtros.entidad;
-
-    // Rankings: aplica filtros
-    if (order === 'ranking_personal') {
-      if (!usuario) {
-        window.location.href = '/login';
-        return;
-      }
-      if (!tipo_entidad) return;
-
-      const params = new URLSearchParams();
-      params.append('usuario', usuario.id_usuario);
-      params.append('tipo_entidad', tipo_entidad);
-      if (filtros.anio) params.append('anio', filtros.anio);
-      if (filtros.artista) params.append('artista', filtros.artista);
-      if (filtros.genero) params.append('genero', filtros.genero);
-
-      axios.get(`${API_URL}/rankings/personal?${params.toString()}`)
-        .then(({ data }) => {
-          const itemsWithUrls = data.map(item => {
-            let id = item.entidad_id || item.id;
-            let nombre = item.nombre;
-            let imagen = '/default-image.png';
-            if (tipo_entidad === 'cancion') {
-              const cancion = canciones.find(c => c.id_cancion == id);
-              nombre = cancion?.titulo || nombre;
-              const album = albums.find(a => a.id_album == cancion?.album);
-              imagen = album?.foto_album || imagen;
-            } else if (tipo_entidad === 'album') {
-              const album = albums.find(a => a.id_album == id);
-              nombre = album?.titulo || nombre;
-              imagen = album?.foto_album || imagen;
-            } else if (tipo_entidad === 'artista') {
-              const artista = artists.find(a => a.id_artista == id);
-              nombre = artista?.nombre_artista || nombre;
-              imagen = artista?.foto_artista || imagen;
-            } else if (tipo_entidad === 'video') {
-              const video = videos.find(v => v.id_video == id);
-              nombre = video?.titulo || nombre;
-              imagen = video?.miniatura || imagen;
-            }
-            return {
-              id: `${tipo_entidad}-${id}`,
-              nombre,
-              imagen,
-              url: generateEntityUrl(tipo_entidad, id),
-            };
-          });
-          setItems(itemsWithUrls);
-        });
-    } else if (order === 'ranking_comunitario') {
-      let tipo_entidad = entityMap[entidad || filtros.entidad] || entidad || filtros.entidad;
-      // Traducción manual SOLO para ranking comunitario
-      if (tipo_entidad === 'artist') tipo_entidad = 'artista';
-
-      const params = new URLSearchParams();
-      params.append('tipo_entidad', tipo_entidad);
-      if (filtros.anio) params.append('anio', filtros.anio);
-      if (filtros.artista) params.append('artista', filtros.artista);
-      if (filtros.genero) params.append('genero', filtros.genero);
-
-      axios.get(`${API_URL}/rankings/global?${params.toString()}`)
-        .then(({ data }) => {
-          const itemsWithUrls = data.map(item => {
-            let id, nombre, imagen = '/default-image.png';
-            if (tipo_entidad === 'cancion') {
-              id = item.cancion_id || item.entidad_id || item.id;
-              nombre = item.cancion_nombre || item.nombre;
-              const cancion = canciones.find(c => c.id_cancion == id);
-              if (cancion) {
-                const album = albums.find(a => a.id_album == cancion.album);
-                imagen = album?.foto_album || imagen;
-              }
-            } else if (tipo_entidad === 'album') {
-              id = item.album_id || item.entidad_id || item.id;
-              nombre = item.album_nombre || item.nombre;
-              const album = albums.find(a => a.id_album == id);
-              imagen = album?.foto_album || imagen;
-            } else if (tipo_entidad === 'artista') {
-              id = item.artista_id || item.entidad_id || item.id;
-              nombre = item.nombre_artista || item.nombre;
-              const artista = artists.find(a => a.id_artista == id);
-              imagen = artista?.foto_artista || imagen;
-            } else if (tipo_entidad === 'video') {
-              id = item.video_id || item.entidad_id || item.id;
-              nombre = item.video_nombre || item.nombre || item.titulo;
-              const video = videos.find(v => v.id_video == id);
-              imagen = video?.miniatura || imagen;
-            }
-            return {
-              id: `${tipo_entidad}-${id}`,
-              nombre,
-              imagen,
-              url: generateEntityUrl(tipo_entidad, id),
-            };
-          });
-          setItems(itemsWithUrls);
-        });
-    } else {
-      // Para popularidad, valoración y predeterminado, usa filtros avanzados
-      handleAdvancedSearch({
-        ...filtros,
-        orden: order,
-        entidad: tipo_entidad,
-      });
-    }
+    setFiltros(prev => ({
+      ...prev,
+      orden: order,
+      entidad: entidad || prev.entidad,
+    }));
   };
 
   const resetFilters = () => {
@@ -332,6 +262,29 @@ const Music = () => {
     ]);
   };
 
+  useEffect(() => {
+    // Si no hay ningún filtro, muestra todo
+    if (
+      !filtros.entidad &&
+      !filtros.genero &&
+      !filtros.artista &&
+      !filtros.anio &&
+      filtros.orden === 'predeterminado'
+    ) {
+      fetchItemsByView('vista_orden_intercalada');
+      return;
+    }
+
+    // Si hay algún filtro o cambio de orden, aplica la búsqueda avanzada
+    // (Ranking comunitario, valoración, popularidad, predeterminado con filtros)
+    handleAdvancedSearch(filtros);
+  }, [filtros]);
+
+  // Nueva función para manejar el término de búsqueda
+  const handleSearch = (nuevosFiltros) => {
+    setFiltros(nuevosFiltros);
+  };
+
   return (
     <div className="container mx-auto p-4">
       <h2 className="text-4xl font-bold my-4">Música en MusicTree</h2>
@@ -353,7 +306,7 @@ const Music = () => {
       </div>
 
       <BusquedaAvanzada
-        onSearch={handleAdvancedSearch}
+        onSearch={handleSearch}
         artistas={artists}
         albums={albums}
         canciones={canciones}

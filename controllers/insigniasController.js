@@ -176,8 +176,11 @@ const obtenerProgresoYDesbloquear = async (req, res) => {
             .update({ progreso: prog.progreso })
             .eq('id', insigniaUsuario.id);
         }
-      } else if (prog.progreso < 100 && !obtenidas.has(String(prog.id_insignia))) {
-        // No tiene la insignia y aún no la obtiene, crear un registro con su progreso
+      } else if (
+        prog.progreso < 100 &&
+        !obtenidas.has(String(prog.id_insignia)) &&
+        prog.progreso > 0 // Solo si el usuario ha hecho algo
+      ) {
         await supabase
           .from('insignias_usuario')
           .insert([{

@@ -190,10 +190,14 @@ const AlbumPage = ({ usuario }) => {
         <>
           <h2 className="text-4xl font-bold my-4 text-center">
             {album.titulo}
-            {posicionRanking && (
-              <span className="ml-2 text-green-500 text-lg font-semibold"> - #{posicionRanking} en Ranking Global de Albumes</span>
-            )}
           </h2>
+          {posicionRanking && (
+            <div className="text-center mt-2">
+              <span className="ranking-global">
+                #{posicionRanking} en Ranking Global de Albumes
+              </span>
+            </div>
+          )}
           <img
             src={album.foto_album}
             alt={album.titulo}

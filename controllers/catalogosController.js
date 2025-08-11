@@ -21,27 +21,30 @@ const seguirArtistaCatalogo = async (req, res) => {
   const { usuario_id, artista_id } = req.body;
   if (!usuario_id || !artista_id) return res.status(400).json({ error: 'Faltan datos.' });
 
+  // Permitir array de artista_id
+  const artistas = Array.isArray(artista_id) ? artista_id : [artista_id];
+
   try {
-    // Verifica si ya existe
-    const { data: existente } = await supabase
-      .from('seguimiento_artistas')
-      .select('id')
-      .eq('usuario_id', usuario_id)
-      .eq('artista_id', artista_id)
-      .single();
+    let nuevos = 0;
+    for (const id of artistas) {
+      // Verifica si ya existe
+      const { data: existente } = await supabase
+        .from('seguimiento_artistas')
+        .select('id')
+        .eq('usuario_id', usuario_id)
+        .eq('artista_id', id)
+        .single();
 
-    if (existente) return res.status(200).json({ message: 'Ya seguía al artista.' });
-
-    // Inserta
-    const { error } = await supabase
-      .from('seguimiento_artistas')
-      .insert([{ usuario_id, artista_id }]);
-    if (error) throw error;
-
-    // Registrar actividad
-    await registrarActividad(usuario_id, 'seguimiento_artista', 'artista', artista_id);
-
-    res.status(201).json({ message: 'Ahora sigues al artista.' });
+      if (!existente) {
+        const { error } = await supabase
+          .from('seguimiento_artistas')
+          .insert([{ usuario_id, artista_id: id }]);
+        if (error) throw error;
+        nuevos++;
+        await registrarActividad(usuario_id, 'seguimiento_artista', 'artista', id);
+      }
+    }
+    res.status(201).json({ message: `Ahora sigues a ${nuevos} artista(s).` });
   } catch (err) {
     res.status(500).json({ error: 'Error al seguir artista.' });
   }

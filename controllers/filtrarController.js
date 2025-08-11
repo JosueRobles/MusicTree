@@ -5,10 +5,17 @@ const filtrarEntidades = async (req, res) => {
   const LIMITE_PAGINA = 1000;
   const paginaNum = parseInt(pagina) || 1;
   const desde = (paginaNum - 1) * LIMITE_PAGINA;
-  const hasta = desde + LIMITE_PAGINA; // Esto da 1001 resultados
+  const hasta = desde + LIMITE_PAGINA;
 
   try {
-    let query = supabase.from('vista_orden_intercalada').select('*');
+    // Selecciona la vista según la ordenación
+    let vista = 'vista_orden_intercalada';
+    if (orden === 'popularidad') vista = 'vista_popularidad';
+    else if (orden === 'valoracion') vista = 'vista_valoracion_promedio_ordenada';
+    // Si tienes una vista para ranking comunitario, ponla aquí
+    // else if (orden === 'ranking_comunitario') vista = 'vista_ranking_comunitario';
+
+    let query = supabase.from(vista).select('*');
 
     if (termino) query = query.ilike('nombre', `%${termino}%`);
     if (artista) query = query.eq('artista_id', parseInt(artista));
@@ -16,12 +23,8 @@ const filtrarEntidades = async (req, res) => {
     if (anio) query = query.eq('anio', parseInt(anio));
     if (entidad) query = query.eq('tipo', entidad);
 
-    // Ordenar según el parámetro recibido
-    if (orden === 'popularidad') {
-      query = query.order('popularidad', { ascending: false });
-    } else if (orden === 'valoracion') {
-      query = query.order('valoracion_promedio', { ascending: false });
-    } else {
+    // Si la vista no está ordenada por defecto, no ordenes aquí
+    if (orden === 'predeterminado') {
       query = query.order('rn', { ascending: true }).order('entidad_orden', { ascending: true });
     }
 

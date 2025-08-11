@@ -7,6 +7,7 @@ const API_URL = "http://localhost:5000";
 
 const UsuarioProvider = ({ children }) => {
   const [usuario, setUsuario] = useState(null);
+  const [cargandoUsuario, setCargandoUsuario] = useState(true);
 
   useEffect(() => {
     const fetchUsuarioActual = async () => {
@@ -18,7 +19,9 @@ const UsuarioProvider = ({ children }) => {
         });
         setUsuario(response.data);
       } catch (error) {
-        console.error('Error fetching current user:', error);
+        setUsuario(null);
+      } finally {
+        setCargandoUsuario(false);
       }
     };
 
@@ -26,7 +29,7 @@ const UsuarioProvider = ({ children }) => {
   }, []);
 
   return (
-    <UsuarioContext.Provider value={{ usuario, setUsuario }}>
+    <UsuarioContext.Provider value={{ usuario, setUsuario, cargandoUsuario }}>
       {children}
     </UsuarioContext.Provider>
   );

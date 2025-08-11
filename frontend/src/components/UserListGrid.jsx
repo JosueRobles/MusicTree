@@ -21,7 +21,7 @@ const UserListGrid = ({ title, items, isArtist, perPage = 10 }) => {
                 src={
                   isArtist
                     ? (item.foto_artista || "/default-artist.png")
-                    : (item.foto_perfil ? `${import.meta.env.VITE_API_URL || "http://localhost:5000"}/uploads/${item.foto_perfil}` : "/default-profile.png")
+                    : (item.foto_perfil || "/default-profile.png" || item.foto_perfil ? `${import.meta.env.VITE_API_URL || "http://localhost:5000"}/uploads/${item.foto_perfil}` : "/default.png")
                 }
                 alt={isArtist ? item.nombre_artista : item.username}
                 style={{ width: 48, height: 48, borderRadius: "50%", objectFit: "cover", border: "2px solid #fff" }}

@@ -600,3 +600,112 @@
   justify-content: center;
   font-size: 1.2rem;
 }
+/* Tarjeta tipo red social para el feed */
+.feed-card {
+  background: #18181b;
+  border-radius: 16px;
+  box-shadow: 0 2px 12px #0004;
+  padding: 18px 22px;
+  margin-bottom: 18px;
+  display: flex;
+  align-items: flex-start;
+  gap: 18px;
+  transition: box-shadow 0.2s;
+  position: relative;
+}
+.feed-card:hover {
+  box-shadow: 0 4px 24px #065F46aa;
+}
+.feed-card-img {
+  width: 64px;
+  height: 64px;
+  border-radius: 12px;
+  object-fit: cover;
+  background: #222;
+  border: 3px solid #065F46;
+  flex-shrink: 0;
+}
+.feed-card-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.feed-card-username {
+  font-weight: bold;
+  color: #16a34a;
+  font-size: 1.1rem;
+  margin-bottom: 2px;
+}
+.feed-card-entity {
+  font-weight: bold;
+  color: #eab308;
+  font-size: 1.05rem;
+}
+.feed-card-action {
+  color: #fff;
+  font-size: 1rem;
+  margin-bottom: 4px;
+}
+.feed-card-date {
+  font-size: 0.95rem;
+  color: #aaa;
+  margin-top: 6px;
+}
+.feed-card-insignia {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  object-fit: cover;
+  background: #222;
+  border: 2px solid #eab308;
+  margin-right: 8px;
+}
+
+/* Pendientes agrupados horizontalmente */
+.pendientes-grupo {
+  margin-bottom: 24px;
+}
+.pendientes-titulo {
+  font-size: 1.15rem;
+  font-weight: bold;
+  color: #16a34a;
+  margin-bottom: 8px;
+}
+.pendientes-lista {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+}
+.pendiente-card {
+  background: #222;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px #0003;
+  padding: 12px 10px;
+  min-width: 120px;
+  max-width: 140px;
+  text-align: center;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.pendiente-card img {
+  width: 56px;
+  height: 56px;
+  border-radius: 8px;
+  object-fit: cover;
+  margin-bottom: 6px;
+}
+.pendiente-card .pendiente-tipo {
+  font-size: 0.9rem;
+  color: #eab308;
+  margin-top: 2px;
+}
+.ranking-global {
+  color: #16a34a !important;
+  font-weight: bold !important;
+  font-size: 1.3rem !important;
+  display: block;
+  margin-bottom: 8px;
+}

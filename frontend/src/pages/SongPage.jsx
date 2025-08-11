@@ -56,7 +56,7 @@ const SongPage = ({ usuario }) => {
           const listasResponse = await axios.get(`${API_URL}/listas-personalizadas/colaborativas-o-propias/${usuario.id_usuario}`);
                     const listasFiltradas = listasResponse.data.filter(
                       lista =>
-                        lista.tipo_lista === 'video' &&
+                        lista.tipo_lista === 'cancion' &&
                         (
                           lista.usuario_id === usuario.id_usuario ||
                           (lista.privacidad === 'colaborativa' && ['agregar', 'admin', 'eliminar'].includes(lista.rol_colaborador))
@@ -172,10 +172,14 @@ useEffect(() => {
         <>
           <h2 className="text-4xl font-bold my-4 text-center">
             {song.titulo}
-            {posicionRanking && (
-              <span className="ml-2 text-yellow-500 text-lg font-semibold"> - #{posicionRanking} en Ranking Global de Canciones</span>
-            )}
           </h2>
+          {posicionRanking && (
+            <div className="text-center mt-2">
+              <span className="ranking-global">
+                #{posicionRanking} en Ranking Global de Canciones
+              </span>
+            </div>
+          )}
           <p className="text-center">Duración: {Math.floor(song.duracion_ms / 60000)}:{((song.duracion_ms % 60000) / 1000).toFixed(0).padStart(2, '0')} minutos</p>
           <p className="text-center">Popularidad: {song.popularidad}</p>
           <div className="flex items-center">

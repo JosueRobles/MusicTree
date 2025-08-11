@@ -169,61 +169,75 @@ const ListPage = () => {
     setSubiendo(false);
   };
 
-  const ordenarElementos = (elementos) => {
-  return [...elementos].sort((a, b) => {
-    const detalleA = detalles[a.id_elemento] || {};
-    const detalleB = detalles[b.id_elemento] || {};
+  const getOpcionesOrdenamiento = () => {
+    if (!lista) return [];
+    return [
+      { value: 'predeterminada', label: 'Predeterminada' },
+      { value: 'nombre', label: 'Nombre' },
+      { value: 'artista', label: 'Artista' }, // <-- NUEVO
+      { value: 'popularidad', label: 'Popularidad' },
+      ...(lista.tipo_lista === 'cancion' || lista.tipo_lista === 'video'
+        ? [{ value: 'duracion', label: 'Duración' }]
+        : []),
+      ...(lista.tipo_lista !== 'artista'
+        ? [{ value: 'año', label: 'Año' }]
+        : [])
+    ];
+  };
 
-    switch (ordenarPor) {
-      case 'predeterminada': {
-        // Ordenar por id_elemento
-        return ordenDireccion === 'asc' 
-          ? a.id_elemento - b.id_elemento
-          : b.id_elemento - a.id_elemento;
-      }
-      case 'nombre': {
-        const nombreA = detalleA.titulo || detalleA.nombre_artista || '';
-        const nombreB = detalleB.titulo || detalleB.nombre_artista || '';
-        return ordenDireccion === 'asc' 
-          ? nombreA.localeCompare(nombreB)
-          : nombreB.localeCompare(nombreA);
-      }
-      case 'calificacion': {
-        // Asegurarnos de que tratamos con números
-        const calificacionA = typeof detalleA.calificacion_usuario === 'number' ? detalleA.calificacion_usuario : -1;
-        const calificacionB = typeof detalleB.calificacion_usuario === 'number' ? detalleB.calificacion_usuario : -1;
-        return ordenDireccion === 'asc'
-            ? calificacionA - calificacionB
-            : calificacionB - calificacionA;
-      }
-      case 'popularidad': {
-        const popularidadA = detalleA.popularidad || 0;
-        const popularidadB = detalleB.popularidad || 0;
-        return ordenDireccion === 'asc'
-            ? popularidadA - popularidadB
-            : popularidadB - popularidadA;
-      }
-      case 'duracion': {
-        if (lista.tipo_lista !== 'cancion' && lista.tipo_lista !== 'video') return 0;
-        const duracionA = detalleA.duracion || 0;
-        const duracionB = detalleB.duracion || 0;
+  const ordenarElementos = (elementos) => {
+    return [...elementos].sort((a, b) => {
+      const detalleA = detalles[a.id_elemento] || {};
+      const detalleB = detalles[b.id_elemento] || {};
+
+      switch (ordenarPor) {
+        case 'predeterminada': {
+          return ordenDireccion === 'asc' 
+            ? a.id_elemento - b.id_elemento
+            : b.id_elemento - a.id_elemento;
+        }
+        case 'nombre': {
+          const nombreA = detalleA.titulo || detalleA.nombre_artista || '';
+          const nombreB = detalleB.titulo || detalleB.nombre_artista || '';
+          return ordenDireccion === 'asc' 
+            ? nombreA.localeCompare(nombreB)
+            : nombreB.localeCompare(nombreA);
+        }
+        case 'artista': { // <-- NUEVO
+          const artistaA = detalleA.artista || detalleA.nombre_artista || '';
+          const artistaB = detalleB.artista || detalleB.nombre_artista || '';
+          return ordenDireccion === 'asc'
+            ? artistaA.localeCompare(artistaB)
+            : artistaB.localeCompare(artistaA);
+        }
+        case 'popularidad': {
+          const popularidadA = detalleA.popularidad || 0;
+          const popularidadB = detalleB.popularidad || 0;
+          return ordenDireccion === 'asc'
+              ? popularidadA - popularidadB
+              : popularidadB - popularidadA;
+        }
+        case 'duracion': {
+          if (lista.tipo_lista !== 'cancion' && lista.tipo_lista !== 'video') return 0;
+          const duracionA = detalleA.duracion || 0;
+          const duracionB = detalleB.duracion || 0;
           return ordenDireccion === 'asc'
             ? duracionA - duracionB
             : duracionB - duracionA;
-    }
-      case 'año': {
-        const anioA = detalleA.anio || 0;
-        const anioB = detalleB.anio || 0;
-        return ordenDireccion === 'asc'
-            ? anioA - anioB
-            : anioB - anioA;
         }
-      default: {
-        return 0;
+        case 'año': {
+          const anioA = detalleA.anio || 0;
+          const anioB = detalleB.anio || 0;
+          return ordenDireccion === 'asc'
+              ? anioA - anioB
+              : anioB - anioA;
+          }
+        default: {
+          return 0;
+        }
       }
-    }
-  });
-};
+    });
+  };
 
   const filtrarElementos = () => {
     let elementosFiltrados = [...elementos];
@@ -312,36 +326,19 @@ const ListPage = () => {
 
     switch (elemento.entidad_tipo) {
       case 'artista':
-        return detalle.foto_artista ? `${API_URL}/uploads/${detalle.foto_artista}` : '/default_artist.png';
+        return detalle.foto_artista ? `${API_URL}/${detalle.foto_artista}` : '/default_artist.png';
       case 'album':
-        return detalle.caratula ? `${API_URL}/uploads/${detalle.caratula}` : '/default_album.png';
+        return detalle.caratula ? `${API_URL}/${detalle.caratula}` : '/default_album.png';
       case 'cancion': {
         // Para canciones, usar la carátula del álbum
         const albumCaratula = detalle.album_caratula;
-        return albumCaratula ? `${API_URL}/uploads/${albumCaratula}` : '/default_song.png';
+        return albumCaratula ? `${API_URL}/${albumCaratula}` : '/default_song.png';
       }
       case 'video':
-        return detalle.miniatura ? `${API_URL}/uploads/${detalle.miniatura}` : '/default_video.png';
+        return detalle.miniatura ? `${API_URL}/${detalle.miniatura}` : '/default_video.png';
       default:
         return '/default_entity.png';
     }
-  };
-
-  const getOpcionesOrdenamiento = () => {
-  if (!lista) return [];
-  
-  return [
-      { value: 'predeterminada', label: 'Predeterminada' },
-      { value: 'nombre', label: 'Nombre' },
-      { value: 'calificacion', label: 'Calificación' },
-      { value: 'popularidad', label: 'Popularidad' },
-      ...(lista.tipo_lista === 'cancion' || lista.tipo_lista === 'video'
-        ? [{ value: 'duracion', label: 'Duración' }]
-        : []),
-      ...(lista.tipo_lista !== 'artista'
-        ? [{ value: 'año', label: 'Año' }]
-        : [])
-    ];
   };
 
   return (

@@ -166,11 +166,15 @@ const handleAddToList = async () => {
   return (
     <div className="pt-16 p-4">
       <h2 className="text-4xl font-bold my-4 text-center">
-        {video.titulo}
-        {posicionRanking && (
-          <span className="ml-2 text-yellow-500 text-lg font-semibold"> - #{posicionRanking} en Ranking Global de Videos Musicales</span>
-        )}
-      </h2>
+            {video.titulo}
+          </h2>
+          {posicionRanking && (
+            <div className="text-center mt-2">
+              <span className="ranking-global">
+                #{posicionRanking} en Ranking Global de Videos Musicales
+              </span>
+            </div>
+          )}
       <div className="flex justify-center">
         <a href={video.url_video} target="_blank" rel="noopener noreferrer">
           <img

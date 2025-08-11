@@ -260,10 +260,10 @@ const obtenerRankingGlobal = async (req, res) => {
 
   try {
     let vista = '';
-    if (tipo_entidad === 'album') vista = 'ranking_global_album_con_desempate';
-    else if (tipo_entidad === 'cancion') vista = 'ranking_global_cancion';
-    else if (tipo_entidad === 'artista') vista = 'ranking_global_artista_con_desempate';
-    else if (tipo_entidad === 'video') vista = 'ranking_global_video';
+    if (tipo_entidad === 'album') vista = 'ranking_global_album_con_peso';
+    else if (tipo_entidad === 'cancion') vista = 'ranking_global_cancion_con_peso';
+    else if (tipo_entidad === 'artista') vista = 'ranking_global_artista_con_peso';
+    else if (tipo_entidad === 'video') vista = 'ranking_global_video_con_peso';
     else return res.status(400).json({ error: "Tipo de entidad no válido" });
 
     const LIMITE_PAGINA = 1000;
@@ -334,19 +334,19 @@ const obtenerPosicionGlobal = async (req, res) => {
   let promedioCol = '';
 
   if (tipo_entidad === 'album') {
-    vista = 'ranking_global_album_con_desempate';
+    vista = 'ranking_global_album_con_peso';
     idCol = 'album_id';
     promedioCol = 'promedio_album';
   } else if (tipo_entidad === 'cancion') {
-    vista = 'ranking_global_cancion';
+    vista = 'ranking_global_cancion_con_peso';
     idCol = 'cancion_id';
     promedioCol = 'promedio_cancion';
   } else if (tipo_entidad === 'artista') {
-    vista = 'ranking_global_artista_con_desempate';
+    vista = 'ranking_global_artista_con_peso';
     idCol = 'artista_id';
     promedioCol = 'promedio_artista';
   } else if (tipo_entidad === 'video') {
-    vista = 'ranking_global_video';
+    vista = 'ranking_global_video_con_peso';
     idCol = 'video_id';
     promedioCol = 'promedio_video';
   } else {

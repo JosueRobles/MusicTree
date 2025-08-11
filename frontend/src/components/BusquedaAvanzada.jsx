@@ -107,7 +107,7 @@ const BusquedaAvanzada = ({
   const handleFiltroChange = (campo, valor) => {
     const nuevosFiltros = { ...filtros, [campo]: valor };
     setFiltros(nuevosFiltros);
-    onSearch(nuevosFiltros); // Llamar inmediatamente al buscar
+    onSearch(nuevosFiltros);
   };
 
   const handleSearchInput = (termino) => {
@@ -135,15 +135,7 @@ const BusquedaAvanzada = ({
       return;
     }
     setEntidadError(false);
-    if (order === 'ranking_comunitario') {
-      onSortOrderChange('ranking_comunitario', filtros.entidad);
-    } else if (order === 'popularidad') {
-      onSortOrderChange('popularidad');
-    } else if (order === 'valoracion') {
-      onSortOrderChange('valoracion');
-    } else {
-      onSortOrderChange('predeterminado');
-    }
+    onSearch({ ...filtros, orden: order });
   };
   
   return (
@@ -208,15 +200,15 @@ const BusquedaAvanzada = ({
           <select
             className={`w-full border rounded px-3 py-2 ${entidadError ? 'border-red-500' : ''}`}
             value={filtros.entidad}
-            onChange={(e) => {
-              handleFiltroChange('entidad', e.target.value);
-              setEntidadError(false);
-              // Si el orden actual es ranking_comunitario, dispara el filtro de ranking
-              if (filtros.orden === 'ranking_comunitario' && e.target.value) {
-                onSortOrderChange('ranking_comunitario', e.target.value);
-              }
-            }}
-          >
+              onChange={(e) => {
+                handleFiltroChange('entidad', e.target.value);
+                setEntidadError(false);
+                // Si el orden actual es ranking_comunitario, actualiza el filtro
+                if (filtros.orden === 'ranking_comunitario' && e.target.value) {
+                  onSearch({ ...filtros, entidad: e.target.value });
+                }
+              }}
+            >
             <option value="">Todas las entidades</option>
             <option value="artist" disabled={!!filtros.anio}>Artistas</option>
             <option value="album">Álbumes</option>

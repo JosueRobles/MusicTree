@@ -13,5 +13,6 @@ router.get('/emociones', valoracionController.contarEmociones);
 router.get('/globales', valoracionController.obtenerValoracionesGlobales); // Nueva ruta
 router.get('/segmentacion-personal', valoracionController.segmentacionPersonal); // NUEVO
 router.get('/historial', valoracionController.obtenerHistorialValoraciones);
+router.get('/personalizada', valoracionController.obtenerValoracionAgregada);
 
 module.exports = router;

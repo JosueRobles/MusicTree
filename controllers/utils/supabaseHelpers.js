@@ -126,27 +126,39 @@ async function insertOrUpdateArtist(artist) {
   }
 }
 
-const insertOrUpdateAlbum = async (album) => {
+const insertOrUpdateAlbum = async (album, categoria = 'catalogo') => {
   try {
+    // Consulta el álbum existente
+    const { data: existing, error: existingError } = await supabase
+      .from('albumes')
+      .select('categoria')
+      .eq('spotify_id', album.id)
+      .maybeSingle();
+
+    let categoriaFinal = categoria;
+    if (existing && existing.categoria && !existing.categoria.includes(categoria)) {
+      // Si ya existe y no tiene el nuevo valor, lo concatenas
+      categoriaFinal = existing.categoria + ' ' + categoria;
+    }
+
     const { data, error } = await supabase.from('albumes').upsert(
       {
-        spotify_id: album.id, // spotify_id del álbum
+        spotify_id: album.id,
         titulo: album.name,
         anio: album.release_date ? new Date(album.release_date).getFullYear() : null,
         foto_album: album.images?.[0]?.url || null,
         numero_canciones: album.total_tracks,
         tipo_album: album.album_type,
         popularidad_album: album.popularity || 0,
+        categoria: categoriaFinal, // <-- aquí se guarda el valor concatenado
       },
       { onConflict: ['spotify_id'] }
-    ).select('id_album, spotify_id'); // Obtener también el spotify_id
-
+    ).select('id_album, spotify_id');
     if (error) {
       console.error("Error al insertar o actualizar álbum:", error);
       throw error;
     }
-
-    return data?.[0]; // Retorna tanto el id_album como el spotify_id
+    return data?.[0];
   } catch (err) {
     console.error("Error en insertOrUpdateAlbum:", err);
     throw err;
@@ -169,7 +181,7 @@ const insertOrUpdateTrack = async (track, albumId, categoria = 'catalogo') => {
       titulo: track.name,
       album: albumId,
       duracion_ms: track.duration_ms,
-      popularidad: track.popularity,
+      popularidad: track.popularity ?? 0, // <-- Asegura que se inserte popularidad
       orden: track.track_number,
       categoria: categoriaFinal,
     }, { onConflict: ['spotify_id'] }).select('id_cancion');
@@ -343,9 +355,26 @@ async function linkAlbumWithArtist(albumId, artistId) {
   }
 }
 
+async function updateTrackPopularity(trackId, popularity) {
+  try {
+    const { error } = await supabase
+      .from('canciones')
+      .update({ popularidad: popularity })
+      .eq('id_cancion', trackId);
+
+    if (error) {
+      console.error(`Error al actualizar la popularidad de la canción ${trackId}:`, error);
+      throw error;
+    }
+  } catch (err) {
+    console.error(`Error en updateTrackPopularity para ${trackId}:`, err);
+    throw err;
+  }
+}
+
 module.exports = {
   linkAlbumWithArtist, // Exportar la nueva función
   getAllAlbumsFromDB,
   getAllArtistsFromDB,
-  trackExistsInDB, insertOrUpdateAlbum, insertOrUpdateArtist, updateArtistPopularity, updateAlbumPopularity, createOrGetCollection, addTrackToCollection, saveArtistToDB, saveAlbumsToDB, saveTrackToDB, linkCollaborators, saveGenreToDB, markArtistAsMain, updateArtistType, insertOrUpdateTrack
+  trackExistsInDB, insertOrUpdateAlbum, insertOrUpdateArtist, updateArtistPopularity, updateAlbumPopularity, createOrGetCollection, addTrackToCollection, saveArtistToDB, saveAlbumsToDB, saveTrackToDB, linkCollaborators, saveGenreToDB, markArtistAsMain, updateArtistType, insertOrUpdateTrack, updateTrackPopularity
 };

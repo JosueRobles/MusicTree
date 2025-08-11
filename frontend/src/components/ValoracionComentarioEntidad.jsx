@@ -2,20 +2,21 @@ import { Link } from 'react-router-dom';
 
 const API_URL = "http://localhost:5000";
 
-export default function ValoracionComentario({ valoracion }) {
+export default function ValoracionComentarioEntidad({ valoracion }) {
   const usuario = valoracion.usuarios || {};
   const idUsuario = valoracion.usuario;
+  const entidad = valoracion.entidad || {};
+  const fecha = valoracion.fecha ? new Date(valoracion.fecha) : null;
 
   return (
     <div className="valoracion-facebook">
       <Link to={`/profile/${idUsuario}`}>
         <img
-          src={usuario.foto_perfil ? `${API_URL}/uploads/${usuario.foto_perfil}` : '/default-user.png'}
+          src={usuario.foto_perfil ? `${API_URL}/uploads/${usuario.foto_perfil}` : '/default-profile.png'}
           alt="user"
           className="valoracion-facebook-foto"
         />
       </Link>
-
       <div className="valoracion-facebook-rect">
         <div>
           <Link to={`/profile/${idUsuario}`} className="valoracion-facebook-nombre">
@@ -28,30 +29,34 @@ export default function ValoracionComentario({ valoracion }) {
         <div className="valoracion-facebook-comentario">
           {valoracion.comentario || "Sin comentario"}
           <div style={{ fontSize: 12, color: "#888" }}>
-            {valoracion.entidad_tipo && valoracion.entidad_id && (
+            {entidad.tipo && entidad.id && (
               <>
                 <span>
-                  Valoró {valoracion.entidad_tipo}{" "}
+                  Valoró {entidad.tipo}{" "}
                   <Link to={
-                    valoracion.entidad_tipo === "album"
-                      ? `/album/${valoracion.entidad_id}`
-                      : valoracion.entidad_tipo === "cancion"
-                      ? `/song/${valoracion.entidad_id}`
-                      : valoracion.entidad_tipo === "video"
-                      ? `/video/${valoracion.entidad_id}`
-                      : valoracion.entidad_tipo === "artista"
-                      ? `/artist/${valoracion.entidad_id}`
+                    entidad.tipo === "album"
+                      ? `/album/${entidad.id}`
+                      : entidad.tipo === "cancion"
+                      ? `/song/${entidad.id}`
+                      : entidad.tipo === "video"
+                      ? `/video/${entidad.id}`
+                      : entidad.tipo === "artista"
+                      ? `/artist/${entidad.id}`
                       : "#"
                   }>
-                    #{valoracion.entidad_id}
+                    {entidad.nombre}
                   </Link>
                 </span>
               </>
             )}
+            {fecha && (
+              <span style={{ marginLeft: 8 }}>
+                — {fecha.toLocaleDateString()} {fecha.toLocaleTimeString()}
+              </span>
+            )}
           </div>
         </div>
       </div>
-
       <div className="valoracion-facebook-col">
         <div className="valoracion-facebook-cuadro">
           {valoracion.calificacion ? `${valoracion.calificacion} ⭐` : '-'}

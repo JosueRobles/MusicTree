@@ -16,7 +16,7 @@ const StarRating = ({
   entidadId,
   usuario,
 }) => {
-  const [rating, setRating] = useState(valoracionInicial);
+  const [rating, setRating] = useState(valoracionInicial ?? null);
   const [hovered, setHovered] = useState(null);
   const [comentario, setComentario] = useState('');
   const [comentarioGuardado, setComentarioGuardado] = useState(false);
@@ -24,6 +24,9 @@ const StarRating = ({
   const [emocionesCount, setEmocionesCount] = useState({});
   const [familiaridad, setFamiliaridad] = useState("");
   const [familiaridadCounts, setFamiliaridadCounts] = useState({});
+  const [modoValoracion, setModoValoracion] = useState("manual");
+  const [editable, setEditable] = useState(true);
+  const [mostrarGuardarAuto, setMostrarGuardarAuto] = useState(false);
 
   const familiaridadNiveles = [
     { key: "primera_vez", label: "Primera vez que escucho", img: "/familiaridad/primera_vez.png" },
@@ -140,6 +143,47 @@ const StarRating = ({
       });
     }
   }, [usuario, entidadTipo, entidadId]);
+
+  useEffect(() => {
+    // Trae la preferencia del usuario
+    if (usuario && (entidadTipo === "album" || entidadTipo === "artista")) {
+      axios.get(`${API_URL}/usuarios/usuarios/${usuario.id_usuario}`)
+        .then(res => {
+          const prefs = res.data?.metodologia_valoracion || {};
+          // OJO: usa modo_valoracion, no modo
+          setModoValoracion(prefs.modo_valoracion || "manual");
+          if (prefs.modo_valoracion === "semiautomatico") setEditable(false);
+          else setEditable(true);
+        });
+      // Si semiautomático, trae la calificación calculada
+      axios.get(`${API_URL}/valoraciones/personalizada`, {
+        params: { usuario: usuario.id_usuario, entidad_tipo: entidadTipo, entidad_id: entidadId }
+      }).then(res => {
+        setRating(res.data.calificacion || 0);
+        // Si hay calificación automática, pregunta si desea guardarla
+        if (res.data.calificacion && res.data.calificacion > 0) {
+          setMostrarGuardarAuto(true);
+        }
+      });
+    }
+  }, [usuario, entidadTipo, entidadId]);
+
+  const handleGuardarValoracionAuto = async () => {
+    try {
+      await axios.post(`${API_URL}/valoraciones`, {
+        usuario: usuario.id_usuario,
+        entidad_tipo: entidadTipo,
+        entidad_id: entidadId,
+        calificacion: rating,
+        comentario: "Valoración automática basada en tus valoraciones previas",
+        automatica: true // Si quieres distinguir en la BD, agrega la columna
+      });
+      setMostrarGuardarAuto(false);
+      alert("Valoración automática guardada.");
+    } catch (e) {
+      alert("Error al guardar valoración automática");
+    }
+  };
 
   const handleRating = async (newRating) => {
     if (newRating >= 0 && newRating <= 5) {
@@ -306,42 +350,47 @@ const StarRating = ({
 
   const handleMouseLeave = () => setHovered(null);
 
-  const renderIcon = (value) => {
+  const renderIconSrc = (value) => {
+    // Si rating es null, todo vacío
+    if (rating === null) {
+      return value === 0 ? treeEmpty : starEmpty;
+    }
     const currentRating = hovered !== null ? hovered : rating;
-    let iconSrc;
-
     if (value === 0) {
-      iconSrc = currentRating === 0 ? treeFilled : treeEmpty;
+      return currentRating === 0 ? treeFilled : treeEmpty;
     } else {
       if (value <= currentRating) {
-        iconSrc = starFilled;
+        return starFilled;
       } else if (currentRating > value - 1 && currentRating < value) {
-        iconSrc = starHalf;
+        return starHalf;
       } else {
-        iconSrc = starEmpty;
+        return starEmpty;
       }
     }
-
-    return (
-      <div
-        key={value}
-        onClick={(e) => handleClick(e, value)}
-        onMouseMove={(e) => handleMouseMove(e, value)}
-        onMouseLeave={handleMouseLeave}
-        className="cursor-pointer"
-        style={{ width: '24px', height: '24px', display: 'inline-block' }}
-      >
-        <img src={iconSrc} alt={value === 0 ? 'Tree' : 'Star'} style={{ width: '100%', height: '100%' }} />
-      </div>
-    );
   };
 
   return (
     <div className="flex flex-col items-center">
       <div className="flex items-center">
-        {[0, 1, 2, 3, 4, 5].map(renderIcon)}
+        {[0, 1, 2, 3, 4, 5].map(value =>
+          <div
+            key={value}
+            onClick={editable ? (e) => handleClick(e, value) : undefined}
+            onMouseMove={editable ? (e) => handleMouseMove(e, value) : undefined}
+            onMouseLeave={editable ? handleMouseLeave : undefined}
+            className={editable ? "cursor-pointer" : "opacity-50"}
+            style={{ width: '24px', height: '24px', display: 'inline-block' }}
+          >
+            <img src={renderIconSrc(value)} alt={value === 0 ? 'Tree' : 'Star'} style={{ width: '100%', height: '100%' }} />
+          </div>
+        )}
         <div className="ml-2 text-green-500 font-bold">{rating} ⭐</div>
       </div>
+      {!editable && (
+        <div className="text-xs text-gray-500 mt-1">
+          Valoración calculada automáticamente según tus preferencias
+        </div>
+      )}
       {rating > 0 && (
         <>
           <textarea
@@ -419,6 +468,27 @@ const StarRating = ({
             ))}
           </div>
         </>
+      )}
+      {mostrarGuardarAuto && (
+        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+          <div className="bg-white p-6 rounded shadow-lg text-center">
+            <p className="mb-4 font-semibold">
+              ¿Deseas guardar esta calificación automática en base a tus valoraciones previas?
+            </p>
+            <button
+              onClick={handleGuardarValoracionAuto}
+              className="bg-green-500 text-white px-4 py-2 rounded mr-2"
+            >
+              Sí, guardar
+            </button>
+            <button
+              onClick={() => setMostrarGuardarAuto(false)}
+              className="bg-gray-300 px-4 py-2 rounded"
+            >
+              No
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -48,38 +48,11 @@ const ColeccionPage = () => {
         setElementos((prev) => [...prev, ...elementosResponse.data]);
         setOffset((prev) => prev + limit);
 
+        // Usa los detalles que ya vienen del backend
         const detallesTemp = {};
-        await Promise.all(
-          elementosResponse.data.map(async (elemento) => {
-            try {
-              let detalleResponse;
-              switch (elemento.entidad_tipo) {
-                case 'album':
-                  detalleResponse = await axios.get(`${API_URL}/albumes/${elemento.entidad_id}`);
-                  detallesTemp[elemento.id_elemento] = detalleResponse.data.album;
-                  break;
-                case 'artista':
-                  detalleResponse = await axios.get(`${API_URL}/artistas/${elemento.entidad_id}`);
-                  detallesTemp[elemento.id_elemento] = detalleResponse.data.artista;
-                  break;
-                case 'cancion':
-                  detalleResponse = await axios.get(`${API_URL}/canciones/${elemento.entidad_id}`);
-                  detallesTemp[elemento.id_elemento] = detalleResponse.data;
-                  break;
-                case 'video':
-                  detalleResponse = await axios.get(`${API_URL}/videos/${elemento.entidad_id}`);
-                  detallesTemp[elemento.id_elemento] = detalleResponse.data;
-                  break;
-                default:
-                  detallesTemp[elemento.id_elemento] = { error: 'Tipo de entidad desconocido' };
-              }
-            } catch (detalleError) {
-              console.error(`Error fetching ${elemento.entidad_tipo} details:`, detalleError);
-              detallesTemp[elemento.id_elemento] = { error: 'No encontrado' };
-            }
-          })
-        );
-
+        elementosResponse.data.forEach((elemento) => {
+          detallesTemp[elemento.id_elemento] = elemento.detalles || {};
+        });
         setDetalles((prev) => ({ ...prev, ...detallesTemp }));
       }
       setLoading(false);
@@ -148,11 +121,10 @@ const ColeccionPage = () => {
 
   const getOpcionesOrdenamiento = () => {
     if (!coleccion) return [];
-    
     return [
       { value: 'predeterminada', label: 'Predeterminada' },
       { value: 'nombre', label: 'Nombre' },
-      { value: 'calificacion', label: 'Calificación' },
+      { value: 'artista', label: 'Artista' }, // <-- NUEVO
       { value: 'popularidad', label: 'Popularidad' },
       ...(coleccion.tipo_coleccion === 'cancion' || coleccion.tipo_coleccion === 'video'
         ? [{ value: 'duracion', label: 'Duración' }]
@@ -181,12 +153,12 @@ const ColeccionPage = () => {
             ? nombreA.localeCompare(nombreB)
             : nombreB.localeCompare(nombreA);
         }
-        case 'calificacion': {
-          const calificacionA = typeof detalleA.calificacion_usuario === 'number' ? detalleA.calificacion_usuario : -1;
-          const calificacionB = typeof detalleB.calificacion_usuario === 'number' ? detalleB.calificacion_usuario : -1;
+        case 'artista': { // <-- NUEVO
+          const artistaA = detalleA.artista || detalleA.nombre_artista || '';
+          const artistaB = detalleB.artista || detalleB.nombre_artista || '';
           return ordenDireccion === 'asc'
-            ? calificacionA - calificacionB
-            : calificacionB - calificacionA;
+            ? artistaA.localeCompare(artistaB)
+            : artistaB.localeCompare(artistaA);
         }
         case 'popularidad': {
           const popularidadA = detalleA.popularidad || 0;
@@ -384,7 +356,7 @@ const ColeccionPage = () => {
           gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))'
         }}>
           {elementosConDetalles.map((el) => {
-            const detalle = detalles[el.id_elemento] || {};
+            const detalle = el.detalles || {};
             return (
               <div
                 key={el.id_elemento}
@@ -412,7 +384,7 @@ const ColeccionPage = () => {
                     }}
                   >
                     <img
-                      src={detalle.imagen ? detalle.imagen : '/default_entity.png'}
+                      src={detalle.imagen ? detalle.imagen : '/default-artist.png'}
                       alt={detalle.titulo || detalle.nombre_artista || 'Entidad'}
                       style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     />

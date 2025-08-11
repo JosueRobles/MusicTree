@@ -27,7 +27,7 @@ async function initializeServer() {
       allowedHeaders: ['Content-Type', 'Authorization']
     }));
     app.use(express.json());
-    app.use(bodyParser.json());
+    //app.use(bodyParser.json());
 
     // Servir la carpeta 'uploads' como estática
     app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -61,6 +61,7 @@ async function initializeServer() {
     const catalogosRoutes = require('./routes/catalogosRoutes');
     const notificacionesRoutes = require('./routes/notificacionesRoutes');
     const familiaridadRoutes = require('./routes/familiaridadRoutes');
+    const youtubeRoutes = require('./routes/youtubeRoutes');   
 
     app.use("/auth", authRoutes);
     app.use("/usuarios", userRoutes);
@@ -90,6 +91,7 @@ async function initializeServer() {
     app.use('/catalogos', catalogosRoutes);
     app.use('/notificaciones', notificacionesRoutes);
     app.use('/familiaridad', familiaridadRoutes);
+    app.use('/youtube', youtubeRoutes);
 
     // Ruta para iniciar la autenticación de Spotify
     app.get('/login', (req, res) => {

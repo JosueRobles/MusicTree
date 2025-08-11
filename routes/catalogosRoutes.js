@@ -51,6 +51,7 @@ router.get('/pendientes-valoracion/:usuarioId', async (req, res) => {
       .eq('artista_id', artista_id);
 
     for (const cancion of canciones) {
+      // Verifica si el usuario ya valoró la canción
       const { data: valoracion } = await supabase
         .from('valoraciones_canciones')
         .select('id_valoracion')
@@ -58,11 +59,30 @@ router.get('/pendientes-valoracion/:usuarioId', async (req, res) => {
         .eq('cancion', cancion.cancion_id)
         .maybeSingle();
 
+      // Busca el álbum al que pertenece la canción
+      const { data: cancionInfo } = await supabase
+        .from('canciones')
+        .select('album')
+        .eq('id_cancion', cancion.cancion_id)
+        .maybeSingle();
+
+      let albumFoto = null;
+      if (cancionInfo?.album) {
+        const { data: albumInfo } = await supabase
+          .from('albumes')
+          .select('foto_album')
+          .eq('id_album', cancionInfo.album)
+          .maybeSingle();
+        albumFoto = albumInfo?.foto_album || null;
+      }
+
+      // Solo si no ha valorado, se agrega a pendientes
       if (!valoracion) {
         pendientes.push({
           tipo: 'cancion',
           id: cancion.cancion_id,
           titulo: cancion.canciones.titulo,
+          foto: albumFoto,
           artista_id
         });
       }

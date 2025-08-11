@@ -3,9 +3,7 @@ const { insertOrUpdateArtist } = require('../utils/supabaseHelpers');
 
 // Artistas principales conocidos
 const mainArtistNames = [
-  "Bad Bunny", "Taylor Swift", "Drake", "The Weeknd", "BTS", "Billie Eilish", "Ariana Grande", "Eminem",
-  "Ed Sheeran", "Justin Bieber", "Rihanna", "Shakira", "Karol G", "Feid", "Dua Lipa", "Post Malone",
-  "Olivia Rodrigo", "Harry Styles", "Rosalía", "Kendrick Lamar", "Travis Scott", "SZA", "Doja Cat", "Miley Cyrus"
+  "Queen",
 ];
 
 const searchFamousArtists = async () => {

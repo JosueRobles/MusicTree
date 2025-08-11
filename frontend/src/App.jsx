@@ -31,6 +31,7 @@ import GenrePage from './pages/GenrePage';
 import BadgePage from './pages/BadgePage';
 import ShareablePage from './pages/ShareablePage';
 import InsigniaToast from './components/InsigniaToast';
+import Personalizacion from './pages/Personalizacion'; // Importar la página de personalización
 
 import './styles/globals.css';
 import './App.css';
@@ -180,6 +181,7 @@ function App() {
           <Route path="shareable" element={
             <ShareablePage usuario={usuario} hideLayout={true} />
           } />
+          <Route path="/personalizacion" element={<Personalizacion />} /> {/* Nueva ruta para personalización */}
           
           {/* Rutas protegidas */}
           <Route path="admin" element={

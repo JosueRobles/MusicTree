@@ -38,7 +38,7 @@ const obtenerUsuarioPorId = async (req, res) => {
   try {
     const { data, error } = await supabase
       .from("usuarios")
-      .select("id_usuario, nombre, email, username")
+      .select("id_usuario, nombre, email, username, metodologia_valoracion, configuracion")
       .eq("id_usuario", id)
       .single();
 
@@ -122,6 +122,26 @@ const eliminarUsuario = async (req, res) => {
   }
 };
 
+// NUEVO: Guardar/actualizar preferencias de usuario
+const actualizarPreferencias = async (req, res) => {
+  const { id } = req.params;
+  const { metodologia_valoracion, configuracion } = req.body;
+  console.log("Preferencias recibidas:", req.body); // <-- Para depuración
+  try {
+    const { error } = await supabase
+      .from("usuarios")
+      .update({
+        metodologia_valoracion: metodologia_valoracion || null,
+        configuracion: configuracion || null,
+      })
+      .eq("id_usuario", id);
+    if (error) throw error;
+    res.status(200).json({ message: "Preferencias actualizadas" });
+  } catch (error) {
+    res.status(500).json({ error: "Error al actualizar preferencias" });
+  }
+};
+
 module.exports = {
   obtenerUsuarios,
   obtenerPerfil,
@@ -129,4 +149,5 @@ module.exports = {
   panelAdmin,
   obtenerUsuarioPorId,
   eliminarUsuario,
+  actualizarPreferencias,
 };

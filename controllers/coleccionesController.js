@@ -69,7 +69,8 @@ const getColeccionElementos = async (req, res) => {
       .eq('coleccion_id', id)
       .range(offset, offset + limit - 1);
 
-    if (orderBy) {
+    // SOLO permite ordenar por campos que existen en colecciones_elementos
+    if (orderBy && ['id_elemento', 'entidad_id', 'entidad_tipo'].includes(orderBy)) {
       elementosQuery = elementosQuery.order(orderBy, { ascending: orderDirection === 'asc' });
     }
 
@@ -84,154 +85,66 @@ const getColeccionElementos = async (req, res) => {
         try {
           switch (elemento.entidad_tipo) {
             case 'album': {
-              const { data: albumData, error: albumError } = await supabase
+              const { data: albumData } = await supabase
                 .from('albumes')
-                .select('id_album,titulo,anio,foto_album,popularidad_album')
+                .select('id_album,titulo,anio,foto_album')
                 .eq('id_album', elemento.entidad_id)
                 .single();
-
-              if (albumError || !albumData) {
-                console.error(`Album no encontrado: ${elemento.entidad_id}`, albumError);
-                break;
-              }
-
-              const { data: artistaData } = await supabase
-                .from('album_artistas')
-                .select('artistas!inner(id_artista,nombre_artista)')
-                .eq('album_id', elemento.entidad_id)
-                .limit(1)
-                .single();
-
-              const { data: valoracion } = await supabase
-                .from('valoraciones_albumes')
-                .select('calificacion')
-                .eq('album', elemento.entidad_id)
-                .eq('usuario', userId)
-                .maybeSingle();
-
               detalles = {
-                titulo: albumData.titulo,
-                artista: artistaData?.artistas?.nombre_artista || null,
-                anio: albumData.anio,
-                imagen: albumData.foto_album, // verifica si existe en la base de datos
-                popularidad: albumData.popularidad_album, // asegúrate que exista o usa el campo correcto
-                calificacion_usuario: valoracion?.calificacion ?? null,
+                titulo: albumData?.titulo,
+                imagen: albumData?.foto_album, // <-- portada del álbum
+                anio: albumData?.anio,
               };
               break;
             }
             case 'artista': {
-              const { data: artistaData, error: artistaError } = await supabase
+              const { data: artistaData } = await supabase
                 .from('artistas')
-                .select('id_artista,nombre_artista,foto_artista,popularidad_artista')
+                .select('id_artista,nombre_artista,foto_artista')
                 .eq('id_artista', elemento.entidad_id)
                 .single();
-
-              if (artistaError || !artistaData) {
-                console.error(`Artista no encontrado: ${elemento.entidad_id}`, artistaError);
-                break;
-              }
-
-              const { data: valoracion } = await supabase
-                .from('valoraciones_artistas')
-                .select('calificacion')
-                .eq('artista', elemento.entidad_id)
-                .eq('usuario', userId)
-                .maybeSingle();
-
               detalles = {
-                nombre_artista: artistaData.nombre_artista,
-                imagen: artistaData.foto_artista,
-                popularidad: artistaData.popularidad_artista,
-                calificacion_usuario: valoracion?.calificacion ?? null,
+                nombre_artista: artistaData?.nombre_artista,
+                imagen: artistaData?.foto_artista, // <-- foto del artista
               };
               break;
             }
             case 'cancion': {
-              const { data: cancionData, error: cancionError } = await supabase
+              const { data: cancionData } = await supabase
                 .from('canciones')
-                .select(`
-                  id_cancion,
-                  titulo,
-                  duracion_ms,
-                  popularidad,
-                  albumes!fk_album (
-                    foto_album,
-                    anio
-                  )
-                `)
+                .select('id_cancion,titulo,album')
                 .eq('id_cancion', elemento.entidad_id)
                 .single();
-
-              if (cancionError || !cancionData) {
-                console.error(`Cancion no encontrada: ${elemento.entidad_id}`, cancionError);
-                break;
+              // Trae la carátula del álbum
+              let albumCaratula = null;
+              if (cancionData?.album) {
+                const { data: albumData } = await supabase
+                  .from('albumes')
+                  .select('foto_album')
+                  .eq('id_album', cancionData.album)
+                  .single();
+                albumCaratula = albumData?.foto_album || null;
               }
-
-              // Obtener artista principal
-              const { data: artistaData } = await supabase
-                .from('cancion_artistas')
-                .select('artistas!inner(id_artista,nombre_artista)')
-                .eq('cancion_id', elemento.entidad_id)
-                .limit(1)
-                .single();
-
-              const { data: valoracion } = await supabase
-                .from('valoraciones_canciones')
-                .select('calificacion')
-                .eq('cancion', elemento.entidad_id)
-                .eq('usuario', userId)
-                .maybeSingle();
-
               detalles = {
-                titulo: cancionData.titulo,
-                artista: artistaData?.artistas?.nombre_artista || null,
-                duracion: Math.floor(cancionData.duracion_ms / 1000),
-                imagen: cancionData.albumes?.foto_album || null,
-                anio: cancionData.albumes?.anio || null,
-                popularidad: cancionData.popularidad,
-                calificacion_usuario: valoracion?.calificacion ?? null,
+                titulo: cancionData?.titulo,
+                imagen: albumCaratula, // <-- carátula del álbum
               };
               break;
             }
             case 'video': {
-              const { data: videoData, error: videoError } = await supabase
+              const { data: videoData } = await supabase
                 .from('videos_musicales')
-                .select('id_video,titulo,duracion,popularidad,miniatura,anio')
+                .select('id_video,titulo,miniatura')
                 .eq('id_video', elemento.entidad_id)
                 .single();
-
-              if (videoError || !videoData) {
-                console.error(`Video no encontrado: ${elemento.entidad_id}`, videoError);
-                break;
-              }
-
-              const { data: artistaVideo } = await supabase
-                .from('video_artistas')
-                .select('artistas(nombre_artista)')
-                .eq('video_id', elemento.entidad_id)
-                .limit(1)
-                .single();
-
-              const { data: valoracion } = await supabase
-                .from('valoraciones_videos_musicales')
-                .select('calificacion')
-                .eq('video', elemento.entidad_id)
-                .eq('usuario', userId)
-                .maybeSingle();
-
               detalles = {
-                titulo: videoData.titulo,
-                artista: artistaVideo?.artistas?.nombre_artista || null,
-                duracion: videoData.duracion,
-                imagen: videoData.miniatura,
-                anio: videoData.anio,
-                popularidad: videoData.popularidad,
-                calificacion_usuario: valoracion?.calificacion ?? null,
+                titulo: videoData?.titulo,
+                imagen: videoData?.miniatura, // <-- miniatura del video
               };
               break;
             }
             default:
-              detalles = null;
+              detalles = { error: 'Tipo de entidad desconocido' };
           }
         } catch (error) {
           console.error(`Error obteniendo detalles para ${elemento.entidad_tipo} ${elemento.entidad_id}:`, error);

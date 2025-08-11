@@ -2,12 +2,14 @@ const supabase = require('../config/db');
 const spotifyApi = require('../config/spotifyAuth');
 const lastFmApi = require('../config/lastfmAuth');
 const { getSpotifyApi } = require('../config/spotifyAuth');
+const { safeSpotifyCall } = require('./spotifySafeCall');
 
 function normalizarGenero(genre) {
   const allowedGenres = [
-    'Pop', 'Rock', 'Metal', 'Hip Hop', 'Rap', 'Folk',
+    'Pop', 'Rock', 'Metal', 'Hip Hop', 'Folk',
     'Jazz', 'Classical', 'Electronic', 'Country', 'Reggae',
-    'Blues', 'Punk',
+    'Blues', 'R&B', 'Latin'
+    
   ];
 
   if (!genre) return null;
@@ -41,8 +43,8 @@ async function obtenerNombreArtista(artistId) {
 // Corregido para usar spotify-web-api-node
 async function obtenerGenerosDeSpotify(artistId) {
   try {
-    const spotifyClient = getSpotifyApi();
-    const response = await spotifyApi.getArtist(artistId);  // Cambiado de .get a .getArtist
+    const spotifyApi = getSpotifyApi();
+    const response = await safeSpotifyCall(() => spotifyApi.getArtist(artistId));
     return response.genres || [];
   } catch (error) {
     console.error(`Error al consultar géneros en Spotify para el artista ${artistId}:`, error);
@@ -55,7 +57,9 @@ async function obtenerGenerosDeLastFM(nombre, artista = null) {
   try {
     const params = { method: artista ? 'album.gettoptags' : 'artist.gettoptags', artist: artista || nombre, album: nombre };
     const response = await lastFmApi.get('', { params });
-    return response.data.toptags.tag.map(tag => tag.name) || [];
+    const tags = response.data?.toptags?.tag;
+    if (!tags || !Array.isArray(tags)) return [];
+    return tags.map(tag => tag.name) || [];
   } catch (error) {
     console.error(`Error al consultar géneros en LastFM para ${nombre}:`, error);
     return [];
@@ -136,20 +140,51 @@ async function obtenerNombreArtistaDesdeEntidad(tipo, entidadId) {
   }
 }
 
+async function buscarGenerosDeArtista(artistaId, nombreArtista) {
+  let generos = [];
+
+  try {
+    if (!artistaId || !nombreArtista) return;
+
+    const { data: artistData } = await supabase
+      .from('artistas')
+      .select('spotify_id')
+      .eq('id_artista', artistaId)
+      .single();
+
+    if (!artistData || !artistData.spotify_id) return;
+
+    const spotifyId = artistData.spotify_id;
+
+    // Spotify
+    try {
+      generos = await obtenerGenerosDeSpotify(spotifyId);
+    } catch {}
+
+    // LastFM si Spotify no devuelve nada
+    if (generos.length === 0) {
+      try {
+        generos = await obtenerGenerosDeLastFM(nombreArtista);
+      } catch {}
+    }
+
+    if (generos.length === 0) return;
+
+    // Aquí: pasa todos los géneros extraídos (no solo los principales)
+    await almacenarGenerosYRelacionar('artista', artistaId, generos);
+  } catch (error) {
+    console.error(`❌ Error al buscar géneros para el artista ${nombreArtista}: ${error.message}`);
+  }
+}
+
 async function buscarGenerosDeAlbumOCancion(tipo, entidadId, titulo) {
   let tags = [];
 
   try {
-    if (!titulo) {
-      console.warn(`⚠️ ${tipo} inválido: ID=${entidadId}, Título ausente`);
-      return;
-    }
+    if (!titulo) return;
 
     const nombreArtista = await obtenerNombreArtistaDesdeEntidad(tipo, entidadId);
-    if (!nombreArtista) {
-      console.warn(`⚠️ No se pudo obtener el nombre del artista para el ${tipo} con ID=${entidadId}`);
-      return;
-    }
+    if (!nombreArtista) return;
 
     try {
       const params = tipo === 'album'
@@ -157,127 +192,74 @@ async function buscarGenerosDeAlbumOCancion(tipo, entidadId, titulo) {
         : { method: 'track.gettoptags', artist: nombreArtista, track: titulo };
 
       const lastFmResponse = await lastFmApi.get('', { params });
-      tags = lastFmResponse.data.toptags?.tag?.map(tag => tag.name) || [];
-    } catch (lastFmError) {
-      console.warn(`⚠️ Error al conectar con LastFM para el ${tipo} "${titulo}": ${lastFmError.message}`);
-    }
+      // SOLO los tags con count >= 50
+      tags = (lastFmResponse.data.toptags?.tag || [])
+        .filter(tag => tag.count && tag.count >= 50)
+        .map(tag => tag.name);
+    } catch {}
 
-    if (tags.length === 0) {
-      console.warn(`⚠️ No se encontraron tags para ${tipo} "${titulo}"`);
-      return;
-    }
+    if (tags.length === 0) return;
 
-    const generosNormalizados = tags.map(normalizarGenero).filter(Boolean);
-    if (generosNormalizados.length > 0) {
-      await almacenarGenerosYRelacionar(tipo, entidadId, generosNormalizados);
-      console.log(`✅ Géneros asignados al ${tipo} "${titulo}": ${generosNormalizados.join(', ')}`);
-    } else {
-      console.warn(`⚠️ Ningún género válido fue encontrado para el ${tipo} "${titulo}"`);
-    }
+    await almacenarGenerosYRelacionar(tipo, entidadId, tags);
   } catch (error) {
     console.error(`❌ Error al buscar géneros para el ${tipo} "${titulo}": ${error.message}`);
   }
 }
 
-async function almacenarGenerosYRelacionar(entityType, entityId, genres) {
-  const genreIds = [];
+// Normaliza y busca género principal y subgéneros
+async function obtenerGeneroPrincipalYSubgeneros(generosExtraidos) {
+  // 1. Normaliza todos los géneros extraídos
+  const normalizados = generosExtraidos
+    .map(g => g && typeof g === 'string' ? g.trim().toLowerCase() : null)
+    .filter(Boolean);
 
-  for (const genre of genres) {
-    try {
-      const { data: existingGenre } = await supabase
-        .from('generos')
-        .select('id_genero')
-        .eq('nombre', genre)
-        .single();
+  // 2. Trae todos los géneros principales y subgéneros de la BD
+  const { data: generosBD } = await supabase
+    .from('generos')
+    .select('id_genero, nombre, subgeneros');
 
-      let genreId = existingGenre ? existingGenre.id_genero : null;
+  const resultado = [];
 
-      if (!genreId) {
-        const { data: newGenre, error: insertError } = await supabase
-          .from('generos')
-          .insert({ nombre: genre })
-          .select()
-          .single();
-
-        if (insertError) {
-          console.error(`Error al insertar el género ${genre}: ${insertError.message}`);
-          continue;
+  for (const norm of normalizados) {
+    // ¿Es principal?
+    const principal = generosBD.find(g => g.nombre && g.nombre.trim().toLowerCase() === norm);
+    if (principal) {
+      resultado.push({ id_genero: principal.id_genero, principal: principal.nombre, subgeneros: [] });
+      continue;
+    }
+    // ¿Es subgénero de algún principal?
+    for (const g of generosBD) {
+      if (g.subgeneros && Array.isArray(g.subgeneros)) {
+        if (g.subgeneros.map(s => s.trim().toLowerCase()).includes(norm)) {
+          // Si ya existe en resultado, solo agrega subgénero
+          let ya = resultado.find(r => r.id_genero === g.id_genero);
+          if (!ya) {
+            resultado.push({ id_genero: g.id_genero, principal: g.nombre, subgeneros: [norm] });
+          } else if (!ya.subgeneros.includes(norm)) {
+            ya.subgeneros.push(norm);
+          }
         }
-
-        genreId = newGenre.id_genero;
       }
-
-      genreIds.push(genreId);
-    } catch (error) {
-      console.error(`Error al verificar o insertar el género ${genre}: ${error.message}`);
     }
   }
-
-  const tableName = `${entityType}_generos`;
-
-  for (const genreId of genreIds) {
-    try {
-      await supabase
-        .from(tableName)
-        .upsert({ [`${entityType}_id`]: entityId, genero_id: genreId });
-    } catch (error) {
-      console.error(`Error al relacionar género ${genreId} con ${entityType} ${entityId}: ${error.message}`);
-    }
-  }
+  return resultado;
 }
 
-async function buscarGenerosDeArtista(artistaId, nombreArtista) {
-  let generos = [];
+// MODIFICA esta función para guardar subgéneros
+async function almacenarGenerosYRelacionar(entityType, entityId, generosExtraidos) {
+  const generosRelacion = await obtenerGeneroPrincipalYSubgeneros(generosExtraidos);
 
-  try {
-    if (!artistaId || !nombreArtista) {
-      console.warn(`⚠️ Artista inválido: ID=${artistaId}, Nombre=${nombreArtista}`);
-      return;
-    }
+  const tableName = `${entityType}_generos`;
+  const idField = `${entityType}_id`;
 
-    const { data: artistData, error: artistError } = await supabase
-      .from('artistas')
-      .select('spotify_id')
-      .eq('id_artista', artistaId)
-      .single();
-
-    if (artistError || !artistData || !artistData.spotify_id) {
-      console.warn(`❌ No se encontró el spotify_id para el artista: ${nombreArtista}`);
-      return;
-    }
-
-    const spotifyId = artistData.spotify_id;
-
-    // Intentar obtener géneros desde Spotify
-    try {
-      generos = await obtenerGenerosDeSpotify(spotifyId);
-    } catch (spotifyError) {
-      console.warn(`⚠️ Error al conectar con Spotify para el artista ${nombreArtista}: ${spotifyError.message}`);
-    }
-
-    // Intentar obtener géneros desde LastFM si Spotify no devuelve datos
-    if (generos.length === 0) {
-      try {
-        generos = await obtenerGenerosDeLastFM(nombreArtista);
-      } catch (lastFmError) {
-        console.warn(`⚠️ Error al conectar con LastFM para el artista ${nombreArtista}: ${lastFmError.message}`);
-      }
-    }
-
-    if (generos.length === 0) {
-      console.warn(`⚠️ No se encontraron géneros para el artista: ${nombreArtista}`);
-      return;
-    }
-
-    const generosNormalizados = generos.map(normalizarGenero).filter(Boolean);
-    if (generosNormalizados.length > 0) {
-      await almacenarGenerosYRelacionar('artista', artistaId, generosNormalizados);
-      console.log(`✅ Géneros asignados al artista ${nombreArtista}: ${generosNormalizados.join(', ')}`);
-    } else {
-      console.warn(`⚠️ Ningún género válido fue encontrado para el artista: ${nombreArtista}`);
-    }
-  } catch (error) {
-    console.error(`❌ Error al buscar géneros para el artista ${nombreArtista}: ${error.message}`);
+  for (const relacion of generosRelacion) {
+    await supabase
+      .from(tableName)
+      .upsert({
+        [idField]: entityId,
+        genero_id: relacion.id_genero,
+        subgeneros: relacion.subgeneros.length > 0 ? relacion.subgeneros : null
+      }, { onConflict: [idField, 'genero_id'] });
   }
 }
 
@@ -290,4 +272,5 @@ module.exports = {
   obtenerGenerosDeLastFM,
   almacenarGenerosYRelacionar,
   obtenerNombreArtista,
+  obtenerGeneroPrincipalYSubgeneros, // Exporta si lo necesitas
 };

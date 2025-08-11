@@ -1,4 +1,4 @@
-const { getAlbumPopularity, getArtistDetails, getArtistPopularity } = require('../utils/spotifyHelpers');
+const { getAlbumPopularity, getArtistDetails, getArtistPopularity } = require('../utils/spotifyApiHelpers');
 const supabase = require('../../supabaseClient'); // Importar Supabase
 const {
   updateAlbumPopularity,
@@ -40,9 +40,32 @@ const updateAlbumAndTrackPopularity = async (albumId) => {
 // Actualiza la popularidad de todos los álbumes en la base de datos
 const updateAllAlbumPopularity = async () => {
   console.log("📊 Actualizando popularidad de todos los álbumes...");
-  const albums = await getAllAlbumsFromDB(); // Obtener todos los álbumes desde la base de datos
+  const albums = await getAllAlbumsFromDB();
 
-  for (const album of albums) {
+  // 1. Primero los que tienen popularidad nula o 0
+  const albumsNull = albums.filter(a => !a.popularidad_album || a.popularidad_album === 0);
+  const albumsRest = albums.filter(a => a.popularidad_album && a.popularidad_album > 0);
+
+  for (const album of albumsNull) {
+    try {
+      console.log(`📊 Actualizando popularidad del álbum: ${album.id_album}`);
+      
+      // Obtener popularidad con reintentos
+      const albumPopularity = await retry(() => getAlbumPopularity(album.spotify_id));
+
+      // Validar y actualizar popularidad del álbum
+      if (albumPopularity !== null && albumPopularity !== undefined) {
+        await updateAlbumPopularity(album.id_album, albumPopularity);
+        console.log(`✅ Popularidad actualizada para álbum: ${album.id_album}`);
+      } else {
+        console.warn(`⚠️ Popularidad no disponible para álbum: ${album.id_album}`);
+        await updateAlbumPopularity(album.id_album, 0); // Valor por defecto
+      }
+    } catch (error) {
+      console.error(`❌ Error al actualizar popularidad del álbum ${album.id_album}:`, error.message || error);
+    }
+  }
+  for (const album of albumsRest) {
     try {
       console.log(`📊 Actualizando popularidad del álbum: ${album.id_album}`);
       
@@ -70,7 +93,37 @@ const updateAllArtistPopularityAndPhotos = async () => {
   console.log("📊 Actualizando popularidad y fotos de todos los artistas...");
   const artists = await getAllArtistsFromDB();
 
-  for (const artist of artists) {
+  // 1. Primero los que tienen popularidad/foto nula o 0
+  const artistsNull = artists.filter(a => !a.popularidad_artista || a.popularidad_artista === 0 || !a.foto_artista);
+  const artistsRest = artists.filter(a => a.popularidad_artista && a.popularidad_artista > 0 && a.foto_artista);
+
+  for (const artist of artistsNull) {
+    try {
+      console.log(`📊 Actualizando popularidad y foto del artista: ${artist.id_artista}`);
+      
+      // Obtener detalles del artista con reintentos
+      const details = await retry(() => getArtistDetails(artist.spotify_id));
+
+      // Actualizar popularidad y foto
+      if (details) {
+        await updateArtistPopularity(artist.id_artista, details.popularity || 0);
+        if (details.images.length > 0) {
+          await supabase
+            .from('artistas')
+            .update({ foto_artista: details.images[0]?.url })
+            .eq('id_artista', artist.id_artista);
+        }
+        console.log(`✅ Popularidad y foto actualizadas para artista: ${artist.id_artista}`);
+      } else {
+        console.warn(`⚠️ Detalles no disponibles para artista: ${artist.id_artista}`);
+      }
+    } catch (error) {
+      console.error(`❌ Error al actualizar popularidad y foto del artista ${artist.id_artista}:`, error.message || error);
+    }
+  }
+  console.log("Extraccion de valores nulos completada");
+
+  for (const artist of artistsRest) {
     try {
       console.log(`📊 Actualizando popularidad y foto del artista: ${artist.id_artista}`);
       

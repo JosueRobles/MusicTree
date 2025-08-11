@@ -23,7 +23,7 @@ const obtenerCancionesDeAlbum = async (req, res) => {
         .eq('cancion', cancion.id_cancion);
 
       if (valoracionesError) {
-        console.error(`❌ Error al obtener valoraciones de canción ${cancion.id_cancion}:`, valoracionesError);
+        console.error("Error ...", err.body?.error?.message || err.message || JSON.stringify(err));
         continue;
       }
 

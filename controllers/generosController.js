@@ -7,15 +7,43 @@ const {
   obtenerNombreArtista,
   insertarGenerosPrincipales, buscarGenerosDeArtista, buscarGenerosDeAlbumOCancion
 } = require('./utils/genreHelpers');
+const { safeSpotifyCall } = require('./utils/spotifySafeCall');
 
 // Actualizar géneros de artistas
 const updateArtistGenres = async (req, res) => {
   try {
-    const { data: artists, error } = await supabase.from('artistas').select('id_artista, nombre_artista');
-    if (error) throw error;
+    // 1. Artistas sin género
+    const { data: allArtists, error: error1 } = await supabase
+      .from('artistas')
+      .select('id_artista, nombre_artista');
+    if (error1) throw error1;
 
-    for (const artist of artists) {
+    const { data: artistGenres, error: error2 } = await supabase
+      .from('artista_generos')
+      .select('artista_id');
+    if (error2) throw error2;
+
+    const artistIdsWithGenre = new Set((artistGenres || []).map(a => a.artista_id));
+    const artistsNoGenre = (allArtists || []).filter(a => !artistIdsWithGenre.has(a.id_artista));
+
+    for (const artist of artistsNoGenre) {
       await buscarGenerosDeArtista(artist.id_artista, artist.nombre_artista);
+    }
+    console.log("Extraccion de valores nulos completada");
+
+    // 2. Artistas con género pero subgéneros nulos o vacíos
+    const { data: artistasSinSubgenero, error: error3 } = await supabase
+      .from('artista_generos')
+      .select('artista_id, subgeneros');
+    if (error3) throw error3;
+
+    for (const rel of (artistasSinSubgenero || []).filter(r => !r.subgeneros || r.subgeneros.length === 0)) {
+      const { data: artist } = await supabase
+        .from('artistas')
+        .select('nombre_artista')
+        .eq('id_artista', rel.artista_id)
+        .single();
+      if (artist) await buscarGenerosDeArtista(rel.artista_id, artist.nombre_artista);
     }
 
     res.status(200).json({ message: 'Géneros de artistas actualizados correctamente.' });
@@ -28,39 +56,70 @@ const updateArtistGenres = async (req, res) => {
 // Actualizar géneros de álbumes
 const updateAlbumGenres = async (req, res) => {
   try {
-    const { data: albums, error } = await supabase
-      .from('album_artistas')
-      .select(`
-        album_id,
-        artista_id,
-        albumes(titulo)
-      `); // Relación explícita con la tabla albumes
+    const { data: allAlbums, error: error1 } = await supabase
+      .from('albumes')
+      .select('id_album, titulo');
+    if (error1) throw error1;
 
-    if (error) throw error;
+    const { data: albumGenres, error: error2 } = await supabase
+      .from('album_generos')
+      .select('album_id');
+    if (error2) throw error2;
 
-    for (const album of albums) {
+    const albumIdsWithGenre = new Set((albumGenres || []).map(a => a.album_id));
+    const albumsNoGenre = (allAlbums || []).filter(a => !albumIdsWithGenre.has(a.id_album));
+
+    for (const album of albumsNoGenre) {
+      console.log(`🎧 (NULO) Álbum sin género: ${album.titulo}`);
+      const { data: rel } = await supabase
+        .from('album_artistas')
+        .select('artista_id')
+        .eq('album_id', album.id_album)
+        .single();
+      if (!rel) continue;
+
       const { data: artist } = await supabase
         .from('artistas')
         .select('nombre_artista')
-        .eq('id_artista', album.artista_id)
+        .eq('id_artista', rel.artista_id)
+        .single();
+      if (!artist) continue;
+
+      await buscarGenerosDeAlbumOCancion('album', album.id_album, album.titulo, artist.nombre_artista);
+    }
+
+    console.log("Extraccion de valores nulos completada");
+
+    const { data: albumsSinSubgenero, error: error3 } = await supabase
+      .from('album_generos')
+      .select('album_id, subgeneros');
+    if (error3) throw error3;
+
+    for (const rel of (albumsSinSubgenero || []).filter(r => !r.subgeneros || r.subgeneros.length === 0)) {
+      const { data: album } = await supabase
+        .from('albumes')
+        .select('titulo')
+        .eq('id_album', rel.album_id)
+        .single();
+      const { data: relArtista } = await supabase
+        .from('album_artistas')
+        .select('artista_id')
+        .eq('album_id', rel.album_id)
+        .single();
+      const { data: artist } = await supabase
+        .from('artistas')
+        .select('nombre_artista')
+        .eq('id_artista', relArtista?.artista_id)
         .single();
 
-      if (!album.albumes || !album.albumes.titulo) {
-        console.warn(`⚠️ Álbum sin título: ID=${album.album_id}`);
-        continue;
+      if (album && artist) {
+        await buscarGenerosDeAlbumOCancion('album', rel.album_id, album.titulo, artist.nombre_artista);
       }
-
-      await buscarGenerosDeAlbumOCancion(
-        'album',
-        album.album_id,
-        album.albumes.titulo,
-        artist.nombre_artista
-      );
     }
 
     res.status(200).json({ message: 'Géneros de álbumes actualizados correctamente.' });
   } catch (error) {
-    console.error('Error al actualizar géneros de álbumes:', error);
+    console.error('❌ Error al actualizar géneros de álbumes:', error);
     res.status(500).json({ error: 'Error al actualizar géneros de álbumes.' });
   }
 };
@@ -68,39 +127,69 @@ const updateAlbumGenres = async (req, res) => {
 // Actualizar géneros de canciones
 const updateSongGenres = async (req, res) => {
   try {
-    const { data: songs, error } = await supabase
-      .from('cancion_artistas')
-      .select(`
-        cancion_id,
-        artista_id,
-        canciones(titulo)
-      `); // Relación explícita con la tabla canciones
+    const { data: allSongs, error: error1 } = await supabase
+      .from('canciones')
+      .select('id_cancion, titulo');
+    if (error1) throw error1;
 
-    if (error) throw error;
+    const { data: songGenres, error: error2 } = await supabase
+      .from('cancion_generos')
+      .select('cancion_id');
+    if (error2) throw error2;
 
-    for (const song of songs) {
+    const songIdsWithGenre = new Set((songGenres || []).map(a => a.cancion_id));
+    const songsNoGenre = (allSongs || []).filter(a => !songIdsWithGenre.has(a.id_cancion));
+
+    for (const song of songsNoGenre) {
+      console.log(`🎵 (NULO) Canción sin género: ${song.titulo}`);
+      const { data: rel } = await supabase
+        .from('cancion_artistas')
+        .select('artista_id')
+        .eq('cancion_id', song.id_cancion)
+        .single();
+      if (!rel) continue;
+
       const { data: artist } = await supabase
         .from('artistas')
         .select('nombre_artista')
-        .eq('id_artista', song.artista_id)
+        .eq('id_artista', rel.artista_id)
         .single();
+      if (!artist) continue;
 
-      if (!song.canciones || !song.canciones.titulo) {
-        console.warn(`⚠️ Canción sin título: ID=${song.cancion_id}`);
-        continue;
+      await buscarGenerosDeAlbumOCancion('cancion', song.id_cancion, song.titulo, artist.nombre_artista);
+    }
+
+    console.log("Extraccion de valores nulos completada");
+
+    const { data: songsSinSubgenero, error: error3 } = await supabase
+      .from('cancion_generos')
+      .select('cancion_id, subgeneros');
+    if (error3) throw error3;
+
+    for (const rel of (songsSinSubgenero || []).filter(r => !r.subgeneros || r.subgeneros.length === 0)) {
+      const { data: song } = await supabase
+        .from('canciones')
+        .select('titulo')
+        .eq('id_cancion', rel.cancion_id)
+        .single();
+      const { data: relArtista } = await supabase
+        .from('cancion_artistas')
+        .select('artista_id')
+        .eq('cancion_id', rel.cancion_id)
+        .single();
+      const { data: artist } = await supabase
+        .from('artistas')
+        .select('nombre_artista')
+        .eq('id_artista', relArtista?.artista_id)
+        .single();
+      if (song && artist) {
+        await buscarGenerosDeAlbumOCancion('cancion', rel.cancion_id, song.titulo, artist.nombre_artista);
       }
-
-      await buscarGenerosDeAlbumOCancion(
-        'cancion',
-        song.cancion_id,
-        song.canciones.titulo,
-        artist.nombre_artista
-      );
     }
 
     res.status(200).json({ message: 'Géneros de canciones actualizados correctamente.' });
   } catch (error) {
-    console.error('Error al actualizar géneros de canciones:', error);
+    console.error('❌ Error al actualizar géneros de canciones:', error);
     res.status(500).json({ error: 'Error al actualizar géneros de canciones.' });
   }
 };

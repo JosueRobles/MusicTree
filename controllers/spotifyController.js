@@ -10,21 +10,55 @@ const {
   updateAllArtistPopularityAndPhotos,
 } = require('./handlers/popularityHandler');
 const {
-  extractSpotifyPlaylist,
-  extractBillionPlaylist,
+  processSpotifyPlaylist,
+  updateCollectionFromPlaylist,
 } = require('./handlers/playlistHandler');
-const { processArtistList, importFullArtistCatalog } = require('./utils/spotifyHelpers');
+const { processArtistList, importFullArtistCatalog,  } = require('./utils/spotifyHelpers');
+const supabase = require('../supabaseClient');
+const { safeSpotifyCall } = require('./utils/spotifySafeCall');
 
 const importFullArtistCatalogController = async (req, res) => {
   const { artistId } = req.params;
   try {
-    await importFullArtistCatalog(artistId);
-    const supabase = require('../supabaseClient');
-    await supabase
-      .from('artistas')
-      .update({ es_principal: true })
-      .eq('id_artista', artistId);
-    res.status(200).send(`Catálogo importado y artista ${artistId} marcado como principal.`);
+    // Buscar el id_artista interno si solo tienes el spotify_id
+    let id_artista = artistId;
+    if (/^[a-zA-Z0-9]{22}$/.test(artistId)) {
+      const { data, error } = await supabase
+        .from('artistas')
+        .select('id_artista')
+        .eq('spotify_id', artistId)
+        .single();
+      if (error || !data) throw new Error("Artista no encontrado en la base de datos.");
+      id_artista = data.id_artista;
+    }
+
+    const { artistIds, albumIds, trackIds } = await importFullArtistCatalog(artistId);
+
+    const {
+      updateArtistsPopularityAndPhotosByIds,
+      updateAlbumsPopularityByIds,
+      updateTracksPopularityByIds,
+      updateArtistGenresByIds,
+      updateAlbumGenresByIds,
+      updateSongGenresByIds,
+    } = require('./handlers/batchUpdateHandler');
+
+    await updateArtistsPopularityAndPhotosByIds(artistIds);
+    await updateAlbumsPopularityByIds(albumIds);
+    await updateTracksPopularityByIds(trackIds);
+    await updateArtistGenresByIds(artistIds);
+    await updateAlbumGenresByIds(albumIds);
+    await updateSongGenresByIds(trackIds);
+
+    // Marca como principal al final SOLO si existe el id_artista
+    if (id_artista) {
+      await supabase
+        .from('artistas')
+        .update({ es_principal: true })
+        .eq('id_artista', id_artista);
+    }
+
+    res.status(200).send(`Catálogo importado y artista ${id_artista} marcado como principal.`);
   } catch (err) {
     console.error("Error al importar catálogo:", err);
     res.status(500).send("Error al importar catálogo.");
@@ -61,17 +95,6 @@ const searchArtistsFromAlbumsController = async (req, res) => {
   } catch (err) {
     console.error("Error al buscar artistas de los álbumes:", err);
     res.status(500).send("Error al buscar artistas de los álbumes.");
-  }
-};
-
-// Controlador para procesar la playlist
-const extractBillionPlaylistController = async (req, res) => {
-  try {
-    await extractBillionPlaylist();
-    res.status(200).send("Playlist procesada correctamente.");
-  } catch (err) {
-    console.error("Error al procesar la playlist:", err);
-    res.status(500).send("Error al procesar la playlist.");
   }
 };
 
@@ -118,7 +141,7 @@ const updateArtistRelatedController = async (req, res) => {
 
 // Lista predefinida de artistas
 const artistList = [
-  "Disturbed","4ZPpGYjIb5caOhHhQANO8P","0Te1QGD9jtzrxPa8nie9OQ","3f7Qfkua3IcRpUFzUaUnrX","La Adictiva Banda San José de Mesillas","1Sqacm1VMROsVrDOUwxS5G","Claudia Leitte","B.o.B"
+  "Queen"
 ];
 
 // Controlador para procesar automáticamente una lista de artistas
@@ -145,16 +168,120 @@ const processArtistListController = async (req, res) => {
   }
 };*/
 
+// Procesar playlist y crear/actualizar colección
+const processPlaylistController = async (req, res) => {
+  const { playlistId } = req.params;
+  try {
+    const { artistIds, albumIds, trackIds } = await processSpotifyPlaylist(playlistId);
+
+    const {
+      updateArtistsPopularityAndPhotosByIds,
+      updateAlbumsPopularityByIds,
+      updateTracksPopularityByIds,
+      updateArtistGenresByIds,
+      updateAlbumGenresByIds,
+      updateSongGenresByIds,
+    } = require('./handlers/batchUpdateHandler');
+
+    await updateArtistsPopularityAndPhotosByIds(artistIds);
+    await updateAlbumsPopularityByIds(albumIds);
+    await updateTracksPopularityByIds(trackIds);
+    await updateArtistGenresByIds(artistIds);
+    await updateAlbumGenresByIds(albumIds);
+    await updateSongGenresByIds(trackIds);
+
+    res.status(200).send("Colección creada/actualizada correctamente desde la playlist.");
+  } catch (err) {
+    console.error("Error al procesar la playlist:", err);
+    res.status(500).send("Error al procesar la playlist.");
+  }
+};
+
+
+// Actualizar colección existente desde playlist
+const updateCollectionFromPlaylistController = async (req, res) => {
+  const { coleccionId } = req.params;
+  try {
+    const { artistIds, albumIds, trackIds } = await updateCollectionFromPlaylist(coleccionId);
+
+    const {
+      updateArtistsPopularityAndPhotosByIds,
+      updateAlbumsPopularityByIds,
+      updateTracksPopularityByIds,
+      updateArtistGenresByIds,
+      updateAlbumGenresByIds,
+      updateSongGenresByIds,
+    } = require('./handlers/batchUpdateHandler');
+
+    await updateArtistsPopularityAndPhotosByIds(artistIds);
+    await updateAlbumsPopularityByIds(albumIds);
+    await updateTracksPopularityByIds(trackIds);
+    await updateArtistGenresByIds(artistIds);
+    await updateAlbumGenresByIds(albumIds);
+    await updateSongGenresByIds(trackIds);
+
+    res.status(200).send("Colección actualizada correctamente desde la playlist.");
+  } catch (err) {
+    console.error("Error al actualizar la colección:", err);
+    res.status(500).send("Error al actualizar la colección.");
+  }
+};
+
+const updateValidatedArtistCatalogController = async (req, res) => {
+  const { artistId } = req.params;
+  try {
+    const { data: artist, error } = await supabase
+      .from('artistas')
+      .select('es_principal, spotify_id')
+      .eq('id_artista', artistId)
+      .single();
+
+    if (error) throw error;
+    if (!artist) return res.status(404).send("Artista no encontrado.");
+
+    const importOptions = artist.es_principal ? { soloNuevos: true } : { soloNuevos: false };
+
+    const { artistIds, albumIds, trackIds } = await importFullArtistCatalog(artist.spotify_id, artistId, importOptions);
+
+    const {
+      updateArtistsPopularityAndPhotosByIds,
+      updateAlbumsPopularityByIds,
+      updateTracksPopularityByIds,
+      updateArtistGenresByIds,
+      updateAlbumGenresByIds,
+      updateSongGenresByIds,
+    } = require('./handlers/batchUpdateHandler');
+
+    await updateArtistsPopularityAndPhotosByIds(artistIds);
+    await updateAlbumsPopularityByIds(albumIds);
+    await updateTracksPopularityByIds(trackIds);
+    await updateArtistGenresByIds(artistIds);
+    await updateAlbumGenresByIds(albumIds);
+    await updateSongGenresByIds(trackIds);
+
+    if (!artist.es_principal) {
+      await supabase.from('artistas').update({ es_principal: true }).eq('id_artista', artistId);
+    }
+
+    res.status(200).send("Catálogo de artista validado actualizado correctamente.");
+  } catch (err) {
+    console.error("Error al actualizar catálogo de artista validado:", err.body?.error?.message || err.message || err);
+    res.status(500).send("Error al actualizar catálogo de artista validado.");
+  }
+};
+
 module.exports = {
   ...require('./spotifyController'), // Mantener los controladores existentes
   processArtistListController, // Nuevo controlador exportado
   searchFamousArtistsController,
   searchArtistsFromListController,
   updateArtistRelatedController,
-  extractBillionPlaylistController,
   updateAlbumsPopularityController,
   updateArtistsPopularityController,
   updateArtistPhotosController,
   searchArtistsFromAlbumsController, // Nuevo controlador exportado
   importFullArtistCatalogController,
+  processPlaylistController,
+  updateCollectionFromPlaylistController,
+  updateValidatedArtistCatalogController, // Nuevo controlador exportado
 };

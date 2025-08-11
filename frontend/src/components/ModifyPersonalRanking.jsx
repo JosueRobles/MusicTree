@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
+import { Link } from "react-router-dom";
 
 const API_URL = "http://localhost:5000";
 
@@ -143,8 +144,26 @@ const ModifyPersonalRanking = ({ usuario, soloLectura = false }) => {
                               position: "relative"
                             }}
                           >
-                            <img src={item.foto || '/default-profile.png'} alt={item.nombre} style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", marginRight: 12 }} />
-                            <span style={{ fontWeight: "bold" }}>{item.nombre || `ID ${item.entidad_id}`}</span>
+                            <span style={{ fontWeight: "bold", marginRight: 8 }}>
+                              Top {item.posicion}
+                            </span>
+                            <Link
+                              to={
+                                tipoActivo === "artista"
+                                  ? `/artist/${item.entidad_id}`
+                                  : tipoActivo === "album"
+                                  ? `/album/${item.entidad_id}`
+                                  : tipoActivo === "cancion"
+                                  ? `/song/${item.entidad_id}`
+                                  : tipoActivo === "video"
+                                  ? `/video/${item.entidad_id}`
+                                  : "#"
+                              }
+                              style={{ display: "flex", alignItems: "center", color: "#fff", textDecoration: "none", gap: 8 }}
+                            >
+                              <img src={item.foto || '/default-artist.png'} alt={item.nombre} style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", marginRight: 12 }} />
+                              <span style={{ fontWeight: "bold" }}>{item.nombre || `ID ${item.entidad_id}`}</span>
+                            </Link>
                             <span style={{ marginLeft: "auto", color: "#ffd700" }}>
                               {item.valoracion ? `${item.valoracion} ⭐` : ""}
                             </span>
