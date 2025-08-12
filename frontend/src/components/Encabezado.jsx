@@ -10,7 +10,7 @@ const Encabezado = ({ usuario, onLogout }) => {
 
   useEffect(() => {
     if (usuario) {
-      fetch(`http://localhost:5000/notificaciones/usuario/${usuario.id_usuario}`)
+      fetch(`${import.meta.env.VITE_API_URL}/notificaciones/usuario/${usuario.id_usuario}`)
         .then(res => res.json())
         .then(data => {
           setNotificaciones(data);

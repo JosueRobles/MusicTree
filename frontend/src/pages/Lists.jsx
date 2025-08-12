@@ -4,7 +4,7 @@ import axios from 'axios';
 import { UsuarioContext } from '../context/UsuarioContext';
 import { useNavigate } from 'react-router-dom';
 
-const API_URL = 'http://localhost:5000';
+const API_URL = import.meta.env.VITE_API_URL;
 
 // Tarjeta tipo Spotify/Colecciones
 const ListCard = ({ lista, onClick }) => (
