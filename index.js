@@ -21,8 +21,8 @@ async function initializeServer() {
 
     // Middleware and routes setup
     app.use(cors({
-      origin: 'http://localhost:5173', // Dirección del frontend
-      credentials: true, // Permitir cookies y encabezados de autorización
+      origin: process.env.FRONTEND_URL || "http://localhost:5173",
+      credentials: true,
       methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
       allowedHeaders: ['Content-Type', 'Authorization']
     }));
@@ -140,9 +140,9 @@ async function initializeServer() {
       res.send("MusicTree API funcionando 🚀");
     });
 
-    app.listen(PORT, () => {
-      console.log(`Servidor corriendo en http://localhost:${PORT}`);
-    });
+      app.listen(PORT, () => {
+        console.log(`Servidor corriendo en puerto ${PORT}`);
+      });
 
   } catch (err) {
     console.error("Error al inicializar el servidor:", err);

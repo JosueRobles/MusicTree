@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom'; // <-- Asegúrate de importar Link
 
-const API_URL = "http://localhost:5000";
+const API_URL = import.meta.env.VITE_API_URL;
 
 const Login = ({ onLoginExitoso }) => {
   const [emailOrUsername, setEmailOrUsername] = useState('');

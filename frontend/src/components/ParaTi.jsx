@@ -4,7 +4,7 @@ import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
 import ValoracionComentarioEntidad from './ValoracionComentarioEntidad';
 
-const API_URL = "http://localhost:5000";
+const API_URL = import.meta.env.VITE_API_URL;
 
 const getEntityImage = (item) => {
   if (item.tipo_entidad === 'album') return item.referencia_info?.foto_album || '/default.png';

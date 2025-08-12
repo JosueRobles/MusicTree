@@ -4,7 +4,7 @@ import Carousel from "react-multi-carousel";
 import "react-multi-carousel/lib/styles.css";
 import { Link } from "react-router-dom";
 
-const API_URL = "http://localhost:5000/tendencias/feed";
+const API_URL = `${import.meta.env.VITE_API_URL}/tendencias/feed`;
 
 const TendenciasFeed = () => {
   const [tendencias, setTendencias] = useState([]);

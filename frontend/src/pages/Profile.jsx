@@ -8,7 +8,7 @@ import ModifyPersonalRanking from '../components/ModifyPersonalRanking';
 import UserListGrid from '../components/UserListGrid';
 import ValoracionComentarioEntidad from '../components/ValoracionComentarioEntidad'; // Nuevo componente
 
-const API_URL = "http://localhost:5000";
+const API_URL = import.meta.env.VITE_API_URL;
 
 const Profile = () => {
   const { usuario } = useContext(UsuarioContext); // Obtener el usuario desde el contexto

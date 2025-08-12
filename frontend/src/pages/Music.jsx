@@ -6,7 +6,7 @@ import MusicTendencias from '../components/MusicTendencias';
 import Generos from '../components/Generos';
 import { UsuarioContext } from '../context/UsuarioContext';
 
-const API_URL = "http://localhost:5000";
+const API_URL = import.meta.env.VITE_API_URL;
 
 const Music = () => {
   const { usuario } = useContext(UsuarioContext);

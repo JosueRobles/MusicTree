@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import axios from 'axios';
 import { UsuarioContext } from './UsuarioContext';
 
-const API_URL = "http://localhost:5000";
+const API_URL = import.meta.env.VITE_API_URL;
 
 const UsuarioProvider = ({ children }) => {
   const [usuario, setUsuario] = useState(null);

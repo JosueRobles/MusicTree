@@ -7,7 +7,7 @@ import starHalf from '../assets/star_half.png';
 import starFilled from '../assets/star_filled.png';
 import axios from 'axios';
 
-const API_URL = "http://localhost:5000";
+const API_URL = import.meta.env.VITE_API_URL;
 
 const StarRating = ({
   valoracionInicial = 0,

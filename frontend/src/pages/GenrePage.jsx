@@ -3,7 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import axios from "axios";
 import CarruselEntidad from "../components/CarruselEntidad";
 
-const API_URL = "http://localhost:5000";
+const API_URL = import.meta.env.VITE_API_URL;
 const POR_PAGINA = 18; // 3 páginas de 6 por sección
 
 const fetchEntidadPorPag = async (url, pagina, porPagina) => {

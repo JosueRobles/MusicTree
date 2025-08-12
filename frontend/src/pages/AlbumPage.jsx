@@ -5,7 +5,7 @@ import PropTypes from 'prop-types';
 import StarRating from '../components/StarRating';
 import ValoracionComentario from '../components/ValoracionComentario';
 
-const API_URL = "http://localhost:5000";
+const API_URL = import.meta.env.VITE_API_URL;
 
 const AlbumPage = ({ usuario }) => {
   const { id } = useParams();

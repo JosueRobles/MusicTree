@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import BarraDeBusqueda from './BarraDeBusqueda';
 import axios from 'axios';
 
-const API_URL = "http://localhost:5000";
+const API_URL = import.meta.env.VITE_API_URL;
 
 const BusquedaAvanzada = ({
   onSearch,

@@ -3,7 +3,7 @@ import axios from 'axios';
 import { useParams } from 'react-router-dom';
 import { UsuarioContext } from '../context/UsuarioContext';
 
-const API_URL = "http://localhost:5000";
+const API_URL = import.meta.env.VITE_API_URL;
 
 const ColaboradoresPage = () => {
   const { id } = useParams(); // id de la lista

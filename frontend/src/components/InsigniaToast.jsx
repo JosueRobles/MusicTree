@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
 const sonido = "/insigniaSound.mp3";
-const API_URL = "http://localhost:5000";
+const API_URL = import.meta.env.VITE_API_URL;
 
 const InsigniaToast = ({ visible, insignia, notificacionId, onClose }) => {
   const navigate = useNavigate();
