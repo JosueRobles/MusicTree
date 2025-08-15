@@ -1,4 +1,5 @@
 const supabase = require("../db");
+const { uploadToSupabase } = require('./utils/supabaseUpload');
 
 const verificarEntidadEnListas = async (req, res) => {
   const { userId, entidad_id, entidad_tipo } = req.body;
@@ -852,7 +853,10 @@ const actualizarImagenLista = async (req, res) => {
   try {
     let imagen = null;
     if (req.file) {
-      imagen = `${req.file.filename}`;
+      if (req.file.size > 4 * 1024 * 1024) {
+        return res.status(400).json({ error: 'La imagen no debe superar los 4MB.' });
+      }
+      imagen = await uploadToSupabase(req.file.buffer, req.file.originalname, req.file.mimetype);
     } else {
       return res.status(400).json({ error: 'No se envió ninguna imagen.' });
     }

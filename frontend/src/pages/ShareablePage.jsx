@@ -84,9 +84,33 @@ const ShareablePage = ({ usuario }) => {
   }, [openDetail, tab.active, userId]);
 
   const handleShare = async () => {
+    const topItems = (rankings[tab.active] || []).slice(0, 5);
+    const urls = topItems.map(item => item.foto || "/default-profile.png");
+
+    const { data: cachedUrls } = await axios.post(`${API_URL}/share/cache-images`, { urls, userId });
+    const safeUrls = cachedUrls.map(u => u || "/default-profile.png");
+
+    // Espera a que todas las imágenes del DOM se carguen
+    const topDivs = document.querySelectorAll("#wrapped-share .shareable-section-dark");
+    const imgPromises = [];
+    for (let i = 0; i < topDivs.length; i++) {
+      const img = topDivs[i]?.querySelector("img");
+      if (img) {
+        img.src = safeUrls[i];
+        imgPromises.push(new Promise(resolve => {
+          img.onload = resolve;
+          img.onerror = resolve;
+        }));
+      }
+    }
+
+    // ⚡ Espera que todas las imágenes terminen de cargar
+    await Promise.all(imgPromises);
+
+    // Ahora sí, html2canvas
     const el = document.getElementById("wrapped-share");
     if (!el) return;
-    const canvas = await html2canvas(el);
+    const canvas = await html2canvas(el, { useCORS: true, allowTaint: true });
     const url = canvas.toDataURL();
     const link = document.createElement("a");
     link.href = url;
@@ -468,6 +492,9 @@ function secToMMSS(sec) {
           </div>
         </div>
       )}
+      <div style={{ color: "#aaa", fontSize: 12, marginTop: 8 }}>
+        Nota: Las imágenes de artistas, álbumes y videos son usadas solo con fines no comerciales y respetando derechos de Spotify
+      </div>
     </div>
   );
 };

@@ -33,16 +33,12 @@ const crearCancion = async (req, res) => {
 };
 
 const obtenerCanciones = async (req, res) => {
-  try {
-    const { data, error } = await supabase.from('canciones').select('*');
-
-    if (error) throw error;
-
+    const { termino } = req.query;
+    let query = supabase.from('canciones').select('*');
+    if (termino) query = query.ilike('titulo', `%${termino}%`);
+    const { data, error } = await query;
+    if (error) return res.status(500).json({ error: error.message });
     res.json(data);
-  } catch (error) {
-    console.error("❌ Error al obtener canciones:", error);
-    res.status(500).json({ error: "Error en el servidor" });
-  }
 };
 
 const obtenerCancionPorId = async (req, res) => {

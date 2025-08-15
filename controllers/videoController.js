@@ -41,15 +41,12 @@ const crearVideoMusical = async (req, res) => {
 };
 
 const obtenerVideosMusicales = async (req, res) => {
-  try {
-    const { data, error } = await supabase.from('videos_musicales').select('*');
-
-    if (error) throw error;
-    res.json(data);
-  } catch (error) {
-    console.error("❌ Error al obtener videos musicales:", error);
-    res.status(500).json({ error: "Error en el servidor" });
-  }
+  const { termino } = req.query;
+  let query = supabase.from('videos_musicales').select('*');
+  if (termino) query = query.ilike('titulo', `%${termino}%`);
+  const { data, error } = await query;
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
 };
 
 const obtenerVideoMusicalPorId = async (req, res) => {

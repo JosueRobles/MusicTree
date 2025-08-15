@@ -3,17 +3,11 @@ const router = express.Router();
 const supabase = require('../db');
 const path = require('path');
 const multer = require('multer');
-
-const storage = multer.diskStorage({
-  destination: 'uploads/',
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const filename = `${Date.now()}${ext}`;
-    cb(null, filename);
-  },
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 4 * 1024 * 1024 }, // 4MB
 });
-
-const upload = multer({ storage });
+const { uploadToSupabase } = require('../controllers/utils/supabaseUpload');
 
 // Obtener todos los usuarios
 router.get('/', async (req, res) => {
@@ -238,7 +232,7 @@ router.get('/:id', async (req, res) => {
 router.put('/:id', upload.single('foto_perfil'), async (req, res) => {
   const { id } = req.params;
   const { nombre } = req.body;
-  const foto_perfil = req.file ? req.file.filename : null;
+  let foto_perfil = null;
 
   try {
     const { data: currentUser, error: fetchError } = await supabase
@@ -248,6 +242,14 @@ router.put('/:id', upload.single('foto_perfil'), async (req, res) => {
       .single();
 
     if (fetchError) throw fetchError;
+
+    // Subir imagen a Supabase si viene archivo
+    if (req.file) {
+      if (req.file.size > 4 * 1024 * 1024) {
+        return res.status(400).json({ error: 'La imagen no debe superar los 4MB.' });
+      }
+      foto_perfil = await uploadToSupabase(req.file.buffer, req.file.originalname, req.file.mimetype);
+    }
 
     const updates = {
       nombre: nombre || currentUser.nombre,
@@ -261,7 +263,7 @@ router.put('/:id', upload.single('foto_perfil'), async (req, res) => {
 
     if (error) throw error;
 
-    res.status(200).json({ message: 'Perfil actualizado exitosamente' });
+    res.status(200).json({ message: 'Perfil actualizado exitosamente', foto_perfil: updates.foto_perfil });
   } catch (error) {
     console.error('Error updating profile:', error);
     res.status(500).json({ error: 'Internal server error' });

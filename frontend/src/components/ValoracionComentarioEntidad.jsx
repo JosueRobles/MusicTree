@@ -12,7 +12,7 @@ export default function ValoracionComentarioEntidad({ valoracion }) {
     <div className="valoracion-facebook">
       <Link to={`/profile/${idUsuario}`}>
         <img
-          src={usuario.foto_perfil ? `${API_URL}/uploads/${usuario.foto_perfil}` : '/default-profile.png'}
+          src={usuario.foto_perfil || '/default-profile.png'}
           alt="user"
           className="valoracion-facebook-foto"
         />
@@ -59,7 +59,7 @@ export default function ValoracionComentarioEntidad({ valoracion }) {
       </div>
       <div className="valoracion-facebook-col">
         <div className="valoracion-facebook-cuadro">
-          {valoracion.calificacion ? `${valoracion.calificacion} ⭐` : '-'}
+          {valoracion.calificacion ? `${valoracion.calificacion} ⭐` : '0 ⭐'}
         </div>
         <div className="valoracion-facebook-cuadro">
           {valoracion.emocion ? (

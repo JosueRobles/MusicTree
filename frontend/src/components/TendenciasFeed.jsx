@@ -112,8 +112,8 @@ const TendenciasFeed = () => {
             ) : (
               <div className="static-container">
                 {tendenciasFiltradas.map((item, index) => (
-                  <div key={`${item.entidad_id}_${item.entidad_tipo}`} className="tendencia-card">
-                    <Link to={getLink(tipo, item.entidad_id)}>
+                  <div key={`${item.id}_${tipo}`} className="tendencia-card">
+                    <Link to={getLink(tipo, item.id)}>
                       <img
                         src={item.imagen}
                         alt={item.nombre}

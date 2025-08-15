@@ -7,6 +7,9 @@ import { Link } from 'react-router-dom';
 import ModifyPersonalRanking from '../components/ModifyPersonalRanking';
 import UserListGrid from '../components/UserListGrid';
 import ValoracionComentarioEntidad from '../components/ValoracionComentarioEntidad'; // Nuevo componente
+import { Bar, Pie, Doughnut } from 'react-chartjs-2';
+import { Chart, ArcElement, BarElement, CategoryScale, LinearScale, Tooltip, Legend } from 'chart.js';
+Chart.register(ArcElement, BarElement, CategoryScale, LinearScale, Tooltip, Legend);
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -33,6 +36,7 @@ const Profile = () => {
   const [valoraciones, setValoraciones] = useState([]);
   const [listas, setListas] = useState([]);
   const [valoracionesEnriquecidas, setValoracionesEnriquecidas] = useState([]);
+  const [estadisticas, setEstadisticas] = useState(null);
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -248,6 +252,15 @@ useEffect(() => {
 
 useEffect(() => {
   if (user?.id_usuario) {
+    axios
+      .get(`${API_URL}/usuarios/usuarios/${user.id_usuario}/estadisticas-musicales`)
+      .then(res => setEstadisticas(res.data))
+      .catch(() => setEstadisticas(null));
+  }
+}, [user]);
+
+useEffect(() => {
+  if (user?.id_usuario) {
     axios.get(`${API_URL}/listas-personalizadas/colaborativas-o-propias/${user.id_usuario}`)
       .then(res => setListas(
         res.data.filter(l =>
@@ -378,9 +391,9 @@ const PieChart = ({ porcentaje }) => {
     <main className="p-4">
       <h2 className="text-4xl font-bold my-4">{user.username}</h2>
       <div className="section">
-        <img 
-          src={user.foto_perfil ? `${API_URL}/uploads/${user.foto_perfil}` : '/default-profile.png'} 
-          alt={user.username} 
+        <img
+          src={user.foto_perfil || '/default-profile.png'}
+          alt={user.username}
           className="profile-img"
         />
         <p className="text-lg font-semibold">Nombre: {user.nombre}</p>
@@ -508,7 +521,96 @@ const PieChart = ({ porcentaje }) => {
           <h3 className="text-2xl font-bold my-4">Ranking Personal de {user.username}</h3>
           <ModifyPersonalRanking usuario={user} soloLectura={true} />
         </div>
-      )}
+      )
+      }
+      {estadisticas && (
+  <div className="section mt-6">
+    <h3 className="text-2xl font-bold my-4">Estadísticas y hábitos musicales</h3>
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 32 }}>
+      <div style={{ minWidth: 320 }}>
+        <strong>Distribución de estrellas</strong>
+        <Bar
+          data={{
+            labels: Object.keys(estadisticas.distribucionEstrellas),
+            datasets: [{
+              label: 'Valoraciones',
+              data: Object.values(estadisticas.distribucionEstrellas),
+              backgroundColor: '#22c55e'
+            }]
+          }}
+          options={{
+            scales: { y: { beginAtZero: true } }
+          }}
+        />
+      </div>
+      <div style={{ minWidth: 220 }}>
+        <strong>Por género</strong>
+        <Pie
+          data={{
+            labels: estadisticas.porGenero.map(g => g.nombre),
+            datasets: [{
+              data: estadisticas.porGenero.map(g => g.count),
+              backgroundColor: [
+                '#22c55e', '#3b82f6', '#f59e42', '#eab308', '#ef4444', '#a78bfa', '#f472b6', '#14b8a6'
+              ]
+            }]
+          }}
+        />
+      </div>
+      <div style={{ minWidth: 220 }}>
+        <strong>Por año</strong>
+        <Bar
+          data={{
+            labels: Object.keys(estadisticas.porAnio),
+            datasets: [{
+              label: 'Valoraciones',
+              data: Object.values(estadisticas.porAnio),
+              backgroundColor: '#3b82f6'
+            }]
+          }}
+          options={{
+            scales: { y: { beginAtZero: true } }
+          }}
+        />
+      </div>
+      <div style={{ minWidth: 220 }}>
+        <strong>Familiaridad</strong>
+        <Doughnut
+          data={{
+            labels: Object.keys(estadisticas.familiaridadCount),
+            datasets: [{
+              data: Object.values(estadisticas.familiaridadCount),
+              backgroundColor: ['#22c55e', '#f59e42', '#3b82f6']
+            }]
+          }}
+        />
+      </div>
+      <div style={{ minWidth: 220 }}>
+        <strong>Emociones</strong>
+        <Pie
+          data={{
+            labels: Object.keys(estadisticas.emocionCount),
+            datasets: [{
+              data: Object.values(estadisticas.emocionCount),
+              backgroundColor: [
+                '#f59e42', '#3b82f6', '#eab308', '#ef4444', '#a78bfa', '#f472b6', '#14b8a6', '#22c55e'
+              ]
+            }]
+          }}
+        />
+      </div>
+      <div>
+        <strong>Valoraciones por tipo:</strong>
+        <ul>
+          <li>Artistas: {estadisticas.porTipo.artista}</li>
+          <li>Álbumes: {estadisticas.porTipo.album}</li>
+          <li>Canciones: {estadisticas.porTipo.cancion}</li>
+          <li>Videos: {estadisticas.porTipo.video}</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+)}
 
       <div className="section mt-6">
         <h3 className="text-2xl font-bold my-4">Medallas e Insignias del usuario</h3>
@@ -553,7 +655,7 @@ const PieChart = ({ porcentaje }) => {
             {listas.map(lista => (
               <Link to={`/list/${lista.id_lista}`} key={lista.id_lista} style={{ textDecoration: 'none', color: '#222' }}>
                 <div className="profile-lista-card" style={{ width: 180, background: '#222', borderRadius: 8, padding: 12 }}>
-                  <img src={lista.imagen ? `${API_URL}/uploads/${lista.imagen}` : '/default_collection.png'} alt={lista.nombre_lista} style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, margin: '0 auto', display: 'block' }} />
+                  <img src={lista.imagen || '/default_playlist.png'} style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, margin: '0 auto', display: 'block' }} />
                   <div style={{ margin: '8px 0', color: '#fff', fontWeight: 'bold' }}>{lista.nombre_lista}</div>
                   <div style={{ color: '#aaa', fontSize: 12 }}>{lista.tipo_lista}</div>
                 </div>

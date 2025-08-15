@@ -105,7 +105,7 @@ const Members = ({ usuario }) => {
                     <td style={{ padding: 10, fontWeight: 700 }}>{idx + 1}</td>
                     <td style={{ padding: 10 }}>
                       <img
-                        src={member.foto_perfil ? `${API_URL}/uploads/${member.foto_perfil}` : '/default-profile.png'}
+                        src={member.foto_perfil || '/default-profile.png'}
                         alt={member.username}
                         style={{ width: 60, height: 60, borderRadius: '50%', objectFit: 'cover', border: '2.5px solid #16a34a', background: '#222' }}
                       />

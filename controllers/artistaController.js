@@ -17,16 +17,14 @@ const crearArtista = async (req, res) => {
   }
 };
 
+// Ejemplo para artistas
 const obtenerArtistas = async (req, res) => {
-  try {
-    const { data, error } = await supabase.from('artistas').select('*');
-
-    if (error) throw error;
-    res.json(data);
-  } catch (error) {
-    console.error("❌ Error al obtener artistas:", error);
-    res.status(500).json({ error: "Error en el servidor" });
-  }
+  const { termino } = req.query;
+  let query = supabase.from('artistas').select('*');
+  if (termino) query = query.ilike('nombre_artista', `%${termino}%`);
+  const { data, error } = await query;
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
 };
 
 const obtenerArtistaPorId = async (req, res) => {

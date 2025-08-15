@@ -325,14 +325,14 @@ const AlbumPage = ({ usuario }) => {
           {listasDestacadas.length > 0 && (
   <div className="mt-6">
     <h4 className="font-bold">Listas destacadas con este álbum</h4>
-    <div className="flex flex-wrap gap-4 justify-center mt-4">
-      {listasDestacadas.map(lista => (
-        <div key={lista.id_lista} className="w-48 bg-white shadow rounded p-2 text-center">
-          <img src={lista.imagen ? `${API_URL}/uploads/${lista.imagen}?t=${Date.now()}` : '/default_playlist.png'} alt={lista.nombre_lista} className="tendencia-imagen" />
-          <Link to={`/list/${lista.id_lista}`} className="font-bold">{lista.nombre_lista}</Link>
-        </div>
-      ))}
+    <div style={{ display: 'flex', gap: 16, overflowX: 'auto', paddingBottom: 8 }}>
+  {listasDestacadas.map(lista => (
+    <div key={lista.id_lista} className="tendencia-card">
+      <img src={lista.imagen || '/default_playlist.png'} alt={lista.nombre_lista} className="tendencia-imagen" />
+      <Link to={`/list/${lista.id_lista}`} className="font-bold">{lista.nombre_lista}</Link>
     </div>
+  ))}
+</div>
   </div>
 )}
         </>

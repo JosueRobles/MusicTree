@@ -1,5 +1,110 @@
 const supabase = require("../db");
 
+// NUEVO: Estadísticas musicales del usuario
+const estadisticasMusicales = async (req, res) => {
+  const { id } = req.params;
+  try {
+    // Valoraciones por tipo de entidad
+    const [artistas, albumes, canciones, videos] = await Promise.all([
+      supabase.from('valoraciones_artistas').select('calificacion, artista, registrado').eq('usuario', id),
+      supabase.from('valoraciones_albumes').select('calificacion, album, registrado').eq('usuario', id),
+      supabase.from('valoraciones_canciones').select('calificacion, cancion, registrado').eq('usuario', id),
+      supabase.from('valoraciones_videos_musicales').select('calificacion, video, registrado').eq('usuario', id),
+    ]);
+
+    // Distribución de estrellas (0, 0.5, 1, ..., 5)
+    const estrellasPosibles = Array.from({length: 11}, (_, i) => (i * 0.5).toFixed(1));
+    const distribucionEstrellas = {};
+    estrellasPosibles.forEach(e => distribucionEstrellas[e] = 0);
+    [...artistas.data, ...albumes.data, ...canciones.data, ...videos.data].forEach(v => {
+      let val = Number(v.calificacion);
+      if (isNaN(val)) val = 0;
+      // Redondea a la media estrella más cercana
+      val = Math.round(val * 2) / 2;
+      if (val >= 0 && val <= 5) distribucionEstrellas[val.toFixed(1)]++;
+    });
+
+    // Valoraciones por tipo de entidad
+    const porTipo = {
+      artista: artistas.data.length,
+      album: albumes.data.length,
+      cancion: canciones.data.length,
+      video: videos.data.length,
+    };
+
+    // Valoraciones por año (de álbum/canción/video)
+    const albumIds = albumes.data.map(a => a.album);
+    const cancionIds = canciones.data.map(c => c.cancion);
+    const videoIds = videos.data.map(v => v.video);
+
+    // Trae info de álbumes para canciones
+    let cancionesInfo = [];
+    if (cancionIds.length) {
+      const { data: cancionesData } = await supabase.from('canciones').select('id_cancion, album').in('id_cancion', cancionIds);
+      const albumesCancionesIds = cancionesData.map(c => c.album).filter(Boolean);
+      const { data: albumesCanciones } = albumesCancionesIds.length
+        ? await supabase.from('albumes').select('id_album, anio').in('id_album', albumesCancionesIds)
+        : { data: [] };
+      const albumAnioMap = Object.fromEntries((albumesCanciones || []).map(a => [a.id_album, a.anio]));
+      cancionesInfo = cancionesData.map(c => ({
+        ...c,
+        anio: albumAnioMap[c.album] || null
+      }));
+    }
+
+    // Info de álbumes y videos
+    const [albumesInfo, videosInfo] = await Promise.all([
+      albumIds.length ? supabase.from('albumes').select('id_album, anio').in('id_album', albumIds) : { data: [] },
+      videoIds.length ? supabase.from('videos_musicales').select('id_video, anio').in('id_video', videoIds) : { data: [] },
+    ]);
+    const porAnio = {};
+    (albumesInfo.data || []).forEach(a => { if (a.anio) porAnio[a.anio] = (porAnio[a.anio] || 0) + 1; });
+    (cancionesInfo || []).forEach(c => { if (c.anio) porAnio[c.anio] = (porAnio[c.anio] || 0) + 1; });
+    (videosInfo.data || []).forEach(v => { if (v.anio) porAnio[v.anio] = (porAnio[v.anio] || 0) + 1; });
+
+    // Valoraciones por género (solo para álbumes y canciones)
+    const [cancionGeneros, albumGeneros, generos] = await Promise.all([
+      cancionIds.length ? supabase.from('cancion_generos').select('cancion_id, genero_id').in('cancion_id', cancionIds) : { data: [] },
+      albumIds.length ? supabase.from('album_generos').select('album_id, genero_id').in('album_id', albumIds) : { data: [] },
+      supabase.from('generos').select('id_genero, nombre'),
+    ]);
+    const generoCount = {};
+    (cancionGeneros.data || []).forEach(g => { generoCount[g.genero_id] = (generoCount[g.genero_id] || 0) + 1; });
+    (albumGeneros.data || []).forEach(g => { generoCount[g.genero_id] = (generoCount[g.genero_id] || 0) + 1; });
+    const generosMap = Object.fromEntries((generos.data || []).map(g => [g.id_genero, g.nombre]));
+    const porGenero = Object.entries(generoCount).map(([id, count]) => ({
+      genero_id: id,
+      nombre: generosMap[id] || 'Desconocido',
+      count,
+    }));
+
+    // Familiaridad
+    const { data: familiaridades } = await supabase.from('familiaridad').select('nivel').eq('usuario', id);
+    const familiaridadCount = {};
+    (familiaridades || []).forEach(f => {
+      familiaridadCount[f.nivel] = (familiaridadCount[f.nivel] || 0) + 1;
+    });
+
+    // Emociones
+    const { data: emociones } = await supabase.from('emociones').select('emocion').eq('usuario', id);
+    const emocionCount = {};
+    (emociones || []).forEach(e => {
+      emocionCount[e.emocion] = (emocionCount[e.emocion] || 0) + 1;
+    });
+
+    res.json({
+      distribucionEstrellas,
+      porTipo,
+      porAnio,
+      porGenero,
+      familiaridadCount,
+      emocionCount,
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Error al obtener estadísticas musicales" });
+  }
+};
+
 const obtenerUsuarios = async (req, res) => {
   try {
     const { data, error } = await supabase.from("usuarios").select("*");
@@ -150,4 +255,5 @@ module.exports = {
   obtenerUsuarioPorId,
   eliminarUsuario,
   actualizarPreferencias,
+  estadisticasMusicales,
 };

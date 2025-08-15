@@ -30,15 +30,12 @@ const crearAlbum = async (req, res) => {
 };
 
 const obtenerAlbumes = async (req, res) => {
-  try {
-    const { data, error } = await supabase.from('albumes').select('*');
-
-    if (error) throw error;
+    const { termino } = req.query;
+    let query = supabase.from('albumes').select('*');
+    if (termino) query = query.ilike('titulo', `%${termino}%`);
+    const { data, error } = await query;
+    if (error) return res.status(500).json({ error: error.message });
     res.json(data);
-  } catch (error) {
-    console.error("❌ Error al obtener álbumes:", error);
-    res.status(500).json({ error: "Error en el servidor" });
-  }
 };
 
 const obtenerAlbumPorId = async (req, res) => {

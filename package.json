@@ -11,7 +11,7 @@
   "license": "ISC",
   "description": "",
   "dependencies": {
-    "@supabase/supabase-js": "^2.49.4",
+    "@supabase/supabase-js": "^2.55.0",
     "axios": "^1.8.4",
     "bcrypt": "^5.1.1",
     "bcryptjs": "^2.4.3",
@@ -24,7 +24,9 @@
     "pg": "^8.13.1",
     "python-shell": "^5.0.0",
     "react-multi-carousel": "^2.8.5",
-    "spotify-web-api-node": "^5.0.2"
+    "sharp": "^0.34.3",
+    "spotify-web-api-node": "^5.0.2",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.20",

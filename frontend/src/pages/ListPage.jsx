@@ -360,7 +360,7 @@ const ListPage = () => {
                 onChange={e => setNuevaImagen(e.target.files[0])}
               />
               <img
-                src={lista.imagen ? `${API_URL}/uploads/${lista.imagen}?t=${Date.now()}` : '/default_playlist.png'}
+                src={lista.imagen || '/default_playlist.png'}
                 alt="Imagen de lista"
                 style={{ width: 200, height: 200, objectFit: 'cover', borderRadius: 16, cursor: 'pointer', marginBottom: 16 }}
                 onClick={() => document.getElementById('inputImagen').click()}
@@ -376,7 +376,7 @@ const ListPage = () => {
           ) : (
             lista.imagen && (
               <img
-                src={`${API_URL}/uploads/${lista.imagen}?t=${Date.now()}`}
+                src={lista.imagen}
                 alt={lista.nombre_lista}
                 style={{ width: 200, height: 200, objectFit: 'cover', borderRadius: 16, marginBottom: 16 }}
               />

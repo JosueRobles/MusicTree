@@ -46,7 +46,7 @@ const ListCard = ({ lista, onClick }) => (
       position: 'center'
     }}>
       <img
-        src={lista.imagen ? `${API_URL}/uploads/${lista.imagen}` : '/default_playlist.png'}
+        src={lista.imagen || '/default_playlist.png'}
         alt={lista.nombre_lista}
         style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 0, border: '1px solid #ccc' }}
       />

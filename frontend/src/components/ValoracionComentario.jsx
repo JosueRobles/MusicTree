@@ -10,7 +10,7 @@ export default function ValoracionComentario({ valoracion }) {
     <div className="valoracion-facebook">
       <Link to={`/profile/${idUsuario}`}>
         <img
-          src={usuario.foto_perfil ? `${API_URL}/uploads/${usuario.foto_perfil}` : '/default-user.png'}
+          src={usuario.foto_perfil || '/default-user.png'}
           alt="user"
           className="valoracion-facebook-foto"
         />

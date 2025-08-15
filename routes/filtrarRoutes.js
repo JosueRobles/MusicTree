@@ -12,4 +12,7 @@ router.get('/contar/canciones', filtrarController.contarCanciones);
 router.get('/contar/videos', filtrarController.contarVideos);
 router.get('/ranking-comunitario', rankingController.obtenerRankingGlobal);
 
+// Nuevo endpoint de búsqueda global
+router.get('/buscar', filtrarController.buscarGlobal);
+
 module.exports = router;

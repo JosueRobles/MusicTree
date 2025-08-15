@@ -53,7 +53,8 @@ const MenuSugerenciasBusqueda = ({ anchorRef, sugerencias, onSelect, visible }) 
             }}
           />
           <div style={{ marginLeft: 8, color: '#fff', fontSize: '1.05rem', fontWeight: 500 }}>
-            {suggestion.texto} <span style={{ color: '#a3a3a3', fontWeight: 400 }}>({suggestion.tipo})</span>
+            {suggestion.texto.replace(/^(Artista:|Álbum:|Canción:|Video:)\s*/i, '')}
+            <span style={{ color: '#a3a3a3', fontWeight: 400 }}>({suggestion.tipo})</span>
           </div>
         </div>
       ))}

@@ -38,6 +38,7 @@ const Music = () => {
   });
 
   const [totalResultados, setTotalResultados] = useState(0);
+  const [conteosFiltrados, setConteosFiltrados] = useState(null);
   const LIMITE_SCROLL = 1000;
 
   const fetchItemsByView = useCallback(async (viewName) => {
@@ -87,6 +88,31 @@ const Music = () => {
     });
     const { data } = await axios.get(`${API_URL}/filtrar/contar?${params.toString()}`);
     setTotalResultados(data.count || 0);
+  };
+
+  const fetchConteosFiltrados = async (filtros) => {
+    const params = new URLSearchParams();
+    Object.entries(filtros).forEach(([key, value]) => {
+      if (
+        value &&
+        (typeof value === 'string' ? value.trim().length > 0 : true) &&
+        (key !== 'termino' || (typeof value === 'string' && value.length >= 2))
+      ) {
+        params.append(key, value);
+      }
+    });
+    const [artistas, albums, canciones, videos] = await Promise.all([
+      axios.get(`${API_URL}/contar/artistas?${params}`),
+      axios.get(`${API_URL}/contar/albumes?${params}`),
+      axios.get(`${API_URL}/contar/canciones?${params}`),
+      axios.get(`${API_URL}/contar/videos?${params}`)
+    ]);
+    setConteosFiltrados({
+      artistas: artistas.data.count,
+      albums: albums.data.count,
+      canciones: canciones.data.count,
+      videos: videos.data.count,
+    });
   };
 
   useEffect(() => {
@@ -180,7 +206,7 @@ const Music = () => {
       // NO hagas setFiltros aquí
       const { termino, ...restFiltros } = newFiltros;
       const params = new URLSearchParams();
-      Object.entries(restFiltros).forEach(([key, value]) => {
+      Object.entries(newFiltros).forEach(([key, value]) => {
         if (value) params.append(key, value);
       });
       const { data } = await axios.get(`${API_URL}/filtrar?${params.toString()}`);
@@ -199,7 +225,7 @@ const Music = () => {
 
   // Nueva función para manejar el término de búsqueda
   const handleSearchInput = (termino) => {
-    setSearchTerm(termino);
+    setSearchTerm(typeof termino === 'string' ? termino : (Array.isArray(termino) ? termino.join(' ') : ''));
   };
 
   // Traducción SOLO para ranking
@@ -285,6 +311,21 @@ const Music = () => {
     setFiltros(nuevosFiltros);
   };
 
+  useEffect(() => {
+    // Si hay algún filtro activo o búsqueda, pide conteos filtrados
+    if (
+      filtros.entidad ||
+      filtros.genero ||
+      filtros.artista ||
+      filtros.anio ||
+      searchTerm
+    ) {
+      fetchConteosFiltrados({ ...filtros, termino: searchTerm });
+    } else {
+      setConteosFiltrados(null);
+    }
+  }, [filtros, searchTerm]);
+
   return (
     <div className="container mx-auto p-4">
       <h2 className="text-4xl font-bold my-4">Música en MusicTree</h2>
@@ -293,15 +334,19 @@ const Music = () => {
       <MusicTendencias limit={50} itemsPerPage={10} />
 
       <div className="entidad-contadores mb-8">
-        <h3 className="text-2xl font-bold mb-4">Resumen de Contenido</h3>
+        <h3 className="text-2xl font-bold mb-4">
+          {filtros.entidad || filtros.genero || filtros.artista || filtros.anio || searchTerm
+            ? "Resultados obtenidos"
+            : "Resumen de Contenido"}
+        </h3>
         <div className="flex flex-wrap gap-4 justify-center items-center text-center text-lg font-semibold">
-          <span>Artistas <span className="text-green-600">{resumen.artistas}</span></span>
+          <span>Artistas <span className="text-green-600">{(conteosFiltrados ? conteosFiltrados.artistas : resumen.artistas) || 0}</span></span>
           <span className="mx-2 text-green-600">|</span>
-          <span>Álbumes <span className="text-green-600">{resumen.albums}</span></span>
+          <span>Álbumes <span className="text-green-600">{(conteosFiltrados ? conteosFiltrados.albums : resumen.albums) || 0}</span></span>
           <span className="mx-2 text-green-600">|</span>
-          <span>Canciones <span className="text-green-600">{resumen.canciones}</span></span>
+          <span>Canciones <span className="text-green-600">{(conteosFiltrados ? conteosFiltrados.canciones : resumen.canciones) || 0}</span></span>
           <span className="mx-2 text-green-600">|</span>
-          <span>Videos <span className="text-green-600">{resumen.videos}</span></span>
+          <span>Videos <span className="text-green-600">{(conteosFiltrados ? conteosFiltrados.videos : resumen.videos) || 0}</span></span>
         </div>
       </div>
 
@@ -321,7 +366,7 @@ const Music = () => {
         onPaginar={handlePaginar}
         pagina={pagina}
         totalPaginas={Math.ceil(totalResultados / LIMITE_SCROLL)}
-        searchTerm={searchTerm}
+        searchTerm={searchTerm || ''}
       />
     </div>
   );

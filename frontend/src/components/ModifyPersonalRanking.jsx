@@ -17,6 +17,17 @@ const ModifyPersonalRanking = ({ usuario, soloLectura = false }) => {
   const [loading, setLoading] = useState(false);
   const [tipoActivo, setTipoActivo] = useState("artista");
   const [guardando, setGuardando] = useState(false);
+  const [filtroEstrella, setFiltroEstrella] = useState("all");
+  const [limiteTop, setLimiteTop] = useState(1000);
+  const [customTop, setCustomTop] = useState("");
+
+  const [detalleAbierto, setDetalleAbierto] = useState(null);
+  const [detalleStats, setDetalleStats] = useState(null);
+  const [segmentacionCanciones, setSegmentacionCanciones] = useState(null);
+  const [segmentacionVideos, setSegmentacionVideos] = useState(null);
+  const [albumArtistas, setAlbumArtistas] = useState([]);
+
+  const opcionesTop = [10, 20, 25, 30, 50, 100, 1000];
 
   useEffect(() => {
     const fetchRankings = async () => {
@@ -60,12 +71,63 @@ const ModifyPersonalRanking = ({ usuario, soloLectura = false }) => {
     setGuardando(false);
   };
 
+  const handleVerDetalle = async (item) => {
+    setDetalleAbierto(item);
+    setDetalleStats(null);
+    // Segmentación álbumes/canciones/videos/artistas
+    const segRes = await axios.get(`${API_URL}/valoraciones/segmentacion-personal`, {
+      params: {
+        usuario: usuario.id_usuario,
+        entidad_tipo: tipoActivo,
+        entidad_id: item.entidad_id
+      }
+    });
+    setDetalleStats(segRes.data);
+
+    // Si es álbum, trae artistas y segmentación de canciones
+    if (tipoActivo === "album") {
+      const artistasRes = await axios.get(`${API_URL}/relaciones/albumes/${item.entidad_id}/artistas`);
+      setAlbumArtistas(artistasRes.data.map(a => a.nombre_artista));
+      const segCancionesRes = await axios.get(`${API_URL}/valoraciones/segmentacion-personal`, {
+        params: {
+          usuario: usuario.id_usuario,
+          entidad_tipo: "album",
+          entidad_id: item.entidad_id
+        }
+      });
+      setSegmentacionCanciones(segCancionesRes.data);
+    }
+    // Si es artista, trae segmentación de canciones y videos
+    if (tipoActivo === "artista") {
+      const segCancionesRes = await axios.get(`${API_URL}/valoraciones/segmentacion-personal`, {
+        params: {
+          usuario: usuario.id_usuario,
+          entidad_tipo: "cancion",
+          entidad_id: item.entidad_id
+        }
+      });
+      setSegmentacionCanciones(segCancionesRes.data);
+      const segVideosRes = await axios.get(`${API_URL}/valoraciones/segmentacion-personal`, {
+        params: {
+          usuario: usuario.id_usuario,
+          entidad_tipo: "video",
+          entidad_id: item.entidad_id
+        }
+      });
+      setSegmentacionVideos(segVideosRes.data);
+    }
+  };
+
   const groupedByValoracion = {};
   (rankings[tipoActivo] || []).forEach(item => {
     const key = item.valoracion ?? 0;
     if (!groupedByValoracion[key]) groupedByValoracion[key] = [];
     groupedByValoracion[key].push(item);
   });
+
+  const rankingFiltrado = (rankings[tipoActivo] || [])
+    .filter(item => filtroEstrella === "all" || item.valoracion === Number(filtroEstrella))
+    .slice(0, customTop ? Math.max(5, Math.min(1000, Number(customTop))) : limiteTop);
 
   return (
     <div className="section mt-8">
@@ -81,6 +143,37 @@ const ModifyPersonalRanking = ({ usuario, soloLectura = false }) => {
             {tipo.label}
           </button>
         ))}
+      </div>
+      <div style={{ display: "flex", gap: 16, marginBottom: 16, flexWrap: "wrap" }}>
+        <div>
+          <label>Filtrar por estrellas: </label>
+          <select value={filtroEstrella} onChange={e => setFiltroEstrella(e.target.value)}>
+            <option value="all">Todas</option>
+            {[5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5, 1].map(val =>
+              <option key={val} value={val}>{val}★</option>
+            )}
+          </select>
+        </div>
+        <div>
+          <label>Top: </label>
+          <select value={String(limiteTop)} onChange={e => setLimiteTop(e.target.value === "custom" ? "custom" : Number(e.target.value))}>
+            {opcionesTop.map(val =>
+              <option key={val} value={val}>Top {val}</option>
+            )}
+            <option value="custom">Personalizado</option>
+          </select>
+          {limiteTop === "custom" && (
+            <input
+              type="number"
+              min={5}
+              max={1000}
+              value={customTop}
+              onChange={e => setCustomTop(e.target.value)}
+              placeholder="Top N"
+              style={{ width: 60, marginLeft: 8 }}
+            />
+          )}
+        </div>
       </div>
       {loading ? (
         <div>Cargando...</div>
@@ -118,7 +211,7 @@ const ModifyPersonalRanking = ({ usuario, soloLectura = false }) => {
                     ref={provided.innerRef}
                     style={{ maxWidth: 400, margin: "auto" }}
                   >
-                    {groupedByValoracion[valor].map((item, idx) => (
+                    {rankingFiltrado.filter(item => item.valoracion === Number(valor)).map((item, idx) => (
                       <Draggable
                         key={item.id}
                         draggableId={String(item.id)}
@@ -167,6 +260,14 @@ const ModifyPersonalRanking = ({ usuario, soloLectura = false }) => {
                             <span style={{ marginLeft: "auto", color: "#ffd700" }}>
                               {item.valoracion ? `${item.valoracion} ⭐` : ""}
                             </span>
+                            {!soloLectura && (
+                              <button
+                                style={{ marginLeft: 12, background: "#2563eb", color: "#fff", borderRadius: 6, padding: "4px 10px", fontWeight: "bold" }}
+                                onClick={() => handleVerDetalle(item)}
+                              >
+                                Ver detalles
+                              </button>
+                            )}
                           </li>
                         )}
                       </Draggable>
@@ -187,6 +288,73 @@ const ModifyPersonalRanking = ({ usuario, soloLectura = false }) => {
         >
           {guardando ? "Guardando..." : "Guardar cambios"}
         </button>
+      )}
+      {detalleAbierto && (
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(0,0,0,0.7)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center"
+        }}>
+          <div style={{
+            background: "#18181b", borderRadius: 16, padding: 28, minWidth: 280, maxWidth: 340, color: "#fff", position: "relative"
+          }}>
+            <button onClick={() => setDetalleAbierto(null)} style={{
+              position: "absolute", top: 10, right: 10, background: "none", border: "none", color: "#fff", fontSize: 22, cursor: "pointer"
+            }}>×</button>
+            <h3 style={{ color: "#16a34a", fontWeight: "bold", marginBottom: 8 }}>{detalleAbierto.nombre}</h3>
+            <img
+              src={detalleAbierto.foto || "/default-profile.png"}
+              alt={detalleAbierto.nombre}
+              style={{
+                width: 90, height: 90, borderRadius: 12, objectFit: "cover",
+                border: "3px solid #16a34a", background: "#222", marginBottom: 10
+              }}
+            />
+            <div style={{ fontSize: "1.05rem", marginTop: 8 }}>
+              {tipoActivo === "artista" && (
+                <>
+                  <div>Valoración: <b style={{ color: "#ffd700" }}>{detalleAbierto.valoracion} ★</b></div>
+                  <div>Álbumes: <b>{detalleAbierto.albumes?.length || 0}</b></div>
+                  {detalleStats && (
+                    <>
+                      <div>% Álbumes valorados: <b style={{ color: "#16a34a" }}>{detalleStats.porcentaje}%</b></div>
+                      <div>
+                        Segmentación álbumes:
+                        {Object.entries(detalleStats.segmentacion).map(([cal, count]) => (
+                          <div key={cal}>{cal}★: {count} ({((count/detalleStats.valorados)*100).toFixed(0)}%)</div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  <div style={{ marginTop: 10 }}>Canciones: <b>{detalleAbierto.canciones?.length || 0}</b></div>
+                  {segmentacionCanciones && (
+                    <>
+                      <div>% Canciones valoradas: <b style={{ color: "#16a34a" }}>{segmentacionCanciones.porcentaje}%</b></div>
+                      <div>
+                        Segmentación canciones:
+                        {Object.entries(segmentacionCanciones.segmentacion).map(([cal, count]) => (
+                          <div key={cal}>{cal}★: {count} ({((count/segmentacionCanciones.valorados)*100).toFixed(0)}%)</div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  <div style={{ marginTop: 10 }}>Videos musicales: <b>{detalleAbierto.videos?.length || 0}</b></div>
+                  {segmentacionVideos && (
+                    <>
+                      <div>% Videos valorados: <b style={{ color: "#16a34a" }}>{segmentacionVideos.porcentaje}%</b></div>
+                      <div>
+                        Segmentación videos:
+                        {Object.entries(segmentacionVideos.segmentacion).map(([cal, count]) => (
+                          <div key={cal}>{cal}★: {count} ({((count/segmentacionVideos.valorados)*100).toFixed(0)}%)</div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+              {/* Similar para album, cancion, video */}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
