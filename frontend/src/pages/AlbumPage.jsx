@@ -4,6 +4,7 @@ import axios from 'axios';
 import PropTypes from 'prop-types';
 import StarRating from '../components/StarRating';
 import ValoracionComentario from '../components/ValoracionComentario';
+import React from 'react';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -27,6 +28,13 @@ const AlbumPage = ({ usuario }) => {
   const [posicionRanking, setPosicionRanking] = useState(null);
   const [historial, setHistorial] = useState([]);
   const [listasDestacadas, setListasDestacadas] = useState([]);
+  const [sugerenciasAlbum, setSugerenciasAlbum] = useState({ nuevas: [] });
+  const [sugerenciasSimilar, setSugerenciasSimilar] = useState({ mensaje: '', nuevas: [] });
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackCancionId, setFeedbackCancionId] = useState(null);
+  const [feedbackComentario, setFeedbackComentario] = useState('');
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackSuccess, setFeedbackSuccess] = useState(false);
 
   useEffect(() => {
     const fetchAlbumData = async () => {
@@ -128,6 +136,30 @@ const AlbumPage = ({ usuario }) => {
     }).then(res => setListasDestacadas(res.data));
   }, [id]);
 
+  const fetchSugerenciasAlbum = async () => {
+    if (!usuario) return;
+    try {
+      const res = await axios.get(`${API_URL}/albumes/sugerencias-nuevas`, {
+        params: { usuario_id: usuario.id_usuario, id_album: id }
+      });
+      setSugerenciasAlbum(res.data);
+    } catch (err) {
+      setSugerenciasAlbum({ nuevas: [] });
+    }
+  };
+
+  useEffect(() => {
+    fetchSugerenciasAlbum();
+  }, [id, usuario]);
+
+  useEffect(() => {
+    if (usuario) {
+      axios.get(`${API_URL}/albumes/sugerencias-similar`, {
+        params: { usuario_id: usuario.id_usuario, id_album: id }
+      }).then(res => setSugerenciasSimilar(res.data));
+    }
+  }, [id, usuario]);
+
   const handleRatingChange = async (newRating) => {
     setRating(newRating);
     if (usuario) {
@@ -179,6 +211,40 @@ const AlbumPage = ({ usuario }) => {
     }
   } else {
     alert('Seleccione una lista o cree una nueva');
+  }
+};
+
+const openFeedbackModal = (cancionId) => {
+  setFeedbackCancionId(cancionId);
+  setShowFeedbackModal(true);
+  setFeedbackComentario('');
+  setFeedbackSuccess(false);
+};
+
+const closeFeedbackModal = () => {
+  setShowFeedbackModal(false);
+  setFeedbackCancionId(null);
+  setFeedbackComentario('');
+  setFeedbackSuccess(false);
+};
+
+const sendFeedback = async () => {
+  setFeedbackLoading(true);
+  try {
+    await axios.post(`${API_URL}/ml/feedback`, {
+      usuario_id: usuario.id_usuario,
+      entidad_tipo: 'cancion',
+      entidad_id_1: id, // id_album
+      entidad_id_2: feedbackCancionId,
+      es_duplicado: false,
+      confianza_modelo: 0,
+      comentario: feedbackComentario
+    });
+    setFeedbackSuccess(true);
+  } catch (err) {
+    alert('Error al enviar feedback');
+  } finally {
+    setFeedbackLoading(false);
   }
 };
 
@@ -333,6 +399,71 @@ const AlbumPage = ({ usuario }) => {
     </div>
   ))}
 </div>
+  </div>
+)}
+
+{/* SUGERENCIAS DE CANCIONES NUEVAS */}
+{sugerenciasAlbum.nuevas && sugerenciasAlbum.nuevas.length > 0 && (
+  <div className="mt-8">
+    <h3 className="text-xl font-bold text-green-600">Canciones nuevas por valorar en este álbum</h3>
+    <ul>
+      {sugerenciasAlbum.nuevas.map((song) => (
+        <li key={song.id_cancion}>
+          <Link to={`/song/${song.id_cancion}`}>{song.titulo || `Canción #${song.id_cancion}`}</Link>
+        </li>
+      ))}
+    </ul>
+  </div>
+)}
+
+{sugerenciasSimilar.mensaje && (
+  <div className="mt-8 bg-yellow-100 border-l-4 border-yellow-500 p-4">
+    <strong>{sugerenciasSimilar.mensaje}</strong>
+    {sugerenciasSimilar.nuevas.length > 0 && (
+      <ul>
+        {sugerenciasSimilar.nuevas.map(song => (
+          <li key={song.id_cancion}>
+            <Link to={`/song/${song.id_cancion}`} className="text-green-700 font-bold">{song.titulo}</Link>
+            <button
+          className="ml-2 text-xs text-blue-700 underline"
+          onClick={() => openFeedbackModal(song.id_cancion)}
+        >Reportar diferencia</button>
+          </li>
+        ))}
+      </ul>
+    )}
+  </div>
+)}
+
+{showFeedbackModal && (
+  <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+    <div className="bg-white p-6 rounded shadow-lg w-full max-w-md">
+      <h3 className="text-lg font-bold mb-2">Reportar diferencia</h3>
+      <p className="mb-2">¿Por qué consideras que <strong>no</strong> son versiones similares?</p>
+      <textarea
+        className="w-full border rounded p-2 mb-2"
+        rows={3}
+        value={feedbackComentario}
+        onChange={e => setFeedbackComentario(e.target.value)}
+        placeholder="Explica la diferencia (ej: letra distinta, duración, demo, etc.)"
+      />
+      <div className="flex gap-2">
+        <button
+          className="bg-blue-600 text-white px-4 py-2 rounded"
+          onClick={sendFeedback}
+          disabled={feedbackLoading || !feedbackComentario}
+        >
+          {feedbackLoading ? 'Enviando...' : 'Enviar'}
+        </button>
+        <button
+          className="bg-gray-300 px-4 py-2 rounded"
+          onClick={closeFeedbackModal}
+        >Cancelar</button>
+      </div>
+      {feedbackSuccess && (
+        <p className="mt-2 text-green-600 font-bold">¡Gracias por tu feedback!</p>
+      )}
+    </div>
   </div>
 )}
         </>

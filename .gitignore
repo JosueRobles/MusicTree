@@ -4,3 +4,4 @@ node_modules
 .env
 frontend/.env
 uploads/
+ml_service/venv

@@ -4,6 +4,7 @@ import axios from 'axios';
 import PropTypes from 'prop-types';
 import StarRating from '../components/StarRating';
 import ValoracionComentario from '../components/ValoracionComentario';
+import React from 'react';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -25,6 +26,14 @@ const VideoPage = ({ usuario }) => {
   const [historial, setHistorial] = useState([]);
   const [genres, setGenres] = useState([]);
   const [listasDestacadas, setListasDestacadas] = useState([]);
+  const [sugerencias, setSugerencias] = useState({ duplicados: [] });
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackCancionId, setFeedbackCancionId] = useState(null);
+  const [feedbackComentario, setFeedbackComentario] = useState('');
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackSuccess, setFeedbackSuccess] = useState(false);
+  const [grupoUniversal, setGrupoUniversal] = useState(null);
+  const [miembrosGrupo, setMiembrosGrupo] = useState([]);
 
   useEffect(() => {
     const fetchVideoData = async () => {
@@ -160,6 +169,65 @@ const handleAddToList = async () => {
   }
 };
 
+const fetchSugerencias = async () => {
+  try {
+    const res = await axios.get(`${API_URL}/ml/sugerencias/video/${id}`);
+    setSugerencias(res.data);
+  } catch (err) {
+    setSugerencias({ duplicados: [] });
+  }
+};
+
+useEffect(() => {
+  fetchSugerencias();
+}, [id]);
+
+const openFeedbackModal = (cancionId) => {
+  setFeedbackCancionId(cancionId);
+  setShowFeedbackModal(true);
+  setFeedbackComentario('');
+  setFeedbackSuccess(false);
+};
+
+const closeFeedbackModal = () => {
+  setShowFeedbackModal(false);
+  setFeedbackCancionId(null);
+  setFeedbackComentario('');
+  setFeedbackSuccess(false);
+};
+
+const sendFeedback = async () => {
+  setFeedbackLoading(true);
+  try {
+    await axios.post(`${API_URL}/ml/feedback`, {
+      usuario_id: usuario.id_usuario,
+      entidad_tipo: 'video',
+      entidad_id_1: id, // id_video
+      entidad_id_2: feedbackCancionId,
+      es_duplicado: false,
+      confianza_modelo: 0,
+      comentario: feedbackComentario
+    });
+    setFeedbackSuccess(true);
+  } catch (err) {
+    alert('Error al enviar feedback');
+  } finally {
+    setFeedbackLoading(false);
+  }
+};
+
+useEffect(() => {
+  // Consulta el grupo universal y sus miembros
+  axios.get(`${API_URL}/ml/cluster/video/${id}`).then(res => {
+    if (res.data && res.data.grupo) {
+      setGrupoUniversal(res.data.grupo);
+      axios.get(`${API_URL}/ml/cluster/video/grupo/${res.data.grupo}`).then(res2 => {
+        setMiembrosGrupo(res2.data.filter(mid => mid !== parseInt(id)));
+      });
+    }
+  });
+}, [id, 'video']);
+
   if (loading) return <p>Cargando...</p>;
   if (!video) return <p>Error: Video no encontrado.</p>;
 
@@ -286,6 +354,77 @@ const handleAddToList = async () => {
           </li>
         ))}
       </ul>
+      {/* SUGERENCIAS DE VIDEOS SIMILARES */}
+      {sugerencias.duplicados && sugerencias.duplicados.length > 0 && (
+  <div className="mt-8">
+    <h3 className="text-xl font-bold text-blue-600">Videos similares/alternativos</h3>
+    <ul>
+      {sugerencias.duplicados.map((dup) => (
+        <li key={dup.id}>
+          <Link to={`/video/${dup.id}`}>Video similar (similitud: {(dup.similaridad * 100).toFixed(1)}%)</Link>
+        </li>
+      ))}
+    </ul>
+  </div>
+)}
+{sugerencias.canciones && sugerencias.canciones.length > 0 && (
+  <ul>
+    {sugerencias.canciones.map(song => (
+      <li key={song.id}>
+        <Link to={`/song/${song.id}`}>Canción relacionada (similitud: {(song.similaridad * 100).toFixed(1)}%)</Link>
+        <button
+          className="ml-2 text-xs text-blue-700 underline"
+          onClick={() => openFeedbackModal(song.id)}
+        >Reportar diferencia</button>
+      </li>
+    ))}
+  </ul>
+)}
+{showFeedbackModal && (
+  <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+    <div className="bg-white p-6 rounded shadow-lg w-full max-w-md">
+      <h3 className="text-lg font-bold mb-2">Reportar diferencia</h3>
+      <p className="mb-2">¿Por qué consideras que <strong>no</strong> son versiones similares?</p>
+      <textarea
+        className="w-full border rounded p-2 mb-2"
+        rows={3}
+        value={feedbackComentario}
+        onChange={e => setFeedbackComentario(e.target.value)}
+        placeholder="Explica la diferencia (ej: letra distinta, duración, demo, etc.)"
+      />
+      <div className="flex gap-2">
+        <button
+          className="bg-blue-600 text-white px-4 py-2 rounded"
+          onClick={sendFeedback}
+          disabled={feedbackLoading || !feedbackComentario}
+        >
+          {feedbackLoading ? 'Enviando...' : 'Enviar'}
+        </button>
+        <button
+          className="bg-gray-300 px-4 py-2 rounded"
+          onClick={closeFeedbackModal}
+        >Cancelar</button>
+      </div>
+      {feedbackSuccess && (
+        <p className="mt-2 text-green-600 font-bold">¡Gracias por tu feedback!</p>
+      )}
+    </div>
+  </div>
+)}
+{miembrosGrupo.length > 0 && (
+  <div className="mt-8">
+    <h3 className="text-xl font-bold text-purple-600">Otras versiones (agrupadas por similitud)</h3>
+    <ul>
+      {miembrosGrupo.map(mid => (
+        <li key={mid}>
+          <Link to={`/video/${mid}`}>
+            Video #{mid}
+          </Link>
+        </li>
+      ))}
+    </ul>
+  </div>
+)}
     </div>
   );
 };

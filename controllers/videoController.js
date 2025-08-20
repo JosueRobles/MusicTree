@@ -1,5 +1,6 @@
 const supabase = require("../db");
 const { notificarNuevosLanzamientos } = require('./utils/notifyHelpers');
+const axios = require('axios');
 
 const crearVideoMusical = async (req, res) => {
   const { titulo, album_id, url_video, duracion, artistas } = req.body;
@@ -145,4 +146,27 @@ const obtenerVideosDeArtista = async (req, res) => {
   }
 };
 
-module.exports = { crearVideoMusical, obtenerVideosMusicales, obtenerVideoMusicalPorId, actualizarVideoMusical, eliminarVideoMusical, obtenerVideosDeArtista };
+const sugerirCancionEnVideo = async (req, res) => {
+  const { usuario_id, id_video } = req.query;
+  const { data: emb } = await supabase.from('video_embeddings').select('embedding').eq('id_video', id_video).single();
+  if (!emb) return res.json({ mensaje: null, canciones: [] });
+
+  // Buscar canciones similares
+  const similares = await axios.post('http://localhost:8000/similares', { entidad: 'cancion', id: id_video, embedding: emb.embedding });
+  // Filtra el propio id_video si existe como canción
+  const similaresFiltrados = similares.data.filter(s => s.id !== parseInt(id_video));
+  const { data: clusters } = await supabase.from('cancion_clusters').select('id_cancion, grupo');
+  const clusterMap = Object.fromEntries(clusters.map(c => [c.id_cancion, c.grupo]));
+  const { data: valoradas } = await supabase.from('valoraciones_canciones').select('cancion').eq('usuario', usuario_id);
+  const valoradasIds = valoradas.map(v => v.cancion);
+  const valoradasClusters = new Set(valoradasIds.map(id => clusterMap[id]).filter(Boolean));
+  let mensaje = null;
+  // Si el usuario valoró alguna canción del grupo de los similares
+  const yaValorada = similaresFiltrados.find(s => valoradasClusters.has(clusterMap[s.id]));
+  if (yaValorada) {
+    mensaje = `Este video musical contiene una canción que ya valoraste.`;
+  }
+  res.json({ mensaje, canciones: similaresFiltrados });
+};
+
+module.exports = { crearVideoMusical, obtenerVideosMusicales, obtenerVideoMusicalPorId, actualizarVideoMusical, eliminarVideoMusical, obtenerVideosDeArtista, sugerirCancionEnVideo };

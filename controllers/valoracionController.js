@@ -2,6 +2,7 @@ const supabase = require("../db");
 const { registrarTendencia } = require("./tendenciaController");
 const { registrarActividad } = require("./utils/actividadUtils"); // <-- AGREGA ESTA LÍNEA
 const { notificarCatalogoCompletado } = require('./utils/notifyHelpers');
+const { sugerirSimilares } = require('./mlController'); // Importa el método
 
 const obtenerPromedio = async (req, res) => {
   const { entidad_tipo, entidad_id } = req.query;
@@ -585,10 +586,41 @@ const crearValoracion = async (req, res) => {
       }
     }
 
+    // NUEVO: Sugerir canciones duplicadas/similares
+    if (entidad_tipo === 'cancion') {
+      // Sugerir canciones duplicadas/similares
+      const similares = await sugerirSimilares({ params: { entidad: 'cancion', id: entidad_id } }, { json: () => {} });
+      const duplicados = (similares && similares.similares) ? similares.similares : [];
+
+      // Obtener artista principal de la canción
+      const { data: artistasRelacionados, error: artistasError } = await supabase
+        .from('cancion_artistas')
+        .select('artista_id')
+        .eq('cancion_id', entidad_id);
+
+      let artista_id = null;
+      if (artistasRelacionados && artistasRelacionados.length > 0) {
+        artista_id = artistasRelacionados[0].artista_id;
+      }
+
+      // Sugerir videos musicales relacionados
+      let videosRelacionados = [];
+      if (artista_id) {
+        const { data: videosData } = await supabase
+          .from('video_artistas')
+          .select('video_id')
+          .eq('artista_id', artista_id);
+        videosRelacionados = videosData || [];
+      }
+
+      res.locals.sugerencias = { duplicados, videos: videosRelacionados };
+    }
+
     res.status(200).json({ 
       success: true, 
       id_valoracion: valoracionId,
-      mensaje: "Valoración registrada correctamente" 
+      mensaje: "Valoración registrada correctamente",
+      sugerencias: res.locals.sugerencias || {}
     });
 
     // Asegura que el elemento esté en ranking_elementos

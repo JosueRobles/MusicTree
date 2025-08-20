@@ -1,5 +1,6 @@
 const supabase = require("../db");
 const { notificarNuevosLanzamientos } = require('./utils/notifyHelpers');
+const axios = require('axios');
 
 const crearCancion = async (req, res) => {
   const { titulo, album_id, orden, duracion_segundos } = req.body;
@@ -105,4 +106,56 @@ const eliminarCancion = async (req, res) => {
   }
 };
 
-module.exports = { crearCancion, obtenerCanciones, obtenerCancionPorId, actualizarCancion, eliminarCancion };
+const sugerirCancionDuplicada = async (req, res) => {
+  const { usuario_id, id_cancion } = req.query;
+  const { data: emb } = await supabase.from('cancion_embeddings').select('embedding').eq('id_cancion', id_cancion).single();
+  if (!emb) return res.json({ mensaje: null, duplicados: [] });
+
+  // Buscar canciones similares
+  const similares = await axios.post('http://localhost:8000/similares', { entidad: 'cancion', id: id_cancion, embedding: emb.embedding });
+  // Filtra el propio id
+  const similaresFiltrados = similares.data.filter(s => s.id !== parseInt(id_cancion));
+  const { data: clusterActual } = await supabase.from('cancion_clusters').select('grupo').eq('id_cancion', id_cancion).single();
+  const grupoActual = clusterActual?.grupo;
+  const { data: clusters } = await supabase.from('cancion_clusters').select('id_cancion, grupo');
+  const clusterMap = Object.fromEntries(clusters.map(c => [c.id_cancion, c.grupo]));
+  const { data: valoradas } = await supabase.from('valoraciones_canciones').select('cancion').eq('usuario', usuario_id);
+  const valoradasIds = valoradas.map(v => v.cancion);
+  const valoradasClusters = new Set(valoradasIds.map(id => clusterMap[id]).filter(Boolean));
+  let mensaje = null;
+  // Solo muestra mensaje si el usuario valoró otra canción del mismo grupo (no la actual)
+  if (
+    grupoActual &&
+    valoradasClusters.has(grupoActual) &&
+    !valoradasIds.includes(parseInt(id_cancion))
+  ) {
+    mensaje = `Esta canción parece una versión duplicada de otra que ya valoraste. ¿Quieres contarla como nueva?`;
+  }
+  res.json({ mensaje, duplicados: similaresFiltrados });
+};
+
+const reportarNoMusical = async (req, res) => {
+  const { usuario_id, id_cancion, es_no_musical, comentario } = req.body;
+  // Actualiza la canción
+  await supabase
+    .from('canciones')
+    .update({ es_no_musical })
+    .eq('id_cancion', id_cancion);
+
+  // Guarda el feedback
+  await supabase
+    .from('ml_feedback')
+    .insert([{
+      usuario_id,
+      entidad_tipo: 'cancion',
+      entidad_id_1: id_cancion,
+      entidad_id_2: null,
+      es_duplicado: null,
+      confianza_modelo: null,
+      comentario,
+      fecha: new Date()
+    }]);
+  res.json({ success: true });
+};
+
+module.exports = { crearCancion, obtenerCanciones, obtenerCancionPorId, actualizarCancion, eliminarCancion, sugerirCancionDuplicada, reportarNoMusical };

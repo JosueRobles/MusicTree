@@ -1,5 +1,6 @@
 const supabase = require("../db");
 const { notificarNuevosLanzamientos } = require('./utils/notifyHelpers');
+const axios = require('axios');
 
 const crearAlbum = async (req, res) => {
   const { titulo, anio, foto_album, artista_id, numero_canciones, tipo_album, popularidad_album } = req.body;
@@ -109,4 +110,49 @@ const eliminarAlbum = async (req, res) => {
   }
 };
 
-module.exports = { crearAlbum, obtenerAlbumes, obtenerAlbumPorId, actualizarAlbum, eliminarAlbum };
+const sugerirCancionesNuevasAlbum = async (req, res) => {
+  const { usuario_id, id_album } = req.query;
+  // 1. Obtén canciones del álbum
+  const { data: cancionesAlbum } = await supabase
+    .from('canciones')
+    .select('id_cancion')
+    .eq('album', id_album);
+  // 2. Obtén valoraciones del usuario
+  const { data: valoradas } = await supabase
+    .from('valoraciones_canciones')
+    .select('cancion')
+    .eq('usuario', usuario_id);
+  const valoradasIds = valoradas.map(v => v.cancion);
+  // 3. Filtra las no valoradas
+  const nuevas = cancionesAlbum.filter(c => !valoradasIds.includes(c.id_cancion));
+  res.json({ nuevas });
+};
+
+const sugerirAlbumSimilar = async (req, res) => {
+  const { usuario_id, id_album } = req.query;
+  const { data: emb } = await supabase.from('album_embeddings').select('embedding').eq('id_album', id_album).single();
+  if (!emb) return res.json({ mensaje: null, nuevas: [] });
+
+  // Buscar álbumes similares
+  const similares = await axios.post('http://localhost:8000/similares', { entidad: 'album', id: id_album, embedding: emb.embedding });
+  // Filtra el propio álbum
+  const similaresFiltrados = similares.data.filter(a => a.id !== parseInt(id_album));
+  if (!similaresFiltrados.length) return res.json({ mensaje: null, nuevas: [] });
+
+  // Tomar el álbum más similar (que no sea el mismo)
+  const album_similar_id = similaresFiltrados[0].id;
+  const { data: canciones_actual } = await supabase.from('canciones').select('id_cancion, titulo').eq('album', id_album);
+  const { data: clusters } = await supabase.from('cancion_clusters').select('id_cancion, grupo');
+  const clusterMap = Object.fromEntries(clusters.map(c => [c.id_cancion, c.grupo]));
+  const { data: valoradas } = await supabase.from('valoraciones_canciones').select('cancion').eq('usuario', usuario_id);
+  const valoradasIds = valoradas.map(v => v.cancion);
+  const valoradasClusters = new Set(valoradasIds.map(id => clusterMap[id]).filter(Boolean));
+  let nuevas = canciones_actual.filter(song => {
+    const grupo = clusterMap[song.id_cancion];
+    return grupo && !valoradasClusters.has(grupo);
+  });
+  const mensaje = `Este álbum es muy similar a otro (${album_similar_id}). Solo faltan ${nuevas.length} canciones nuevas por valorar.`;
+  res.json({ mensaje, nuevas });
+};
+
+module.exports = { crearAlbum, obtenerAlbumes, obtenerAlbumPorId, actualizarAlbum, eliminarAlbum, sugerirCancionesNuevasAlbum, sugerirAlbumSimilar };

@@ -4,6 +4,7 @@ import axios from 'axios';
 import PropTypes from 'prop-types';
 import StarRating from '../components/StarRating';
 import ValoracionComentario from '../components/ValoracionComentario';
+import React from 'react';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -26,6 +27,15 @@ const SongPage = ({ usuario }) => {
   const [posicionRanking, setPosicionRanking] = useState(null);
   const [historial, setHistorial] = useState([]);
   const [listasDestacadas, setListasDestacadas] = useState([]);
+  const [sugerencias, setSugerencias] = useState({ duplicados: [], videos: [] });
+  const [sugerenciasDuplicado, setSugerenciasDuplicado] = useState({ mensaje: '', duplicados: [] });
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackCancionId, setFeedbackCancionId] = useState(null);
+  const [feedbackComentario, setFeedbackComentario] = useState('');
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackSuccess, setFeedbackSuccess] = useState(false);
+  const [grupoUniversal, setGrupoUniversal] = useState(null);
+  const [miembrosGrupo, setMiembrosGrupo] = useState([]);
 
   useEffect(() => {
     const fetchSongData = async () => {
@@ -105,12 +115,21 @@ const SongPage = ({ usuario }) => {
   }
 }, [usuario, id]);
 
+  const fetchSugerencias = async () => {
+    try {
+      const res = await axios.get(`${API_URL}/ml/sugerencias/cancion/${id}`);
+      setSugerencias(res.data);
+    } catch (err) {
+      setSugerencias({ duplicados: [], videos: [] });
+    }
+  };
+
   const handleRatingChange = async (newRating) => {
     setRating(newRating);
     if (usuario) {
       try {
         const token = localStorage.getItem('token');
-        await axios.post(`${API_URL}/valoraciones`, {
+        const resp = await axios.post(`${API_URL}/valoraciones`, {
           usuario: usuario.id_usuario,
           entidad_tipo: 'cancion',
           entidad_id: parseInt(id, 10),
@@ -122,47 +141,74 @@ const SongPage = ({ usuario }) => {
             "Content-Type": "application/json",
           },
         });
-        console.log('Rating saved:', newRating);
+        // Si el backend devuelve sugerencias, actualízalas
+        if (resp.data.sugerencias) setSugerencias(resp.data.sugerencias);
+        else await fetchSugerencias();
       } catch (error) {
         console.error('Error saving rating:', error);
       }
     }
   };
 
-const handleAddToList = async () => {
-  if (selectedLista) {
-    try {
-      await axios.post(`${API_URL}/listas-personalizadas/anadir`, {
-        userId: usuario.id_usuario,
-        listaId: selectedLista,
-        entidad_id: parseInt(id, 10),
-        entidad_tipo: 'cancion',
-      });
-      alert('Cancion añadida a la lista');
-    } catch (error) {
-      if (
-        error.response &&
-        error.response.status === 400 &&
-        error.response.data &&
-        error.response.data.error &&
-        error.response.data.error.includes('ya existe')
-      ) {
-        alert('Esta cancion ya está en la lista seleccionada.');
-      } else {
-        alert('Error al añadir la cancion a la lista.');
-      }
-      console.error('Error adding song to list:', error);
-    }
-  } else {
-    alert('Seleccione una lista o cree una nueva');
-  }
-};
-
 useEffect(() => {
   axios.get(`${API_URL}/rankings/posicion-global`, {
     params: { tipo_entidad: 'cancion', entidad_id: id }
   }).then(res => setPosicionRanking(res.data.posicion));
 }, [id, usuario]);
+
+useEffect(() => {
+  if (usuario) {
+    axios.get(`${API_URL}/canciones/sugerencias-duplicado`, {
+      params: { usuario_id: usuario.id_usuario, id_cancion: id }
+    }).then(res => setSugerenciasDuplicado(res.data));
+  }
+}, [id, usuario]);
+
+const openFeedbackModal = (cancionId) => {
+  setFeedbackCancionId(cancionId);
+  setShowFeedbackModal(true);
+  setFeedbackComentario('');
+  setFeedbackSuccess(false);
+};
+
+const closeFeedbackModal = () => {
+  setShowFeedbackModal(false);
+  setFeedbackCancionId(null);
+  setFeedbackComentario('');
+  setFeedbackSuccess(false);
+};
+
+const sendFeedback = async () => {
+  setFeedbackLoading(true);
+  try {
+    await axios.post(`${API_URL}/ml/feedback`, {
+      usuario_id: usuario.id_usuario,
+      entidad_tipo: 'cancion',
+      entidad_id_1: id,
+      entidad_id_2: feedbackCancionId,
+      es_duplicado: false,
+      confianza_modelo: 0,
+      comentario: feedbackComentario
+    });
+    setFeedbackSuccess(true);
+  } catch (err) {
+    alert('Error al enviar feedback');
+  } finally {
+    setFeedbackLoading(false);
+  }
+};
+
+  useEffect(() => {
+    // Consulta el grupo universal y sus miembros
+    axios.get(`${API_URL}/ml/cluster/cancion/${id}`).then(res => {
+      if (res.data && res.data.grupo) {
+        setGrupoUniversal(res.data.grupo);
+        axios.get(`${API_URL}/ml/cluster/cancion/grupo/${res.data.grupo}`).then(res2 => {
+          setMiembrosGrupo(res2.data.filter(mid => mid !== parseInt(id)));
+        });
+      }
+    });
+  }, [id]);
 
   return (
     <div className="pt-16 p-4">
@@ -327,6 +373,101 @@ useEffect(() => {
         </div>
       ))}
     </div>
+  </div>
+)}
+
+{/* SUGERENCIAS DE DUPLICADOS Y VIDEOS */}
+{sugerencias.duplicados && sugerencias.duplicados.length > 0 && (
+  <div className="mt-8">
+    <h3 className="text-xl font-bold text-red-600">Versiones similares/duplicadas</h3>
+    <ul>
+      {sugerencias.duplicados.map((dup) => (
+        <li key={dup.id}>
+          <Link to={`/song/${dup.id}`}>Canción similar (similitud: {(dup.similaridad * 100).toFixed(1)}%)</Link>
+        </li>
+      ))}
+    </ul>
+  </div>
+)}
+{sugerencias.videos && sugerencias.videos.length > 0 && (
+  <div className="mt-4">
+    <h3 className="text-xl font-bold text-blue-600">Videos musicales relacionados</h3>
+    <ul>
+      {sugerencias.videos.map((vid) => (
+        <li key={vid.video_id}>
+          <Link to={`/video/${vid.video_id}`}>Video musical relacionado</Link>
+        </li>
+      ))}
+    </ul>
+  </div>
+)}
+
+{/* Sugerencias de duplicado específicas */}
+{sugerenciasDuplicado.mensaje && (
+  <div className="mt-8 bg-red-100 border-l-4 border-red-500 p-4">
+    <strong>{sugerenciasDuplicado.mensaje}</strong>
+    {sugerenciasDuplicado.duplicados.length > 0 && (
+      <ul>
+        {sugerenciasDuplicado.duplicados.map(dup => (
+          <li key={dup.id}>
+            <Link to={`/song/${dup.id}`}>Canción similar (similitud: {(dup.similaridad * 100).toFixed(1)}%)</Link>
+            <button
+              className="ml-2 text-xs text-blue-700 underline"
+              onClick={() => openFeedbackModal(dup.id)}
+            >Reportar diferencia</button>
+          </li>
+        ))}
+      </ul>
+    )}
+  </div>
+)}
+
+{/* Modal de feedback */}
+{showFeedbackModal && (
+  <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+    <div className="bg-white p-6 rounded shadow-lg w-full max-w-md">
+      <h3 className="text-lg font-bold mb-2">Reportar diferencia</h3>
+      <p className="mb-2">¿Por qué consideras que <strong>no</strong> son versiones similares?</p>
+      <textarea
+        className="w-full border rounded p-2 mb-2"
+        rows={3}
+        value={feedbackComentario}
+        onChange={e => setFeedbackComentario(e.target.value)}
+        placeholder="Explica la diferencia (ej: letra distinta, duración, demo, etc.)"
+      />
+      <div className="flex gap-2">
+        <button
+          className="bg-blue-600 text-white px-4 py-2 rounded"
+          onClick={sendFeedback}
+          disabled={feedbackLoading || !feedbackComentario}
+        >
+          {feedbackLoading ? 'Enviando...' : 'Enviar'}
+        </button>
+        <button
+          className="bg-gray-300 px-4 py-2 rounded"
+          onClick={closeFeedbackModal}
+        >Cancelar</button>
+      </div>
+      {feedbackSuccess && (
+        <p className="mt-2 text-green-600 font-bold">¡Gracias por tu feedback!</p>
+      )}
+    </div>
+  </div>
+)}
+
+{/* Otras versiones (agrupadas por similitud) */}
+{miembrosGrupo.length > 0 && (
+  <div className="mt-8">
+    <h3 className="text-xl font-bold text-purple-600">Otras versiones (agrupadas por similitud)</h3>
+    <ul>
+      {miembrosGrupo.map(mid => (
+        <li key={mid}>
+          <Link to={`/song/${mid}`}>
+            Canción #{mid}
+          </Link>
+        </li>
+      ))}
+    </ul>
   </div>
 )}
         </>

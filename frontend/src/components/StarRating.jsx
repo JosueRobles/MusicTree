@@ -27,6 +27,9 @@ const StarRating = ({
   const [modoValoracion, setModoValoracion] = useState("manual");
   const [editable, setEditable] = useState(true);
   const [mostrarGuardarAuto, setMostrarGuardarAuto] = useState(false);
+  const [valoracionSimilar, setValoracionSimilar] = useState(null);
+  const [esNoMusical, setEsNoMusical] = useState(false);
+  const [motivoNoMusical, setMotivoNoMusical] = useState("");
 
   const familiaridadNiveles = [
     { key: "primera_vez", label: "Primera vez que escucho", img: "/familiaridad/primera_vez.png" },
@@ -166,6 +169,29 @@ const StarRating = ({
         }
       });
     }
+  }, [usuario, entidadTipo, entidadId]);
+
+  useEffect(() => {
+    // Busca si hay una valoración en el mismo grupo (pero diferente id)
+    const fetchValoracionSimilar = async () => {
+      if (!usuario || !entidadTipo || !entidadId) return;
+      try {
+        // Consulta el grupo del actual
+        const { data: clusterActual } = await axios.get(`${API_URL}/ml/cluster/${entidadTipo}/${entidadId}`);
+        const grupoActual = clusterActual?.grupo;
+        if (!grupoActual) return;
+        // Busca valoraciones del usuario en ese grupo (excepto el actual)
+        const { data: grupoCanciones } = await axios.get(`${API_URL}/ml/cluster/${entidadTipo}/grupo/${grupoActual}`);
+        const idsGrupo = grupoCanciones.filter(id => id !== entidadId);
+        if (idsGrupo.length === 0) return;
+        const { data: valoraciones } = await axios.get(`${API_URL}/valoraciones`, {
+          params: { usuario: usuario.id_usuario, entidad_tipo: entidadTipo }
+        });
+        const similar = valoraciones.find(v => idsGrupo.includes(v[entidadTipo]));
+        if (similar) setValoracionSimilar(similar.calificacion);
+      } catch (err) { /* ignore */ }
+    };
+    fetchValoracionSimilar();
   }, [usuario, entidadTipo, entidadId]);
 
   const handleGuardarValoracionAuto = async () => {
@@ -369,16 +395,56 @@ const StarRating = ({
     }
   };
 
+  useEffect(() => {
+    // Consulta si la pista es no musical y el motivo
+    const fetchNoMusical = async () => {
+      if (!entidadTipo || !entidadId) return;
+      try {
+        const { data } = await axios.get(`${API_URL}/${entidadTipo}s/${entidadId}`);
+        if (data && data.es_no_musical) {
+          setEsNoMusical(true);
+          // Motivo: por duración o por palabra clave
+          let motivo = "";
+          if (data.duracion_ms && data.duracion_ms < 60000) motivo += "Duración menor a 1 minuto. ";
+          const palabras = ['intro', 'interlude', 'voice-over', 'commentary', 'outro', 'skit'];
+          if (palabras.some(p => data.titulo.toLowerCase().includes(p))) motivo += "Contiene palabra clave: " + palabras.filter(p => data.titulo.toLowerCase().includes(p)).join(", ");
+          setMotivoNoMusical(motivo || "Marcada como no musical por el sistema.");
+        } else {
+          setEsNoMusical(false);
+          setMotivoNoMusical("");
+        }
+      } catch (err) {
+        setEsNoMusical(false);
+        setMotivoNoMusical("");
+      }
+    };
+    fetchNoMusical();
+  }, [entidadTipo, entidadId]);
+
   return (
     <div className="flex flex-col items-center">
+      {esNoMusical && (
+        <div className="bg-yellow-100 border-l-4 border-yellow-500 p-3 mb-2 rounded text-sm text-yellow-800 w-full max-w-md">
+          <strong>⚠️ Esta pista está marcada como NO MUSICAL.</strong>
+          <div className="mt-1">{motivoNoMusical}</div>
+          <button
+            className="mt-2 px-3 py-1 bg-blue-200 text-blue-800 rounded text-xs"
+            onClick={() => window.open('https://forms.gle/tu-form-de-feedback', '_blank')}
+          >
+            ¿Crees que sí es musical? Reportar
+          </button>
+        </div>
+      )}
+      {/* ...resto del render... */}
+      {/* Deshabilita valoración si es no musical */}
       <div className="flex items-center">
         {[0, 1, 2, 3, 4, 5].map(value =>
           <div
             key={value}
-            onClick={editable ? (e) => handleClick(e, value) : undefined}
-            onMouseMove={editable ? (e) => handleMouseMove(e, value) : undefined}
-            onMouseLeave={editable ? handleMouseLeave : undefined}
-            className={editable ? "cursor-pointer" : "opacity-50"}
+            onClick={editable && !esNoMusical ? (e) => handleClick(e, value) : undefined}
+            onMouseMove={editable && !esNoMusical ? (e) => handleMouseMove(e, value) : undefined}
+            onMouseLeave={editable && !esNoMusical ? handleMouseLeave : undefined}
+            className={editable && !esNoMusical ? "cursor-pointer" : "opacity-50"}
             style={{ width: '24px', height: '24px', display: 'inline-block' }}
           >
             <img src={renderIconSrc(value)} alt={value === 0 ? 'Tree' : 'Star'} style={{ width: '100%', height: '100%' }} />
@@ -468,6 +534,11 @@ const StarRating = ({
             ))}
           </div>
         </>
+      )}
+      {valoracionSimilar && (
+        <div className="mt-2 text-xs font-bold" style={{ color: "#a855f7" }}>
+          Valoración en otra versión similar: <span>{valoracionSimilar} ⭐</span>
+        </div>
       )}
       {mostrarGuardarAuto && (
         <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">

@@ -3,6 +3,7 @@ const router = express.Router();
 const videoController = require('../controllers/videoController');
 
 router.post('/', videoController.crearVideoMusical);
+router.get('/sugerencias-cancion', videoController.sugerirCancionEnVideo);
 router.get('/', videoController.obtenerVideosMusicales);
 router.get('/:id', videoController.obtenerVideoMusicalPorId);
 router.put('/:id', videoController.actualizarVideoMusical);
