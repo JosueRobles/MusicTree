@@ -26,7 +26,11 @@ const { safeSpotifyCall } = require('../utils/spotifySafeCall');
 const processSpotifyPlaylist = async (playlistId) => {
   await initializeToken();
   const spotifyApi = getSpotifyApi();
-  const tracks = await getPlaylistTracks(spotifyApi, playlistId);
+  // Obtener detalles de la playlist
+  const playlistData = await safeSpotifyCall(() => spotifyApi.getPlaylist(playlistId));
+  const nombre = playlistData.body.name;
+  const descripcion = playlistData.body.description;
+  const foto = playlistData.body.images?.[0]?.url || null;
 
   // Buscar colección existente
   let { data: collection } = await supabase
@@ -40,8 +44,9 @@ const processSpotifyPlaylist = async (playlistId) => {
     const { data: newCollection } = await supabase
       .from('colecciones')
       .insert({
-        nombre: `Colección de playlist ${playlistId}`,
-        descripcion: `Colección creada desde la playlist ${playlistId}`,
+        nombre,
+        descripcion,
+        icono: foto,
         tipo_coleccion: 'canciones',
         playlist_id: playlistId,
       })

@@ -54,7 +54,18 @@ async function getTrackPopularity(trackId) {
   }
 }
 
+async function buscarArtistaEnSpotify(nombre) {
+  try {
+    const spotifyApi = getSpotifyApi();
+    const result = await spotifyApi.searchArtists(nombre);
+    return result.body.artists.items[0] || null;
+  } catch (err) {
+    return null;
+  }
+}
+
 module.exports = {
+  buscarArtistaEnSpotify,
   getAlbumPopularity,
   getArtistPopularity,
   getArtistDetails,

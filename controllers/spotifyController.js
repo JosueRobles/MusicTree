@@ -237,11 +237,10 @@ const updateValidatedArtistCatalogController = async (req, res) => {
       .single();
 
     if (error) throw error;
-    if (!artist) return res.status(404).send("Artista no encontrado.");
+    if (!artist || !artist.es_principal) return res.status(400).send("El artista no está validado como principal.");
 
-    const importOptions = artist.es_principal ? { soloNuevos: true } : { soloNuevos: false };
-
-    const { artistIds, albumIds, trackIds } = await importFullArtistCatalog(artist.spotify_id, artistId, importOptions);
+    // Solo agrega lo nuevo y actualiza lo faltante
+    const { artistIds, albumIds, trackIds } = await updateMissingFromArtistCatalog(artist.spotify_id, artistId);
 
     const {
       updateArtistsPopularityAndPhotosByIds,
@@ -258,10 +257,6 @@ const updateValidatedArtistCatalogController = async (req, res) => {
     await updateArtistGenresByIds(artistIds);
     await updateAlbumGenresByIds(albumIds);
     await updateSongGenresByIds(trackIds);
-
-    if (!artist.es_principal) {
-      await supabase.from('artistas').update({ es_principal: true }).eq('id_artista', artistId);
-    }
 
     res.status(200).send("Catálogo de artista validado actualizado correctamente.");
   } catch (err) {

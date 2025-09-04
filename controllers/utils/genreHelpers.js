@@ -8,8 +8,7 @@ function normalizarGenero(genre) {
   const allowedGenres = [
     'Pop', 'Rock', 'Metal', 'Hip Hop', 'Folk',
     'Jazz', 'Classical', 'Electronic', 'Country', 'Reggae',
-    'Blues', 'R&B', 'Latin'
-    
+    'Blues', 'R&B', 'Latin',  'Punk',
   ];
 
   if (!genre) return null;
