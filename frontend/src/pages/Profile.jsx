@@ -526,7 +526,7 @@ const PieChart = ({ porcentaje }) => {
       {estadisticas && (
   <div className="section mt-6">
     <h3 className="text-2xl font-bold my-4">Estadísticas y hábitos musicales</h3>
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 32 }}>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
       <div style={{ minWidth: 320 }}>
         <strong>Distribución de estrellas</strong>
         <Bar

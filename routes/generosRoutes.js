@@ -13,6 +13,7 @@ const {
   getGeneroPorId,
   getVideosPorGenero,
   updateVideoGenres,
+  getSubgenerosConPresencia,
 } = require('../controllers/generosController');
 
 // Actualizar géneros de videos musicales
@@ -26,6 +27,7 @@ router.get('/:id/artistas', getArtistasPorGenero);
 router.get('/:id/albumes', getAlbumesPorGenero);
 router.get('/:id/canciones', getCancionesPorGenero);
 router.get('/:id', getGeneroPorId); // <-- Agrega esta línea
+router.get('/:id/subgeneros', getSubgenerosConPresencia);
 
 // Rutas adicionales para extracción y normalización
 router.get('/update/artists', updateArtistGenres); // Actualizar géneros de artistas

@@ -255,25 +255,22 @@ const getGeneros = async (req, res) => {
 // Obtener artistas relacionados con un género
 const getArtistasPorGenero = async (req, res) => {
   const { id } = req.params;
-
-  // Validación del parámetro id
   if (isNaN(parseInt(id))) {
     return res.status(400).json({ error: 'El ID del género debe ser un número entero.' });
   }
-
   try {
-    // Seleccionamos los artistas relacionados desde la tabla artista_generos
     const { data, error } = await supabase
       .from('artista_generos')
-      .select('artista_id, artistas(nombre_artista, foto_artista, popularidad_artista)')
+      .select('artista_id, subgeneros, artistas(nombre_artista, foto_artista, popularidad_artista)')
       .eq('genero_id', id);
 
     if (error) throw error;
 
-    // Retornamos los artistas relacionados con el género
+    // Devuelve los artistas con subgéneros de la relación
     const artistas = data.map((item) => ({
       ...item.artistas,
-      id_artista: item.artista_id
+      id_artista: item.artista_id,
+      subgeneros: item.subgeneros // <-- aquí
     }));
     res.status(200).json(artistas);
   } catch (error) {
@@ -295,7 +292,7 @@ const getAlbumesPorGenero = async (req, res) => {
     // Seleccionamos los álbumes relacionados desde la tabla album_generos
     const { data, error } = await supabase
       .from('album_generos')
-      .select('album_id, albumes(titulo, foto_album, anio)')
+      .select('album_id, subgeneros, albumes(titulo, foto_album, anio)')
       .eq('genero_id', id);
 
     if (error) throw error;
@@ -303,7 +300,8 @@ const getAlbumesPorGenero = async (req, res) => {
     // Retornamos los álbumes relacionados con el género
     const albumes = data.map((item) => ({
       ...item.albumes,
-      id_album: item.album_id
+      id_album: item.album_id,
+      subgeneros: item.subgeneros
     }));
     res.status(200).json(albumes);
   } catch (error) {
@@ -325,7 +323,7 @@ const getCancionesPorGenero = async (req, res) => {
     // Seleccionamos las canciones relacionadas desde la tabla cancion_generos
     const { data, error } = await supabase
       .from('cancion_generos')
-      .select('cancion_id, canciones(titulo, duracion_ms, popularidad)')
+      .select('cancion_id, subgeneros, canciones(titulo, duracion_ms, popularidad)')
       .eq('genero_id', id);
 
     if (error) throw error;
@@ -333,7 +331,8 @@ const getCancionesPorGenero = async (req, res) => {
     // Retornamos las canciones relacionadas con el género
     const canciones = data.map((item) => ({
       ...item.canciones,
-      id_cancion: item.cancion_id
+      id_cancion: item.cancion_id,
+      subgeneros: item.subgeneros
     }));
     res.status(200).json(canciones);
   } catch (error) {
@@ -368,14 +367,15 @@ const getVideosPorGenero = async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('video_generos')
-      .select('video_id, videos_musicales(titulo, url_video, duracion, popularidad, miniatura)')
+      .select('video_id, subgeneros, videos_musicales(titulo, url_video, duracion, popularidad, miniatura)')
       .eq('genero_id', id);
 
     if (error) throw error;
 
     const videos = data.map((item) => ({
       ...item.videos_musicales,
-      id_video: item.video_id
+      id_video: item.video_id,
+      subgeneros: item.subgeneros
     }));
 
     res.status(200).json(videos);
@@ -454,6 +454,47 @@ const updateVideoGenres = async (req, res) => {
   }
 };
 
+// Devuelve subgéneros presentes en entidades de un género y su conteo
+const getSubgenerosConPresencia = async (req, res) => {
+  const { id } = req.params;
+  try {
+    // 1. Junta todos los subgéneros de artista_generos, album_generos y cancion_generos para este género
+    const tablas = [
+      { tabla: 'artista_generos', campo: 'subgeneros' },
+      { tabla: 'album_generos', campo: 'subgeneros' },
+      { tabla: 'cancion_generos', campo: 'subgeneros' }
+    ];
+    let conteo = {};
+    for (const t of tablas) {
+      const { data, error } = await supabase
+        .from(t.tabla)
+        .select(t.campo)
+        .eq('genero_id', id);
+      if (error) continue;
+      for (const fila of data) {
+        let subs = [];
+        if (Array.isArray(fila.subgeneros)) subs = fila.subgeneros;
+        else if (typeof fila.subgeneros === 'string' && fila.subgeneros.startsWith('[')) {
+          try { subs = JSON.parse(fila.subgeneros); } catch {}
+        } else if (typeof fila.subgeneros === 'string' && fila.subgeneros.length > 0) {
+          subs = [fila.subgeneros];
+        }
+        for (const sub of subs) {
+          if (!sub) continue;
+          conteo[sub] = (conteo[sub] || 0) + 1;
+        }
+      }
+    }
+    // Devuelve array [{subgenero, count}]
+    const resultado = Object.entries(conteo)
+      .map(([subgenero, count]) => ({ subgenero, count }))
+      .sort((a, b) => b.count - a.count);
+    res.json(resultado);
+  } catch (error) {
+    res.status(500).json({ error: 'Error al obtener subgéneros con presencia' });
+  }
+};
+
 module.exports = {
   loadMainGenres,
   getGeneros,
@@ -467,4 +508,5 @@ module.exports = {
   getGeneroPorId,
   getVideosPorGenero,
   updateVideoGenres,
+  getSubgenerosConPresencia
 };

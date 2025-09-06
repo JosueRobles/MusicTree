@@ -35,6 +35,7 @@ const AlbumPage = ({ usuario }) => {
   const [feedbackComentario, setFeedbackComentario] = useState('');
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [feedbackSuccess, setFeedbackSuccess] = useState(false);
+  const [showHistorial, setShowHistorial] = useState(false);
 
   useEffect(() => {
     const fetchAlbumData = async () => {
@@ -257,6 +258,18 @@ const sendFeedback = async () => {
           <h2 className="text-4xl font-bold my-4 text-center">
             {album.titulo}
           </h2>
+          {album.categoria && (
+            <div className="text-center mb-2">
+              <span className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-semibold">
+                Obtenido desde: {album.categoria}
+              </span>
+              {album.categoria.toLowerCase() === 'coleccion' && (
+                <div className="text-red-600 text-xs mt-1">
+                  Este álbum fue obtenido desde una colección y <b>no contiene todas las canciones</b>, solo las incluidas en la colección.
+                </div>
+              )}
+            </div>
+          )}
           {posicionRanking && (
             <div className="text-center mt-2">
               <span className="ranking-global">
@@ -278,13 +291,41 @@ const sendFeedback = async () => {
             <p>{averageRating !== null ? `${averageRating} ⭐` : 'Sin valoraciones'}</p>
           </div>
           {usuario && (
-            <StarRating
-              valoracionInicial={rating}
-              onRatingChange={handleRatingChange}
-              entidadTipo="album"
-              entidadId={parseInt(id, 10)}
-              usuario={usuario}
-            />
+            <>
+              <StarRating
+                valoracionInicial={rating}
+                onRatingChange={handleRatingChange}
+                entidadTipo="album"
+                entidadId={parseInt(id, 10)}
+                usuario={usuario}
+              />
+              {historial.length > 0 && (
+                <div className="my-2">
+                  <button
+                    className="bg-gray-200 px-3 py-1 rounded hover:bg-gray-300 text-sm"
+                    onClick={() => setShowHistorial(v => !v)}
+                  >
+                    {showHistorial ? 'Ocultar historial de valoraciones' : 'Ver historial de valoraciones'}
+                  </button>
+                  {showHistorial && (
+                    <div className="mt-2 historial-valoraciones-box">
+                      <h4 className="font-bold mb-2">Historial de valoraciones previas</h4>
+                      <ul className="space-y-2">
+                        {historial.map(h => (
+                          <li key={h.id_historial} className="flex flex-col md:flex-row md:items-center gap-2">
+                            <span className="text-xs text-gray-700">{new Date(h.fecha).toLocaleString()}</span>
+                            <span className="font-semibold">{h.calificacion} ⭐</span>
+                            {h.comentario && (
+                              <span className="italic text-gray-800">“{h.comentario}”</span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
 
           <h3 className="text-2xl font-bold mt-8">Valoraciones de Usuarios</h3>
@@ -301,6 +342,16 @@ const sendFeedback = async () => {
             {genres.map((genre) => (
               <li key={genre.id_genero}>
                 <Link to={`/genre/${genre.id_genero}`}>{genre.nombre}</Link>
+                {/* Subgéneros como texto plano */}
+                {genre.subgeneros && (
+                  <span className="block text-xs text-gray-600 mt-1">
+                    {Array.isArray(genre.subgeneros)
+                      ? genre.subgeneros.join(', ')
+                      : (typeof genre.subgeneros === 'string' && genre.subgeneros.startsWith('[')
+                          ? JSON.parse(genre.subgeneros).join(', ')
+                          : genre.subgeneros)}
+                  </span>
+                )}
               </li>
             ))}
           </ul>
@@ -373,20 +424,6 @@ const sendFeedback = async () => {
               ))}
             </tbody>
           </table>
-
-          {historial.length > 0 && (
-  <div className="mt-6">
-    <h4 className="font-bold">Historial de valoraciones</h4>
-    <ul>
-      {historial.map(h => (
-        <li key={h.id_historial}>
-          <span className="font-semibold">{new Date(h.fecha).toLocaleString()}:</span>
-          <span> {h.calificacion} ⭐ {h.comentario && `- "${h.comentario}"`}</span>
-        </li>
-      ))}
-    </ul>
-  </div>
-)}
 
           {listasDestacadas.length > 0 && (
   <div className="mt-6">

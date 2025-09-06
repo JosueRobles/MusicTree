@@ -17,6 +17,7 @@ const imagenesPorGenero = {
   11: "/generos/11.png",
   12: "/generos/12.png",
   13: "/generos/13.png",
+  14: "/generos/14.png",
 };
 
 const GENEROS_POR_PAGINA = 5;

@@ -75,13 +75,6 @@ const About = () => {
           <span className="font-bold">Dulce Chavarin</span>
         </div>
       </div>
-
-      <h3 className="text-2xl font-bold mb-2 mt-8">Comentarios de nuestros usuarios</h3>
-      <div className="bg-gray-900 p-4 rounded-md" style={{ color: "#eab308" }}>
-        <p>
-          <strong>Karlita:</strong> MusicTree es la mejor plataforma que he visto y la uso diario.
-        </p>
-      </div>
     </div>
   );
 };

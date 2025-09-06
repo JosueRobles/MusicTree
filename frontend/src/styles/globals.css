@@ -707,3 +707,12 @@
   display: block;
   margin-bottom: 8px;
 }
+.historial-valoraciones-box {
+  background: rgb(2, 46, 2);
+  border: 2px solid #011d03;
+  border-radius: 12px;
+  padding: 18px 18px 10px 18px;
+  color: #ffffff;
+  box-shadow: 0 2px 12px #ffffff55;
+  margin-top: 8px;
+}

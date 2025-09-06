@@ -60,6 +60,7 @@ const ArtistPage = ({ usuario }) => {
   const [posicionRanking, setPosicionRanking] = useState(null);
   const [historial, setHistorial] = useState([]);
   const [listasDestacadas, setListasDestacadas] = useState([]);
+  const [showHistorial, setShowHistorial] = useState(false);
 
   useEffect(() => {
     const fetchArtistData = async () => {
@@ -284,6 +285,13 @@ const handleAddToList = async () => {
   }).then(res => setPosicionRanking(res.data.posicion));
 }, [id, usuario]);
 
+  const albumesPorTipo = albums.reduce((acc, album) => {
+    const tipo = (album.tipo_album || 'Otro').toLowerCase();
+    if (!acc[tipo]) acc[tipo] = [];
+    acc[tipo].push(album);
+    return acc;
+  }, {});
+
   return (
     <div className="pt-20 px-4">
       {loading ? (
@@ -293,6 +301,15 @@ const handleAddToList = async () => {
           <h2 className="text-4xl font-bold my-4 text-center">
             {artist.nombre_artista}
           </h2>
+          {artist.es_principal ? (
+            <div className="bg-yellow-100 border-l-4 border-yellow-400 text-yellow-800 p-3 my-4 rounded text-center font-semibold">
+              Artista Principal: Puedes valorar la <b>totalidad de su catálogo</b> para ganarte una medalla especial.
+            </div>
+          ) : (
+            <div className="bg-blue-100 border-l-4 border-blue-400 text-blue-800 p-3 my-4 rounded text-center font-semibold">
+              Artista de colección o colaborador. Puedes solicitar la extracción de su catálogo completo haciendo clic <span className="underline cursor-pointer" onClick={() => {/* lógica de petición aquí */}}>aquí</span>.
+            </div>
+          )}
           {posicionRanking && (
             <div className="text-center mt-2">
               <span className="ranking-global">
@@ -312,6 +329,15 @@ const handleAddToList = async () => {
             {genres.map((genre) => (
             <li key={genre.id_genero}>
               <Link to={`/genre/${genre.id_genero}`}>{genre.nombre}</Link>
+                              {genre.subgeneros && (
+                  <span className="block text-xs text-gray-600 mt-1">
+                    {Array.isArray(genre.subgeneros)
+                      ? genre.subgeneros.join(', ')
+                      : (typeof genre.subgeneros === 'string' && genre.subgeneros.startsWith('[')
+                          ? JSON.parse(genre.subgeneros).join(', ')
+                          : genre.subgeneros)}
+                  </span>
+                )}
             </li>
           ))}
           </ul>
@@ -329,6 +355,7 @@ const handleAddToList = async () => {
             </div>
           )}
           {usuario && (
+            <>
             <StarRating
               valoracionInicial={rating}
               onRatingChange={handleRatingChange}
@@ -336,6 +363,33 @@ const handleAddToList = async () => {
               entidadId={parseInt(id, 10)}
               usuario={usuario}
             />
+            {historial.length > 0 && (
+          <div className="my-2">
+            <button
+              className="bg-gray-200 px-3 py-1 rounded hover:bg-gray-300 text-sm"
+              onClick={() => setShowHistorial(v => !v)}
+            >
+              {showHistorial ? 'Ocultar historial de valoraciones' : 'Ver historial de valoraciones'}
+            </button>
+            {showHistorial && (
+            <div className="mt-2 historial-valoraciones-box">
+              <h4 className="font-bold mb-2">Historial de valoraciones previas</h4>
+              <ul className="space-y-2">
+                {historial.map(h => (
+                  <li key={h.id_historial} className="flex flex-col md:flex-row md:items-center gap-2">
+                    <span className="text-xs text-gray-700">{new Date(h.fecha).toLocaleString()}</span>
+                    <span className="font-semibold">{h.calificacion} ⭐</span>
+                    {h.comentario && (
+                      <span className="italic text-gray-800">“{h.comentario}”</span>
+                    )}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+          )}
+        </>
           )}
           {usuario && !siguiendo && (
             <button onClick={handleSeguir} className="bg-blue-500 text-white px-4 py-2 rounded mt-2">
@@ -368,24 +422,31 @@ const handleAddToList = async () => {
           )}
           {/* Álbumes */}
 <h3 className="text-2xl font-bold mt-8">Álbumes</h3>
-<ul className="artist-grid gap-4 w-full justify-items-center mx-auto">
-  {albums.map((album) => (
-    <li key={album.id_album}>
-      <Link to={`/album/${album.id_album}`}>
-        <img
-          src={album.foto_album}
-          alt={album.titulo}
-          style={{ width: '255px', height: '255px', objectFit: 'cover' }}
-          className={`rounded-md ${valorados.includes(`album-${album.id_album}`) ? 'valorada-img' : ''}`}
-        />
-        <p className={`text-center mt-2 text-xs font-semibold ${valorados.includes(`album-${album.id_album}`) ? 'valorada' : ''}`}>
-          {album.titulo}
-          {valorados.includes(`album-${album.id_album}`) && <span style={{ marginLeft: 6 }}>⭐</span>}
-        </p>
-      </Link>
-    </li>
-  ))}
-</ul>
+{Object.entries(albumesPorTipo).map(([tipo, lista]) => (
+  <div key={tipo} className="mb-6">
+    <h4 className="text-xl font-semibold mb-2 capitalize">
+      {tipo === 'album' ? 'Álbumes' : tipo === 'compilation' ? 'Compilaciones' : tipo === 'single' ? 'Singles' : tipo}
+    </h4>
+    <ul className="artist-grid gap-4 w-full justify-items-center mx-auto">
+      {lista.map((album) => (
+        <li key={album.id_album}>
+          <Link to={`/album/${album.id_album}`}>
+            <img
+              src={album.foto_album}
+              alt={album.titulo}
+              style={{ width: '255px', height: '255px', objectFit: 'cover' }}
+              className={`rounded-md ${valorados.includes(`album-${album.id_album}`) ? 'valorada-img' : ''}`}
+            />
+            <p className={`text-center mt-2 text-xs font-semibold ${valorados.includes(`album-${album.id_album}`) ? 'valorada' : ''}`}>
+              {album.titulo}
+              {valorados.includes(`album-${album.id_album}`) && <span style={{ marginLeft: 6 }}>⭐</span>}
+            </p>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  </div>
+))}
 
 <h3 className="text-2xl font-bold mt-8">Videos Musicales</h3>
 <ul className="artist-grid gap-4 w-full justify-items-center mx-auto">
@@ -428,19 +489,6 @@ const handleAddToList = async () => {
     {valoracionesUsuarios.map((valoracion, idx) => (
       <ValoracionComentario key={idx} valoracion={valoracion} />
     ))}
-  </div>
-)}
-{historial.length > 0 && (
-  <div className="mt-6">
-    <h4 className="font-bold">Historial de valoraciones</h4>
-    <ul>
-      {historial.map(h => (
-        <li key={h.id_historial}>
-          <span className="font-semibold">{new Date(h.fecha).toLocaleString()}:</span>
-          <span> {h.calificacion} ⭐ {h.comentario && `- "${h.comentario}"`}</span>
-        </li>
-      ))}
-    </ul>
   </div>
 )}
 

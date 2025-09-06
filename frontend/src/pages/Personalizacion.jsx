@@ -38,6 +38,7 @@ const Personalizacion = () => {
   const [ponderadoError, setPonderadoError] = useState(false);
   const [showOpcionesAvanzadas, setShowOpcionesAvanzadas] = useState(false);
   const [busquedaArtista, setBusquedaArtista] = useState("");
+  const [subgenerosDisponibles, setSubgenerosDisponibles] = useState({}); // {id_genero: [{subgenero, count}]}
   const navigate = useNavigate();
 
   // Si no hay usuario logueado, redirige a login
@@ -72,6 +73,20 @@ const Personalizacion = () => {
         });
     }
   }, [usuario]);
+
+  useEffect(() => {
+    // Carga subgéneros presentes para cada género seleccionado
+    const cargarSubgeneros = async () => {
+      let nuevos = {};
+      for (const idGenero of state.generos) {
+        const { data } = await axios.get(`${API_URL}/generos/${idGenero}/subgeneros`);
+        nuevos[idGenero] = data || [];
+      }
+      setSubgenerosDisponibles(nuevos);
+    };
+    if (state.generos.length > 0) cargarSubgeneros();
+    else setSubgenerosDisponibles({});
+  }, [state.generos]);
 
   const handleSubmit = async () => {
     if (!usuario) {
@@ -634,6 +649,11 @@ const Personalizacion = () => {
                       La suma de los porcentajes actual es de {state.ponderado.albumes + state.ponderado.canciones + state.ponderado.videos}, debe ser 100.
                     </div>
                   )}
+                  {(state.ponderado.albumes < 10 || state.ponderado.canciones < 10 || state.ponderado.videos < 10) && (
+                    <div className="text-red-500 font-semibold mt-2">
+                      Ningún porcentaje puede ser menor a 10%.
+                    </div>
+                  )}
                 </div>
               )}
               {/* Redondeo para cualquier método */}
@@ -690,25 +710,26 @@ const Personalizacion = () => {
     <h4 className="font-bold mb-2">Selecciona subgéneros (opcional)</h4>
     {state.generos.map(idGenero => {
       const genero = generosDisponibles.find(g => g.id_genero === idGenero);
-      if (!genero || !genero.subgeneros) return null;
+      const subs = subgenerosDisponibles[idGenero] || [];
+      if (!genero || subs.length === 0) return null;
       return (
         <div key={idGenero} className="mb-2">
           <div className="font-semibold">{genero.nombre}</div>
           <div className="flex flex-wrap gap-2">
-            {genero.subgeneros.map(sub => (
-              <label key={sub} className="mr-2">
+            {subs.map(({ subgenero }) => (
+              <label key={subgenero} className="mr-2">
                 <input
                   type="checkbox"
-                  checked={state.subgeneros.includes(sub)}
+                  checked={state.subgeneros.includes(subgenero)}
                   onChange={e => {
                     if (e.target.checked) {
-                      setState(s => ({ ...s, subgeneros: [...s.subgeneros, sub] }));
+                      setState(s => ({ ...s, subgeneros: [...s.subgeneros, subgenero] }));
                     } else {
-                      setState(s => ({ ...s, subgeneros: s.subgeneros.filter(sg => sg !== sub) }));
+                      setState(s => ({ ...s, subgeneros: s.subgeneros.filter(sg => sg !== subgenero) }));
                     }
                   }}
                 />
-                <span className="ml-1">{sub}</span>
+                <span className="ml-1">{subgenero}</span>
               </label>
             ))}
           </div>

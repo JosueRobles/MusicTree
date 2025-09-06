@@ -36,6 +36,7 @@ const SongPage = ({ usuario }) => {
   const [feedbackSuccess, setFeedbackSuccess] = useState(false);
   const [grupoUniversal, setGrupoUniversal] = useState(null);
   const [miembrosGrupo, setMiembrosGrupo] = useState([]);
+  const [showHistorial, setShowHistorial] = useState(false);
 
   useEffect(() => {
     const fetchSongData = async () => {
@@ -219,6 +220,13 @@ const sendFeedback = async () => {
           <h2 className="text-4xl font-bold my-4 text-center">
             {song.titulo}
           </h2>
+          {song.categoria && (
+          <div className="text-center mb-2">
+            <span className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-semibold">
+              Contenida en las categorias: {song.categoria}
+            </span>
+          </div>
+        )}
           {posicionRanking && (
             <div className="text-center mt-2">
               <span className="ranking-global">
@@ -233,6 +241,7 @@ const sendFeedback = async () => {
             <p>{averageRating !== null ? `${averageRating} ⭐` : 'Sin valoraciones'}</p>
           </div>
           {usuario && (
+            <>
             <StarRating
               valoracionInicial={rating}
               onRatingChange={handleRatingChange}
@@ -240,8 +249,34 @@ const sendFeedback = async () => {
               entidadId={parseInt(id, 10)}
               usuario={usuario}
             />
-          )}
-
+{historial.length > 0 && (
+      <div className="my-2">
+        <button
+          className="bg-gray-200 px-3 py-1 rounded hover:bg-gray-300 text-sm"
+          onClick={() => setShowHistorial(v => !v)}
+        >
+          {showHistorial ? 'Ocultar historial de valoraciones' : 'Ver historial de valoraciones'}
+        </button>
+        {showHistorial && (
+          <div className="mt-2 historial-valoraciones-box">
+            <h4 className="font-bold mb-2">Historial de valoraciones previas</h4>
+            <ul className="space-y-2">
+              {historial.map(h => (
+                <li key={h.id_historial} className="flex flex-col md:flex-row md:items-center gap-2">
+                  <span className="text-xs text-gray-700">{new Date(h.fecha).toLocaleString()}</span>
+                  <span className="font-semibold">{h.calificacion} ⭐</span>
+                  {h.comentario && (
+                    <span className="italic text-gray-800">“{h.comentario}”</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    )}
+  </>
+)}
           <h3 className="text-2xl font-bold mt-8">Valoraciones de Usuarios</h3>
           {valoracionesUsuarios.length === 0 ? (
             <div>No hay valoraciones aún.</div>
@@ -276,6 +311,15 @@ const sendFeedback = async () => {
             {genres.map((genre) => (
             <li key={genre.id_genero}>
               <Link to={`/genre/${genre.id_genero}`}>{genre.nombre}</Link>
+                              {genre.subgeneros && (
+                  <span className="block text-xs text-gray-600 mt-1">
+                    {Array.isArray(genre.subgeneros)
+                      ? genre.subgeneros.join(', ')
+                      : (typeof genre.subgeneros === 'string' && genre.subgeneros.startsWith('[')
+                          ? JSON.parse(genre.subgeneros).join(', ')
+                          : genre.subgeneros)}
+                  </span>
+                )}
             </li>
           ))}
           </ul>
@@ -329,26 +373,6 @@ const sendFeedback = async () => {
       )}
       </div>
     </div>
-  </div>
-)}
-
-{/* Historial de valoraciones */}
-{historial.length > 0 && (
-  <div className="mt-6">
-    <h4 className="font-bold">Historial de valoraciones</h4>
-    <ul className="list-disc pl-5 mt-2">
-      {historial.map(h => (
-        <li key={h.id_historial}>
-          <span className="font-semibold">
-            {new Date(h.fecha).toLocaleString()}:
-          </span>
-          <span>
-            {' '}
-            {h.calificacion} ⭐ {h.comentario && `- "${h.comentario}"`}
-          </span>
-        </li>
-      ))}
-    </ul>
   </div>
 )}
 

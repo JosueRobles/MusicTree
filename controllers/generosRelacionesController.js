@@ -7,13 +7,29 @@ const obtenerGenerosDeAlbum = async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('album_generos')
-      .select('generos (id_genero, nombre, descripcion)')
+      .select(`
+        generos (id_genero, nombre, descripcion), subgeneros
+      `)
       .eq('album_id', id);
 
     if (error) throw error;
 
-    // Devolver solo los géneros relacionados con el álbum
-    const generos = data.map((item) => item.generos);
+    // Combina subgéneros de la relación y del género principal
+    const generos = data.map((item) => {
+      let subgeneros = [];
+      if (item.subgeneros) {
+        if (Array.isArray(item.subgeneros)) subgeneros = item.subgeneros;
+        else if (typeof item.subgeneros === 'string' && item.subgeneros.startsWith('[')) {
+          try { subgeneros = JSON.parse(item.subgeneros); } catch {}
+        } else if (typeof item.subgeneros === 'string') {
+          subgeneros = [item.subgeneros];
+        }
+      }
+      return {
+        ...item.generos,
+        subgeneros: subgeneros.filter(Boolean)
+      };
+    });
     res.status(200).json(generos);
   } catch (error) {
     console.error('❌ Error al obtener géneros del álbum:', error);
@@ -28,13 +44,27 @@ const obtenerGenerosDeCancion = async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('cancion_generos')
-      .select('generos (id_genero, nombre, descripcion)')
+      .select('generos (id_genero, nombre, descripcion), subgeneros')
       .eq('cancion_id', id);
 
     if (error) throw error;
 
     // Devolver solo los géneros relacionados con la canción
-    const generos = data.map((item) => item.generos);
+    const generos = data.map((item) => {
+      let subgeneros = [];
+      if (item.subgeneros) {
+        if (Array.isArray(item.subgeneros)) subgeneros = item.subgeneros;
+        else if (typeof item.subgeneros === 'string' && item.subgeneros.startsWith('[')) {
+          try { subgeneros = JSON.parse(item.subgeneros); } catch {}
+        } else if (typeof item.subgeneros === 'string') {
+          subgeneros = [item.subgeneros];
+        }
+      }
+      return {
+        ...item.generos,
+        subgeneros: subgeneros.filter(Boolean)
+      };
+    });
     res.status(200).json(generos);
   } catch (error) {
     console.error('❌ Error al obtener géneros de la canción:', error);
@@ -45,17 +75,30 @@ const obtenerGenerosDeCancion = async (req, res) => {
 // Artista -> Géneros
 const obtenerGenerosDeArtista = async (req, res) => {
   const { id } = req.params;
-
   try {
     const { data, error } = await supabase
       .from('artista_generos')
-      .select('generos (id_genero, nombre, descripcion)')
+      .select('generos (id_genero, nombre, descripcion), subgeneros')
       .eq('artista_id', id);
 
     if (error) throw error;
 
-    // Devolver solo los géneros relacionados con el artista
-    const generos = data.map((item) => item.generos);
+    // Solo los subgéneros de la relación
+    const generos = data.map((item) => {
+      let subgeneros = [];
+      if (item.subgeneros) {
+        if (Array.isArray(item.subgeneros)) subgeneros = item.subgeneros;
+        else if (typeof item.subgeneros === 'string' && item.subgeneros.startsWith('[')) {
+          try { subgeneros = JSON.parse(item.subgeneros); } catch {}
+        } else if (typeof item.subgeneros === 'string') {
+          subgeneros = [item.subgeneros];
+        }
+      }
+      return {
+        ...item.generos,
+        subgeneros: subgeneros.filter(Boolean)
+      };
+    });
     res.status(200).json(generos);
   } catch (error) {
     console.error('❌ Error al obtener géneros del artista:', error);
@@ -70,12 +113,26 @@ const obtenerGenerosDeVideo = async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('video_generos')
-      .select('generos (id_genero, nombre, descripcion)')
+      .select('generos (id_genero, nombre, descripcion), subgeneros')
       .eq('video_id', id);
 
     if (error) throw error;
 
-    const generos = data.map((item) => item.generos);
+    const generos = data.map((item) => {
+      let subgeneros = [];
+      if (item.subgeneros) {
+        if (Array.isArray(item.subgeneros)) subgeneros = item.subgeneros;
+        else if (typeof item.subgeneros === 'string' && item.subgeneros.startsWith('[')) {
+          try { subgeneros = JSON.parse(item.subgeneros); } catch {}
+        } else if (typeof item.subgeneros === 'string') {
+          subgeneros = [item.subgeneros];
+        }
+      }
+      return {
+        ...item.generos,
+        subgeneros: subgeneros.filter(Boolean)
+      };
+    });
     res.status(200).json(generos);
   } catch (error) {
     console.error('❌ Error al obtener géneros del video:', error);

@@ -34,6 +34,7 @@ const VideoPage = ({ usuario }) => {
   const [feedbackSuccess, setFeedbackSuccess] = useState(false);
   const [grupoUniversal, setGrupoUniversal] = useState(null);
   const [miembrosGrupo, setMiembrosGrupo] = useState([]);
+  const [showHistorial, setShowHistorial] = useState(false);
 
   useEffect(() => {
     const fetchVideoData = async () => {
@@ -261,6 +262,7 @@ useEffect(() => {
       </div>
 
       {usuario ? (
+        <>
         <StarRating
           valoracionInicial={rating}
           onRatingChange={handleRatingChange}
@@ -268,6 +270,33 @@ useEffect(() => {
           entidadId={parseInt(id, 10)} // Convertir id a número
           usuario={usuario}
         />
+        {historial.length > 0 && (
+      <div className="my-2">
+        <button
+          className="bg-gray-200 px-3 py-1 rounded hover:bg-gray-300 text-sm"
+          onClick={() => setShowHistorial(v => !v)}
+        >
+          {showHistorial ? 'Ocultar historial de valoraciones' : 'Ver historial de valoraciones'}
+        </button>
+        {showHistorial && (
+          <div className="mt-2 historial-valoraciones-box">
+            <h4 className="font-bold mb-2">Historial de valoraciones previas</h4>
+            <ul className="space-y-2">
+              {historial.map(h => (
+                <li key={h.id_historial} className="flex flex-col md:flex-row md:items-center gap-2">
+                  <span className="text-xs text-gray-700">{new Date(h.fecha).toLocaleString()}</span>
+                  <span className="font-semibold">{h.calificacion} ⭐</span>
+                  {h.comentario && (
+                    <span className="italic text-gray-800">“{h.comentario}”</span>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </div>
+    )}
+  </>
       ) : (
         <p>Inicia sesión para valorar este video.</p>
       )}
@@ -306,6 +335,15 @@ useEffect(() => {
                   {genres.map((genre) => (
                   <li key={genre.id_genero}>
                     <Link to={`/genre/${genre.id_genero}`}>{genre.nombre}</Link>
+                                    {genre.subgeneros && (
+                  <span className="block text-xs text-gray-600 mt-1">
+                    {Array.isArray(genre.subgeneros)
+                      ? genre.subgeneros.join(', ')
+                      : (typeof genre.subgeneros === 'string' && genre.subgeneros.startsWith('[')
+                          ? JSON.parse(genre.subgeneros).join(', ')
+                          : genre.subgeneros)}
+                  </span>
+                )}
                   </li>
                 ))}
                 </ul>

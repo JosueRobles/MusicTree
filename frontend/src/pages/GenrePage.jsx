@@ -21,6 +21,8 @@ const GenrePage = () => {
   const [canciones, setCanciones] = useState({ items: [], pagina: 0, hayMas: true });
   const [videos, setVideos] = useState({ items: [], pagina: 0, hayMas: true });
   const [loading, setLoading] = useState(true);
+  const [subgeneros, setSubgeneros] = useState([]);
+  const [subgeneroFiltro, setSubgeneroFiltro] = useState(null);
 
   // Carga inicial
   useEffect(() => {
@@ -43,6 +45,11 @@ const GenrePage = () => {
       setLoading(false);
     };
     cargarTodo();
+  }, [id]);
+
+  useEffect(() => {
+    axios.get(`${API_URL}/generos/${id}/subgeneros`)
+      .then(res => setSubgeneros(res.data || []));
   }, [id]);
 
   // Funciones para cargar más
@@ -86,6 +93,22 @@ const GenrePage = () => {
     }));
   }, [id, videos.pagina]);
 
+  // Filtra entidades por subgénero si hay filtro activo
+  const filtrarPorSubgenero = (entidades) => {
+    if (!subgeneroFiltro) return entidades;
+    return entidades.filter(ent => {
+      if (!ent.subgeneros) return false;
+      let subs = [];
+      if (Array.isArray(ent.subgeneros)) subs = ent.subgeneros;
+      else if (typeof ent.subgeneros === 'string' && ent.subgeneros.startsWith('[')) {
+        try { subs = JSON.parse(ent.subgeneros); } catch {}
+      } else if (typeof ent.subgeneros === 'string') {
+        subs = [ent.subgeneros];
+      }
+      return subs.includes(subgeneroFiltro);
+    });
+  };
+
   if (loading) return <p>Cargando...</p>;
   if (!genero) return <p>Género no encontrado.</p>;
 
@@ -104,9 +127,40 @@ const GenrePage = () => {
         </div>
       </div>
 
+      {subgeneros.length > 0 && (
+        <div style={{ margin: "16px 0" }}>
+          <div style={{ fontWeight: "bold", marginBottom: 4 }}>Subgéneros más presentes:</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {subgeneros.map(sg => (
+              <button
+                key={sg.subgenero}
+                onClick={() => setSubgeneroFiltro(f => f === sg.subgenero ? null : sg.subgenero)}
+                style={{
+                  background: subgeneroFiltro === sg.subgenero ? "#fde047" : "#fef9c3",
+                  color: "#78350f",
+                  border: "1px solid #fde047",
+                  borderRadius: 8,
+                  padding: "4px 12px",
+                  fontWeight: "bold",
+                  cursor: "pointer"
+                }}
+              >
+                {sg.subgenero} <span style={{ fontWeight: "normal" }}>({sg.count})</span>
+              </button>
+            ))}
+          </div>
+          {subgeneroFiltro && (
+            <div style={{ marginTop: 8, color: "#78350f" }}>
+              Mostrando solo entidades con subgénero: <b>{subgeneroFiltro}</b>
+              <button style={{ marginLeft: 12, color: "#b91c1c" }} onClick={() => setSubgeneroFiltro(null)}>Quitar filtro</button>
+            </div>
+          )}
+        </div>
+      )}
+
       <CarruselEntidad
         titulo="Artistas"
-        entidades={artistas.items}
+        entidades={filtrarPorSubgenero(artistas.items, "artista")}
         porPagina={6}
         hayMas={artistas.hayMas}
         onCargarMas={cargarMasArtistas}
@@ -143,7 +197,7 @@ const GenrePage = () => {
 
       <CarruselEntidad
         titulo="Álbumes"
-        entidades={albumes.items}
+        entidades={filtrarPorSubgenero(albumes.items, "album")}
         porPagina={6}
         hayMas={albumes.hayMas}
         onCargarMas={cargarMasAlbumes}
@@ -181,7 +235,7 @@ const GenrePage = () => {
 
       <CarruselEntidad
         titulo="Canciones"
-        entidades={canciones.items}
+        entidades={filtrarPorSubgenero(canciones.items, "cancion")}
         porPagina={6}
         hayMas={canciones.hayMas}
         onCargarMas={cargarMasCanciones}
@@ -237,7 +291,7 @@ const GenrePage = () => {
 
       <CarruselEntidad
         titulo="Videos Musicales"
-        entidades={videos.items}
+        entidades={filtrarPorSubgenero(videos.items, "video")}
         porPagina={6}
         hayMas={videos.hayMas}
         onCargarMas={cargarMasVideos}

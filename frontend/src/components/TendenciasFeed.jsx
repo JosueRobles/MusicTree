@@ -57,7 +57,7 @@ const TendenciasFeed = () => {
 
   return (
     <div className="tendencias-container">
-      <h2>Tendencias Semanales</h2>
+      <h2>Tendencias Mensuales</h2>
       {error && <p className="error-message">{error}</p>}
       {Object.keys(categorias).map((tipo) => {
         const tendenciasFiltradas = tendencias

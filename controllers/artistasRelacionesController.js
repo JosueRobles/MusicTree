@@ -102,22 +102,28 @@ const obtenerCancionesDeArtista = async (req, res) => {
   }
 };
 
-// Artista -> Álbumes
+// Relación: artista -> álbumes
 const obtenerAlbumesDeArtista = async (req, res) => {
   const { id } = req.params;
-
   try {
+    // Trae todos los campos relevantes del álbum
     const { data, error } = await supabase
       .from('album_artistas')
-      .select('albumes (id_album, titulo, anio, foto_album, popularidad_album)')
-      .eq('artista_id', id); // Cambié "artista_id" para que coincida con tu tabla
+      .select(`
+        albumes (
+          id_album, spotify_id, titulo, anio, foto_album, numero_canciones, tipo_album, popularidad_album, categoria
+        )
+      `)
+      .eq('artista_id', id);
 
     if (error) throw error;
 
-    res.status(200).json(data.map(item => item.albumes));
+    // Devuelve solo el array de álbumes
+    const albums = data.map(item => item.albumes);
+    res.status(200).json(albums);
   } catch (error) {
-    console.error("❌ Error al obtener álbumes del artista:", error);
-    res.status(500).json({ error: "Error en el servidor" });
+    console.error('❌ Error al obtener álbumes del artista:', error);
+    res.status(500).json({ error: 'Error al obtener álbumes del artista' });
   }
 };
 

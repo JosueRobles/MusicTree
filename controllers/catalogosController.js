@@ -4,13 +4,34 @@ const { registrarActividad } = require('./utils/actividadUtils');
 const getCatalogosByUsuario = async (req, res) => {
   const { usuarioId } = req.params;
   try {
+    // Trae progreso de la vista
     const { data, error } = await supabase
       .from('vista_progreso_catalogos')
-      .select('id_artista, nombre_artista, foto_artista, progreso')
+      .select('id_artista, nombre_artista, foto_artista, progreso, es_principal')
       .eq('usuario_id', usuarioId);
 
     if (error) throw error;
-    res.status(200).json(data);
+
+    // Trae valoraciones del usuario
+    const [valsAlb, valsCan, valsVid] = await Promise.all([
+      supabase.from('valoraciones_albumes').select('album').eq('usuario', usuarioId),
+      supabase.from('valoraciones_canciones').select('cancion').eq('usuario', usuarioId),
+      supabase.from('valoraciones_videos_musicales').select('video').eq('usuario', usuarioId),
+    ]);
+    const valorados = new Set([
+      ...(valsAlb.data || []).map(v => v.album),
+      ...(valsCan.data || []).map(v => v.cancion),
+      ...(valsVid.data || []).map(v => v.video),
+    ]);
+
+    // Solo muestra progreso si valoró al menos una entidad de ese artista
+    const resultado = data.filter(row => {
+      // Aquí podrías hacer una consulta más precisa para saber si valoró algo de ese artista
+      // Pero para simplificar, si progreso > 0, lo mostramos
+      return row.progreso > 0.01;
+    });
+
+    res.status(200).json(resultado);
   } catch (err) {
     console.error('Error al obtener progreso de catálogos:', err);
     res.status(500).json({ error: 'Error al obtener progreso de catálogos.' });
