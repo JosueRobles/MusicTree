@@ -49,6 +49,7 @@ def get_videos():
 def embed_cancion(cancion):
     texto = f"{cancion.get('titulo', '')} {cancion.get('albumes', {}).get('titulo', '')} " \
             f"{' '.join(str(a['artista_id']) for a in cancion.get('cancion_artistas', []))} " \
+            f"{' '.join(str(g['genero_id']) for g in cancion.get('cancion_generos', []))}" \
             f"{cancion.get('duracion_ms', '')}"
     return model.encode(texto).tolist()
 
@@ -68,36 +69,46 @@ def embed_video(video):
 def save_embedding_cancion(id_cancion, emb):
     sb.table('cancion_embeddings').upsert({
         'id_cancion': id_cancion,
-        'embedding': emb
+        'embedding': emb,
+        'cluster_pendiente': True
     }).execute()
 
 def save_embedding_album(id_album, emb):
     sb.table('album_embeddings').upsert({
         'id_album': id_album,
-        'embedding': emb
+        'embedding': emb,
+        'cluster_pendiente': True
     }).execute()
 
 def save_embedding_video(id_video, emb):
     sb.table('video_embeddings').upsert({
         'id_video': id_video,
-        'embedding': emb
+        'embedding': emb,
+        'cluster_pendiente': True
     }).execute()
+
+def ya_tiene_embedding(tabla, id_field, id_val):
+    res = sb.table(tabla).select("embedding").eq(id_field, id_val).execute()
+    return bool(res.data and res.data[0].get("embedding"))
 
 # --- Ejecutar ---
 print("Generando embeddings de canciones...")
 for c in get_canciones():
     if isinstance(c, dict) and "id_cancion" in c:
-        save_embedding_cancion(c['id_cancion'], embed_cancion(c))
+        if not ya_tiene_embedding("cancion_embeddings", "id_cancion", c["id_cancion"]):
+            save_embedding_cancion(c['id_cancion'], embed_cancion(c))
 print("Embeddings de canciones completados.")
 
 print("Generando embeddings de álbumes...")
 for a in get_albumes():
     if isinstance(a, dict) and "id_album" in a:
-        save_embedding_album(a['id_album'], embed_album(a))
+        if not ya_tiene_embedding("album_embeddings", "id_album", a["id_album"]):
+            save_embedding_album(a['id_album'], embed_album(a))
 print("Embeddings de álbumes completados.")
 
 print("Generando embeddings de videos...")
 for v in get_videos():
     if isinstance(v, dict) and "id_video" in v:
-        save_embedding_video(v['id_video'], embed_video(v))
+        if not ya_tiene_embedding("video_embeddings", "id_video", v["id_video"]):
+            save_embedding_video(v['id_video'], embed_video(v))
 print("Embeddings de videos completados.")

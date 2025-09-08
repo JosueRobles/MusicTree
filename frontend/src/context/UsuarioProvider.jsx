@@ -11,10 +11,16 @@ const UsuarioProvider = ({ children }) => {
 
   useEffect(() => {
     const fetchUsuarioActual = async () => {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        setUsuario(null);
+        setCargandoUsuario(false);
+        return;
+      }
       try {
         const response = await axios.get(`${API_URL}/usuarios/current-user`, {
           headers: {
-            Authorization: `Bearer ${localStorage.getItem('token')}`
+            Authorization: `Bearer ${token}`
           }
         });
         setUsuario(response.data);

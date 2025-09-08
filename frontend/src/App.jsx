@@ -56,21 +56,21 @@ function App() {
     const fetchUsuario = async () => {
       setCargandoUsuario(true);
       const token = localStorage.getItem('token');
-      if (token) {
-        try {
-          const response = await axios.get(`${API_URL}/usuarios/current-user`, {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json"
-            }
-          });
-          setUsuario(response.data);
-        } catch (error) {
-          console.error("Error al obtener los datos del usuario:", error);
-          setUsuario(null); // Manejar el caso donde no se pueda obtener el usuario
-        }
-      } else {
-        setUsuario(null); // No hay token, por lo tanto no hay usuario
+      if (!token) {
+        setUsuario(null);
+        setCargandoUsuario(false);
+        return;
+      }
+      try {
+        const response = await axios.get(`${API_URL}/usuarios/current-user`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json"
+          }
+        });
+        setUsuario(response.data);
+      } catch (error) {
+        setUsuario(null);
       }
       setCargandoUsuario(false);
     };

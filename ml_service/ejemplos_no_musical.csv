@@ -1,29 +1,15 @@
 id_cancion,titulo,album,spotify_id,duracion_ms,orden,categoria,es_no_musical_label
-12024,THE LOVE - Interlude,6473,3SqNMjCfFcS7gARB2N1Vd3,5106,6,catalogo,1
-11890,THE LOVE,6464,7fTVJg2wNfabXrPH6KXehQ,5106,10,catalogo,1
-12004,THE LOVE - Interlude,6472,4y2UkD1DChH2DhJr1crmhp,5106,6,catalogo,1
-12029,THE PAIN - Interlude,6473,2oiJNYYS9Ign2Me5WgXHHu,5333,11,catalogo,1
-12009,THE PAIN - Interlude,6472,62QPjSbFGfzyuj4R8uGCKA,5333,11,catalogo,1
-11895,THE PAIN,6464,0ZN1ZVaZtKmpxHKhTuukHT,5333,15,catalogo,1
-12019,THE SEX - Intro,6473,0aB2JUysfYpyoavXwIurmN,6000,1,catalogo,1
-11885,THE SEX,6464,22OcoYbypyIhBegWYDRSdx,6000,5,catalogo,1
-11999,THE SEX - Intro,6472,3S8W2EK9fa1gJouoCFHNfe,6000,1,catalogo,1
-2496,"Vincent Price Excerpt From ""Thriller"" Voice-Over Session - Thriller 25th Anniversary Voice-Over Session",1045,1G3EVrzpUJHM3p1rVXdWPc,24453,10,catalogo,1
-976,20th Century Fox Fanfare,941,3YM9o7X3ar7Dm39zXadQSz,25186,1,billion,1
-1045,"Drum Solo - Live At The Rainbow, London / March 1974",944,039Oo7Qq5xMK8diludANlg,27428,11,billion,1
-2441,About Blue Gangsta - Commentary by LA Reid & Timbaland,1041,4NRh51gpNkdp1r3VSI1jCc,34367,7,catalogo,1
-2439,About Slave to the Rhythm - Commentary by LA Reid & Timbaland,1041,1MGnINtChOVbuNxz35DE2Q,37954,5,catalogo,1
-2436,About Chicago - Commentary by LA Reid & Timbaland,1041,0C0f0DloFI7Kqi104RU9Sl,38740,2,catalogo,1
-2442,About Xscape - Commentary by LA Reid,1041,5bauHt3U6nkmR6kZDgomzL,40957,8,catalogo,1
-993,Ay-Oh - Live Aid,941,6Fl9MoM9BDk6vwbHqBBZeK,41454,18,billion,1
-2440,About Do You Know Where Your Children Are - Commentary by LA Reid & Timbaland,1041,6J9qpZTuUJJWRQUpEjVdmQ,43752,6,catalogo,1
-11959,Gritty Pretty - Intro,6469,0K7Mz9UshzBRfGnW9rHKVD,45650,1,catalogo,1
-11943,Gritty Pretty - Intro,6468,4JNNiFaQnzf9Kyl4Rs4A9b,45650,5,catalogo,1
-2437,About Loving You - Commentary by LA Reid & Timbaland,1041,1Z260vL8td3ibcjHsuQ8cd,45721,3,catalogo,1
-2435,About Love Never Felt So Good - Commentary by LA Reid,1041,1fCeK0LyjUIOKw9unnF7sI,47040,1,catalogo,1
-1069,"Drum Solo - Live At The Rainbow, London / November 1974",945,4iVqpGmXqficgcJO4Gh3tz,51017,15,billion,1
-11993,Fire Fade - Chapter II,6471,0AvLvETftL0PRYswztXsiM,52753,7,catalogo,1
-1392,The Wedding March - Remastered 2011,966,0K90wWsLmRA49jDrwKJLhO,56000,14,billion,1
-1374,The Wedding March - Remastered 2011,965,29cvimDnaTP15HdKWmH8At,56000,14,billion,1
-11987,Fairy Dust - Chapter I,6471,3OItRxmxxz2bO58PgW1iif,57000,1,catalogo,1
-11559,Silk Sonic Intro,826,4K09vJ27xCOreumtSuU6Ao,63060,1,catalogo,1
+1102,"Vincent Price Excerpt From ""Thriller"" Voice-Over Session - Thriller 25th Anniversary Voice-Over Session",1026,1G3EVrzpUJHM3p1rVXdWPc,24453,10,catalogo,1
+1047,About Blue Gangsta - Commentary by LA Reid & Timbaland,1022,4NRh51gpNkdp1r3VSI1jCc,34367,7,catalogo,1
+1045,About Slave to the Rhythm - Commentary by LA Reid & Timbaland,1022,1MGnINtChOVbuNxz35DE2Q,37954,5,catalogo,1
+1042,About Chicago - Commentary by LA Reid & Timbaland,1022,0C0f0DloFI7Kqi104RU9Sl,38740,2,catalogo,1
+1048,About Xscape - Commentary by LA Reid,1022,5bauHt3U6nkmR6kZDgomzL,40957,8,catalogo,1
+1046,About Do You Know Where Your Children Are - Commentary by LA Reid & Timbaland,1022,6J9qpZTuUJJWRQUpEjVdmQ,43752,6,catalogo,1
+1043,About Loving You - Commentary by LA Reid & Timbaland,1022,1Z260vL8td3ibcjHsuQ8cd,45721,3,catalogo,1
+1041,About Love Never Felt So Good - Commentary by LA Reid,1022,1fCeK0LyjUIOKw9unnF7sI,47040,1,catalogo,1
+989,Evergreen,989,6me7F0aaZjwDo6RJ5MrfBD,87000,1,coleccion,0
+1390,Dancing Machine - A Cappella,1051,3QYjvs1PN39E9m01C943Bi,87573,7,catalogo,0
+1020,Formula,1020,6EtKlIQmGPB9SX8UjDJG5s,91869,2,coleccion,0
+256,Everybody Dies In Their Nightmares,93,3GVkPk8mqxz0itaAriG1L7,95466,4,coleccion,0
+1044,About A Place With No Name - Commentary by LA Reid,1022,0uwPvNe0myDCnOye73uYZs,96817,4,catalogo,1
+829,Break from Toronto,829,5fEB6ZmVkg63GZg9qO86jh,99213,6,coleccion,0
