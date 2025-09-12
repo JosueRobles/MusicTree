@@ -6,6 +6,7 @@ import starEmpty from '../assets/star_empty.png';
 import starHalf from '../assets/star_half.png';
 import starFilled from '../assets/star_filled.png';
 import axios from 'axios';
+import { Link } from 'react-router-dom';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -30,6 +31,11 @@ const StarRating = ({
   const [valoracionSimilar, setValoracionSimilar] = useState(null);
   const [esNoMusical, setEsNoMusical] = useState(false);
   const [motivoNoMusical, setMotivoNoMusical] = useState("");
+  const [similarInfo, setSimilarInfo] = useState(null);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [feedbackComentario, setFeedbackComentario] = useState("");
+  const [feedbackLoading, setFeedbackLoading] = useState(false);
+  const [feedbackSuccess, setFeedbackSuccess] = useState(false);
 
   const familiaridadNiveles = [
     { key: "primera_vez", label: "Primera vez que escucho", img: "/familiaridad/primera_vez.png" },
@@ -181,14 +187,48 @@ const StarRating = ({
         const grupoActual = clusterActual?.grupo;
         if (!grupoActual) return;
         // Busca valoraciones del usuario en ese grupo (excepto el actual)
-        const { data: grupoCanciones } = await axios.get(`${API_URL}/ml/cluster/${entidadTipo}/grupo/${grupoActual}`);
-        const idsGrupo = grupoCanciones.filter(id => id !== entidadId);
+        const { data: grupoEntidades } = await axios.get(`${API_URL}/ml/cluster/${entidadTipo}/grupo/${grupoActual}`);
+        const idsGrupo = grupoEntidades.filter(id => id !== entidadId);
         if (idsGrupo.length === 0) return;
         const { data: valoraciones } = await axios.get(`${API_URL}/valoraciones`, {
           params: { usuario: usuario.id_usuario, entidad_tipo: entidadTipo }
         });
+        // Busca la versión valorada
         const similar = valoraciones.find(v => idsGrupo.includes(v[entidadTipo]));
-        if (similar) setValoracionSimilar(similar.calificacion);
+        if (similar) {
+          setValoracionSimilar(similar.calificacion);
+          // Trae info de la versión valorada
+          let info = { id: similar[entidadTipo], titulo: '', album: null, similitud: null };
+          // Trae info de la entidad valorada
+          const pluralMap = {
+            cancion: 'canciones',
+            album: 'albumes',
+            video: 'videos',
+            artista: 'artistas'
+          };
+          const endpoint = pluralMap[entidadTipo] || `${entidadTipo}s`;
+          const { data: infoEntidad } = await axios.get(`${API_URL}/${endpoint}/${similar[entidadTipo]}`);
+
+          info.titulo = infoEntidad.titulo || '';
+          if (entidadTipo === "cancion" && infoEntidad.album) {
+            info.album = { titulo: infoEntidad.album.titulo, anio: infoEntidad.album.anio };
+          }
+          // Si es álbum, también asigna año y título desde el álbum
+          if (entidadTipo === "album") {
+            info.anio = infoEntidad.anio || infoEntidad.album?.anio || null;
+            info.titulo = infoEntidad.titulo || infoEntidad.album?.titulo || '';
+          }
+          // Busca similitud
+          if (entidadTipo === "cancion") {
+            const { data: duplicados } = await axios.get(`${API_URL}/canciones/sugerencias-duplicado`, {
+              params: { usuario_id: usuario.id_usuario, id_cancion: entidadId }
+            });
+            const dup = duplicados.duplicados?.find(d => d.id === similar[entidadTipo]);
+            info.similitud = dup?.similaridad ?? null;
+          }
+          setSimilarInfo(info);
+          setEditable(false); // Bloquea valoración hasta que el usuario confirme
+        }
       } catch (err) { /* ignore */ }
     };
     fetchValoracionSimilar();
@@ -400,7 +440,13 @@ const StarRating = ({
     const fetchNoMusical = async () => {
       if (!entidadTipo || !entidadId) return;
       try {
-        const { data } = await axios.get(`${API_URL}/${entidadTipo}s/${entidadId}`);
+          const pluralMap = {
+          cancion: 'canciones',
+          album: 'albumes',
+          video: 'videos',
+          artista: 'artistas'
+        };
+        const endpoint = pluralMap[entidadTipo] || `${entidadTipo}s`;
         if (data && data.es_no_musical) {
           setEsNoMusical(true);
           // Motivo: por duración o por palabra clave
@@ -421,6 +467,40 @@ const StarRating = ({
     fetchNoMusical();
   }, [entidadTipo, entidadId]);
 
+  const sendFeedback = async () => {
+    setFeedbackLoading(true);
+    try {
+      await axios.post(`${API_URL}/ml/feedback`, {
+        usuario_id: usuario.id_usuario,
+        entidad_tipo: entidadTipo,
+        entidad_id_1: entidadId,
+        entidad_id_2: similarInfo?.id, // Asegúrate de tener el id de la versión similar
+        es_duplicado: false,
+        confianza_modelo: similarInfo?.similitud ?? null,
+        comentario: feedbackComentario
+      });
+      setFeedbackSuccess(true);
+      setTimeout(() => {
+        setShowFeedbackModal(false);
+        setFeedbackComentario("");
+        setFeedbackSuccess(false);
+      }, 1500);
+    } catch (err) {
+      alert("Error al enviar feedback");
+    }
+    setFeedbackLoading(false);
+  };
+
+  const entityPath = similarInfo
+  ? entidadTipo === "cancion"
+    ? `/song/${similarInfo.id}`
+    : entidadTipo === "album"
+      ? `/album/${similarInfo.id}`
+      : entidadTipo === "video"
+        ? `/video/${similarInfo.id}`
+        : `/${entidadTipo}/${similarInfo.id}`
+  : null;
+        
   return (
     <div className="flex flex-col items-center">
       {esNoMusical && (
@@ -535,9 +615,80 @@ const StarRating = ({
           </div>
         </>
       )}
-      {valoracionSimilar && (
-        <div className="mt-2 text-xs font-bold" style={{ color: "#a855f7" }}>
-          Valoración en otra versión similar: <span>{valoracionSimilar} ⭐</span>
+      {valoracionSimilar && similarInfo && (
+        <div className="mt-2 bg-red-100 border-l-4 border-red-500 p-3 rounded text-sm text-red-800 w-full max-w-md">
+          <div>
+            <strong>
+              Valoración en otra versión similar: {valoracionSimilar} ⭐
+            </strong>
+          </div>
+          <div className="mt-2">
+            <strong>
+              {`Esta ${entidadTipo === "cancion" ? "canción" : entidadTipo === "album" ? "álbum" : "video"} parece una versión duplicada de otra que ya valoraste:`}
+            </strong>
+            <div>
+              <Link to={entityPath} className="text-blue-700 underline font-semibold">
+                {similarInfo.titulo}
+                {/* Para canciones, muestra álbum y año */}
+                {entidadTipo === "cancion" && similarInfo.album && ` (${similarInfo.album.titulo}, ${similarInfo.album.anio})`}
+                {/* Para álbumes y videos, muestra año si existe */}
+                {entidadTipo !== "cancion" && similarInfo.anio && ` (${similarInfo.anio})`}
+              </Link>
+              {/* Muestra % de similitud si existe */}
+              {similarInfo.similitud && (
+                <span className="ml-2 text-gray-700">
+                  (similitud: {(similarInfo.similitud * 100).toFixed(1)}%)
+                </span>
+              )}
+              <button
+                className="ml-2 text-xs text-blue-700 underline"
+                onClick={() => setShowFeedbackModal(true)}
+              >
+                Reportar diferencia
+              </button>
+            </div>
+            <div className="mt-2">
+              ¿Quieres aun así valorarla como nueva?
+              <button
+                className="ml-2 px-2 py-1 bg-green-500 text-white rounded"
+                onClick={() => setEditable(true)}
+              >
+                Sí, valorar como nueva
+              </button>
+            </div>
+          </div>
+          {/* Modal feedback */}
+          {showFeedbackModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
+              <div className="bg-white p-6 rounded shadow-lg w-full max-w-md">
+                <h3 className="text-lg font-bold mb-2">Reportar diferencia</h3>
+                <p className="mb-2">¿Por qué consideras que <strong>no</strong> son versiones similares?</p>
+                <textarea
+                  className="w-full border rounded p-2 mb-2"
+                  rows={3}
+                  value={feedbackComentario}
+                  onChange={e => setFeedbackComentario(e.target.value)}
+                  placeholder="Explica la diferencia (ej: letra distinta, duración, demo, etc.)"
+                />
+                <div className="flex gap-2">
+                  <button
+                    className="bg-blue-600 text-white px-4 py-2 rounded"
+                    onClick={sendFeedback}
+                    disabled={feedbackLoading || !feedbackComentario}
+                  >
+                    {feedbackLoading ? 'Enviando...' : 'Enviar'}
+                  </button>
+                  <button
+                    className="bg-gray-300 px-4 py-2 rounded"
+                    onClick={() => setShowFeedbackModal(false)}
+                  >Cancelar</button>
+                </div>
+                {feedbackSuccess && (
+                  <p className="mt-2 text-green-600 font-bold">¡Gracias por tu feedback!</p>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
       {mostrarGuardarAuto && (

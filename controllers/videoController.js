@@ -169,4 +169,19 @@ const sugerirCancionEnVideo = async (req, res) => {
   res.json({ mensaje, canciones: similaresFiltrados });
 };
 
-module.exports = { crearVideoMusical, obtenerVideosMusicales, obtenerVideoMusicalPorId, actualizarVideoMusical, eliminarVideoMusical, obtenerVideosDeArtista, sugerirCancionEnVideo };
+const obtenerVideoClusters = async (req, res) => {
+  const { video_id, grupo } = req.query;
+  if (video_id) {
+    const { data } = await supabase.from('video_clusters').select('*').eq('id_video', video_id).single();
+    return res.json(data);
+  }
+  if (grupo) {
+    const { data } = await supabase.from('videos_musicales').select('*').in('id_video',
+      (await supabase.from('video_clusters').select('id_video').eq('grupo', grupo)).data.map(a => a.id_video)
+    );
+    return res.json(data);
+  }
+  res.status(400).json({ error: 'Falta parámetro' });
+};
+
+module.exports = { obtenerVideoClusters, crearVideoMusical, obtenerVideosMusicales, obtenerVideoMusicalPorId, actualizarVideoMusical, eliminarVideoMusical, obtenerVideosDeArtista, sugerirCancionEnVideo };

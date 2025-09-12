@@ -96,6 +96,9 @@ async function initializeServer() {
     app.use('/youtube', youtubeRoutes);
     app.use('/share', shareRoutes);
     app.use('/ml', mlRoutes);
+    app.use('/album_clusters', albumRoutes);     // <-- para /album_clusters
+    app.use('/cancion_clusters', cancionRoutes); // <-- para /cancion_clusters
+
 
     // Ruta para iniciar la autenticación de Spotify
     app.get('/login', (req, res) => {

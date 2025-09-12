@@ -3,6 +3,8 @@ from dotenv import load_dotenv
 import supabase
 import requests
 import re
+from difflib import SequenceMatcher
+import time
 
 load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -53,6 +55,27 @@ def normaliza_titulo(t):
     t = t.strip()
     return t
 
+def normaliza_titulo_album(t):
+    t = t.lower()
+    # Elimina términos comunes que no distinguen versiones
+    t = re.sub(r'\b(remaster(ed)?|deluxe|edition|bonus|live|demo|super|track by track|commentary|anniversary|expanded|complete|version|mix|radio edit|remix|original|mono|stereo|explicit|clean|instrumental|karaoke|single|ep|lp|box set|disc \d+|cd\d+|vinyl|digital|special|reissue)\b', '', t, flags=re.I)
+    # Quitar "feat. ..." o "with ..."
+    t = re.sub(r'(\(feat.*?\)|feat\.?.*|with .*)', '', t, flags=re.I)
+    # Quitar números aislados que son reediciones (25, 40, 2012, etc.)
+    t = re.sub(r'\b\d{2,4}\b', '', t)  
+    # Normalizar espacios
+    t = re.sub(r'\s+', ' ', t)
+    return t.strip()
+
+def titulos_similares_album(t1, t2):
+    t1, t2 = normaliza_titulo_album(t1), normaliza_titulo_album(t2)
+    if t1 == t2:
+        return True
+    if t1 in t2 or t2 in t1:
+        return True
+    ratio = SequenceMatcher(None, t1, t2).ratio()
+    return ratio > 0.80   # relajamos a 0.80
+
 def titulos_similares(t1, t2):
     t1, t2 = normaliza_titulo(t1), normaliza_titulo(t2)
     romanos = [' i', ' ii', ' iii', ' iv', ' v', ' vi', ' vii', ' viii', ' ix', ' x']
@@ -65,7 +88,6 @@ def titulos_similares(t1, t2):
         return True
     if t1 in t2 or t2 in t1:
         return True
-    from difflib import SequenceMatcher
     ratio = SequenceMatcher(None, t1, t2).ratio()
     return ratio > 0.85
 
@@ -94,6 +116,14 @@ def get_all_items(tabla, id_field):
             break
         offset += page_size
     return all_items
+
+def get_album_artistas(id_album):
+    res = sb.table("album_artistas").select("artista_id").eq("album_id", id_album).execute()
+    return set(a["artista_id"] for a in res.data)
+
+def get_album_generos(id_album):
+    res = sb.table("album_generos").select("genero_id").eq("album_id", id_album).execute()
+    return set(a["genero_id"] for a in res.data)
 
 def poblar_cancion_clusters():
     print("Procesando clusters de canciones...")
@@ -204,25 +234,37 @@ def poblar_album_clusters():
 
     for a in albumes:
         a_id = a["id_album"]
+        t1 = get_titulo("album", a_id)
+        a1 = get_album_artistas(a_id)
+        g1 = get_album_generos(a_id)
         cache_key = f"album_{a_id}"
         if cache_key in similitud_cache:
             similares = similitud_cache[cache_key]
         else:
-            resp = requests.post(MICROSERVICIO_URL, json={
-                "entidad": "album",
-                "id": a_id,
-                "embedding": a["embedding"]
-            })
-            similares = resp.json()
+            try:
+                resp = requests.post(MICROSERVICIO_URL, json={
+                    "entidad": "album",
+                    "id": a_id,
+                    "embedding": a["embedding"]
+                }, timeout=60)
+                try:
+                    similares = resp.json()
+                except Exception as e:
+                    print(f"Error parseando JSON para album {a_id}: {e}, status={resp.status_code}, text={resp.text[:200]}")
+                    time.sleep(1)
+                    continue
+            except Exception as e:
+                print(f"Error de red para album {a_id}: {e}")
+                time.sleep(1)
+                continue
             similitud_cache[cache_key] = similares
 
-        t1 = get_titulo("album", a_id)
-        # Puedes agregar lógica de artistas, año, tipo_album, etc.
         for s in similares:
             s_id = s["id"]
             t2 = get_titulo("album", s_id)
-            # Puedes agregar lógica de artistas, año, tipo_album, etc.
-            if titulos_similares(t1, t2):
+            a2 = get_album_artistas(s_id)
+            g2 = get_album_generos(s_id)
+            if titulos_similares_album(t1, t2) and a1 == a2: #and g1 == g2:
                 uf.union(a_id, s_id)
 
     grupos = {}
@@ -242,61 +284,6 @@ def poblar_album_clusters():
             }).execute()
         grupo_num += 1
     print(f"Clusters de álbumes poblados: {grupo_num-1} grupos.")
-
-def poblar_entidad_clusters():
-    print("Procesando canciones y videos juntos...")
-    canciones = get_all_items("cancion_embeddings", "id_cancion")
-    videos = get_all_items("video_embeddings", "id_video")
-    items = [{"id": c["id_cancion"], "tipo": "cancion", "embedding": c["embedding"]} for c in canciones] + \
-            [{"id": v["id_video"], "tipo": "video", "embedding": v["embedding"]} for v in videos]
-    ids = [(item["id"], item["tipo"]) for item in items]
-    uf = UnionFind(ids)
-    similitud_cache = {}
-
-    for item in items:
-        item_id, tipo = item["id"], item["tipo"]
-        cache_key = f"{tipo}_{item_id}"
-        if cache_key in similitud_cache:
-            similares = similitud_cache[cache_key]
-        else:
-            resp = requests.post(MICROSERVICIO_URL, json={
-                "entidad": tipo,
-                "id": item_id,
-                "embedding": item["embedding"]
-            })
-            similares = resp.json()
-            similitud_cache[cache_key] = similares
-
-        t1 = get_titulo(tipo, item_id)
-        a1 = get_artistas(tipo, "id_cancion" if tipo == "cancion" else "id_video", item_id)
-        d1 = get_duracion(tipo, item_id)
-        for s in similares:
-            s_id = s["id"]
-            s_tipo = tipo
-            t2 = get_titulo(s_tipo, s_id)
-            a2 = get_artistas(s_tipo, "id_cancion" if s_tipo == "cancion" else "id_video", s_id)
-            d2 = get_duracion(s_tipo, s_id)
-            if titulos_similares(t1, t2) and artistas_iguales(a1, a2) and duracion_cercana(d1, d2, tipo):
-                uf.union((item_id, tipo), (s_id, s_tipo))
-
-    grupos = {}
-    for i in ids:
-        root = uf.find(i)
-        if root not in grupos:
-            grupos[root] = []
-        grupos[root].append(i)
-
-    sb.table("entidad_clusters").delete().neq("grupo", -1).execute()
-    grupo_num = 1
-    for root, miembros in grupos.items():
-        for i, tipo in miembros:
-            sb.table("entidad_clusters").upsert({
-                "id_entidad": i,
-                "tipo_entidad": tipo,
-                "grupo": grupo_num
-            }).execute()
-        grupo_num += 1
-    print(f"Clusters universales poblados: {grupo_num-1} grupos.")
 
 def poblar_cancion_clusters_incremental():
     print("Procesando clusters de canciones (incremental)...")
@@ -464,74 +451,10 @@ def poblar_album_clusters_incremental():
 
     print(f"Clusters incrementales de álbumes poblados: {len(nuevos)} nuevos.")
 
-
-def poblar_entidad_clusters_incremental():
-    print("Procesando clusters universales (incremental)...")
-
-    nuevos_c = sb.table("cancion_embeddings").select("id_cancion, embedding").eq("cluster_pendiente", True).execute().data
-    nuevos_v = sb.table("video_embeddings").select("id_video, embedding").eq("cluster_pendiente", True).execute().data
-    nuevos = [{"id": c["id_cancion"], "tipo": "cancion", "embedding": c["embedding"]} for c in nuevos_c] + \
-             [{"id": v["id_video"], "tipo": "video", "embedding": v["embedding"]} for v in nuevos_v]
-    if not nuevos:
-        print("No hay nuevas entidades (canciones/videos) para clusterizar.")
-        return
-
-    existentes_c = sb.table("cancion_embeddings").select("id_cancion, embedding").eq("cluster_pendiente", False).execute().data
-    existentes_v = sb.table("video_embeddings").select("id_video, embedding").eq("cluster_pendiente", False).execute().data
-    existentes = [{"id": c["id_cancion"], "tipo": "cancion", "embedding": c["embedding"]} for c in existentes_c] + \
-                 [{"id": v["id_video"], "tipo": "video", "embedding": v["embedding"]} for v in existentes_v]
-
-    grupos = {}
-    grupo_map = {}
-    for r in sb.table("entidad_clusters").select("id_entidad, tipo_entidad, grupo").execute().data:
-        grupo_map[(r["id_entidad"], r["tipo_entidad"])] = r["grupo"]
-        grupos.setdefault(r["grupo"], set()).add((r["id_entidad"], r["tipo_entidad"]))
-    next_grupo = max(grupos.keys(), default=0) + 1
-
-    for n in nuevos:
-        n_id, n_tipo, emb = n["id"], n["tipo"], n["embedding"]
-        t1 = get_titulo(n_tipo, n_id)
-        a1 = get_artistas(n_tipo, "id_cancion" if n_tipo == "cancion" else "id_video", n_id)
-        d1 = get_duracion(n_tipo, n_id)
-        found = False
-        for e in existentes:
-            e_id, e_tipo, emb_e = e["id"], e["tipo"], e["embedding"]
-            t2 = get_titulo(e_tipo, e_id)
-            a2 = get_artistas(e_tipo, "id_cancion" if e_tipo == "cancion" else "id_video", e_id)
-            d2 = get_duracion(e_tipo, e_id)
-            if titulos_similares(t1, t2) and artistas_iguales(a1, a2) and duracion_cercana(d1, d2, n_tipo):
-                grupo = grupo_map[(e_id, e_tipo)]
-                grupos[grupo].add((n_id, n_tipo))
-                grupo_map[(n_id, n_tipo)] = grupo
-                found = True
-                break
-        if not found:
-            grupos[next_grupo] = {(n_id, n_tipo)}
-            grupo_map[(n_id, n_tipo)] = next_grupo
-            next_grupo += 1
-
-    for n in nuevos:
-        sb.table("entidad_clusters").upsert({
-            "id_entidad": n["id"],
-            "tipo_entidad": n["tipo"],
-            "grupo": grupo_map[(n["id"], n["tipo"])]
-        }).execute()
-
-    nuevos_ids_c = [c["id"] for c in nuevos if c["tipo"] == "cancion"]
-    nuevos_ids_v = [v["id"] for v in nuevos if v["tipo"] == "video"]
-    if nuevos_ids_c:
-        sb.table("cancion_embeddings").update({"cluster_pendiente": False}).in_("id_cancion", nuevos_ids_c).execute()
-    if nuevos_ids_v:
-        sb.table("video_embeddings").update({"cluster_pendiente": False}).in_("id_video", nuevos_ids_v).execute()
-
-    print(f"Clusters incrementales universales poblados: {len(nuevos)} nuevos.")
-
 if __name__ == "__main__":
     #poblar_cancion_clusters()
     #poblar_video_clusters()
-    #poblar_album_clusters()
-    poblar_entidad_clusters()
+    poblar_album_clusters()
     #poblar_cancion_clusters_incremental()
     #poblar_video_clusters_incremental()
     #poblar_album_clusters_incremental()
-    #poblar_entidad_clusters_incremental()

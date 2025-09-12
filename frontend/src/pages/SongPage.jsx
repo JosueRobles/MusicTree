@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import PropTypes from 'prop-types';
@@ -29,14 +29,13 @@ const SongPage = ({ usuario }) => {
   const [listasDestacadas, setListasDestacadas] = useState([]);
   const [sugerencias, setSugerencias] = useState({ duplicados: [], videos: [] });
   const [sugerenciasDuplicado, setSugerenciasDuplicado] = useState({ mensaje: '', duplicados: [] });
-  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-  const [feedbackCancionId, setFeedbackCancionId] = useState(null);
-  const [feedbackComentario, setFeedbackComentario] = useState('');
-  const [feedbackLoading, setFeedbackLoading] = useState(false);
-  const [feedbackSuccess, setFeedbackSuccess] = useState(false);
   const [grupoUniversal, setGrupoUniversal] = useState(null);
   const [miembrosGrupo, setMiembrosGrupo] = useState([]);
-  const [showHistorial, setShowHistorial] = useState(false);
+  const [infoCanciones, setInfoCanciones] = useState({});
+
+  const valoradasEnGrupo = useMemo(() => {
+  return miembrosGrupo.filter(mid => valoradas.includes(`cancion-${mid}`));
+}, [miembrosGrupo, valoradas]);
 
   useEffect(() => {
     const fetchSongData = async () => {
@@ -165,51 +164,24 @@ useEffect(() => {
   }
 }, [id, usuario]);
 
-const openFeedbackModal = (cancionId) => {
-  setFeedbackCancionId(cancionId);
-  setShowFeedbackModal(true);
-  setFeedbackComentario('');
-  setFeedbackSuccess(false);
-};
-
-const closeFeedbackModal = () => {
-  setShowFeedbackModal(false);
-  setFeedbackCancionId(null);
-  setFeedbackComentario('');
-  setFeedbackSuccess(false);
-};
-
-const sendFeedback = async () => {
-  setFeedbackLoading(true);
-  try {
-    await axios.post(`${API_URL}/ml/feedback`, {
-      usuario_id: usuario.id_usuario,
-      entidad_tipo: 'cancion',
-      entidad_id_1: id,
-      entidad_id_2: feedbackCancionId,
-      es_duplicado: false,
-      confianza_modelo: 0,
-      comentario: feedbackComentario
-    });
-    setFeedbackSuccess(true);
-  } catch (err) {
-    alert('Error al enviar feedback');
-  } finally {
-    setFeedbackLoading(false);
-  }
-};
-
   useEffect(() => {
-    // Consulta el grupo universal y sus miembros
-    axios.get(`${API_URL}/ml/cluster/cancion/${id}`).then(res => {
-      if (res.data && res.data.grupo) {
-        setGrupoUniversal(res.data.grupo);
-        axios.get(`${API_URL}/ml/cluster/cancion/grupo/${res.data.grupo}`).then(res2 => {
-          setMiembrosGrupo(res2.data.filter(mid => mid !== parseInt(id)));
+  // Trae grupo universal y miembros
+  axios.get(`${API_URL}/ml/cluster/cancion/${id}`).then(res => {
+    setGrupoUniversal(res.data.grupo);
+
+    axios.get(`${API_URL}/ml/cluster/cancion/grupo/${res.data.grupo}`).then(res2 => {
+      setMiembrosGrupo(res2.data.filter(mid => mid !== parseInt(id)));
+
+      // Trae info de canciones
+      Promise.all(res2.data.map(mid => axios.get(`${API_URL}/canciones/${mid}`)))
+        .then(results => {
+          const map = {};
+          results.forEach(r => map[r.data.id_cancion] = r.data);
+          setInfoCanciones(map);
         });
-      }
     });
-  }, [id]);
+  });
+}, [id]);
 
   return (
     <div className="pt-16 p-4">
@@ -427,67 +399,45 @@ const sendFeedback = async () => {
 )}
 
 {/* Sugerencias de duplicado específicas */}
-{sugerenciasDuplicado.mensaje && (
+{sugerenciasDuplicado.mensaje && valoradasEnGrupo.length > 0 && (
   <div className="mt-8 bg-red-100 border-l-4 border-red-500 p-4">
-    <strong>{sugerenciasDuplicado.mensaje}</strong>
-    {sugerenciasDuplicado.duplicados.length > 0 && (
-      <ul>
-        {sugerenciasDuplicado.duplicados.map(dup => (
-          <li key={dup.id}>
-            <Link to={`/song/${dup.id}`}>Canción similar (similitud: {(dup.similaridad * 100).toFixed(1)}%)</Link>
-            <button
-              className="ml-2 text-xs text-blue-700 underline"
-              onClick={() => openFeedbackModal(dup.id)}
-            >Reportar diferencia</button>
-          </li>
-        ))}
-      </ul>
-    )}
-  </div>
-)}
-
-{/* Modal de feedback */}
-{showFeedbackModal && (
-  <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-    <div className="bg-white p-6 rounded shadow-lg w-full max-w-md">
-      <h3 className="text-lg font-bold mb-2">Reportar diferencia</h3>
-      <p className="mb-2">¿Por qué consideras que <strong>no</strong> son versiones similares?</p>
-      <textarea
-        className="w-full border rounded p-2 mb-2"
-        rows={3}
-        value={feedbackComentario}
-        onChange={e => setFeedbackComentario(e.target.value)}
-        placeholder="Explica la diferencia (ej: letra distinta, duración, demo, etc.)"
-      />
-      <div className="flex gap-2">
-        <button
-          className="bg-blue-600 text-white px-4 py-2 rounded"
-          onClick={sendFeedback}
-          disabled={feedbackLoading || !feedbackComentario}
-        >
-          {feedbackLoading ? 'Enviando...' : 'Enviar'}
-        </button>
-        <button
-          className="bg-gray-300 px-4 py-2 rounded"
-          onClick={closeFeedbackModal}
-        >Cancelar</button>
-      </div>
-      {feedbackSuccess && (
-        <p className="mt-2 text-green-600 font-bold">¡Gracias por tu feedback!</p>
-      )}
+    <strong>
+      Esta canción parece una versión duplicada de otra que ya valoraste:
+    </strong>
+    <ul>
+      {valoradasEnGrupo.map(mid => (
+        <li key={mid}>
+          <Link to={`/song/${mid}`}>
+            {infoCanciones[mid]?.titulo || `Canción #${mid}`}
+            {infoCanciones[mid]?.album && (
+              <> ({infoCanciones[mid].album.titulo}, {infoCanciones[mid].album.anio})</>
+            )}
+            {sugerenciasDuplicado.duplicados.find(d => d.id === mid) &&
+              <> (similitud: {(sugerenciasDuplicado.duplicados.find(d => d.id === mid).similaridad * 100).toFixed(1)}%)</>
+            }
+          </Link>
+        </li>
+      ))}
+    </ul>
+    <div className="mt-2">
+      ¿Quieres aun así valorarla como nueva?
+      {/* Aquí puedes poner el botón para permitir valorar si el usuario lo desea */}
     </div>
   </div>
 )}
 
 {/* Otras versiones (agrupadas por similitud) */}
 {miembrosGrupo.length > 0 && (
-  <div className="mt-8">
-    <h3 className="text-xl font-bold text-purple-600">Otras versiones (agrupadas por similitud)</h3>
+  <div>
+    <h3>Otras versiones (agrupadas por similitud)</h3>
     <ul>
       {miembrosGrupo.map(mid => (
         <li key={mid}>
           <Link to={`/song/${mid}`}>
-            Canción #{mid}
+            {infoCanciones[mid]?.titulo || `Canción #${mid}`}
+            {infoCanciones[mid] && (
+              <> — {infoCanciones[mid].album && `${infoCanciones[mid].album.titulo} (${infoCanciones[mid].album.anio})`} — {Math.floor(infoCanciones[mid].duracion_ms/60000)}:{((infoCanciones[mid].duracion_ms%60000)/1000).toFixed(0).padStart(2, '0')}</>
+            )}
           </Link>
         </li>
       ))}

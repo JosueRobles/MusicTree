@@ -48,11 +48,23 @@ const obtenerCancionPorId = async (req, res) => {
   try {
     const { data, error } = await supabase
       .from('canciones')
-      .select('*')
+      .select(`
+        id_cancion,
+        titulo,
+        duracion_ms,
+        popularidad,
+        categoria,
+        album:fk_album (
+          id_album,
+          titulo,
+          anio,
+          foto_album
+        )
+      `)
       .eq('id_cancion', id)
       .single();
 
-    if (error) {
+    if (error || !data) {
       return res.status(404).json({ error: "Canción no encontrada" });
     }
 
@@ -158,4 +170,19 @@ const reportarNoMusical = async (req, res) => {
   res.json({ success: true });
 };
 
-module.exports = { crearCancion, obtenerCanciones, obtenerCancionPorId, actualizarCancion, eliminarCancion, sugerirCancionDuplicada, reportarNoMusical };
+const obtenerCancionClusters = async (req, res) => {
+  const { cancion_id, grupo } = req.query;
+  if (cancion_id) {
+    const { data } = await supabase.from('cancion_clusters').select('*').eq('id_cancion', cancion_id).single();
+    return res.json(data);
+  }
+  if (grupo) {
+    const { data } = await supabase.from('canciones').select('*').in('id_cancion',
+      (await supabase.from('cancion_clusters').select('id_cancion').eq('grupo', grupo)).data.map(a => a.id_cancion)
+    );
+    return res.json(data);
+  }
+  res.status(400).json({ error: 'Falta parámetro' });
+};
+
+module.exports = { obtenerCancionClusters, crearCancion, obtenerCanciones, obtenerCancionPorId, actualizarCancion, eliminarCancion, sugerirCancionDuplicada, reportarNoMusical };

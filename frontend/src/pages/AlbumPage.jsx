@@ -30,12 +30,18 @@ const AlbumPage = ({ usuario }) => {
   const [listasDestacadas, setListasDestacadas] = useState([]);
   const [sugerenciasAlbum, setSugerenciasAlbum] = useState({ nuevas: [] });
   const [sugerenciasSimilar, setSugerenciasSimilar] = useState({ mensaje: '', nuevas: [] });
-  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
-  const [feedbackCancionId, setFeedbackCancionId] = useState(null);
-  const [feedbackComentario, setFeedbackComentario] = useState('');
-  const [feedbackLoading, setFeedbackLoading] = useState(false);
-  const [feedbackSuccess, setFeedbackSuccess] = useState(false);
   const [showHistorial, setShowHistorial] = useState(false);
+  // 1. Trae los clusters de canciones y valoraciones del usuario
+  const [cancionClusters, setCancionClusters] = useState({});
+  const [valoradasIds, setValoradasIds] = useState([]);
+  const [grupoAlbum, setGrupoAlbum] = useState(null);
+  const [otrosAlbumesGrupo, setOtrosAlbumesGrupo] = useState([]);
+  const [grupoUniversal, setGrupoUniversal] = useState(null);
+  const [miembrosGrupo, setMiembrosGrupo] = useState([]);
+  const [infoAlbums, setInfoAlbums] = useState({});
+  const [albumValorado, setAlbumValorado] = useState(null);
+  const [nuevasCanciones, setNuevasCanciones] = useState([]);
+  const [mensajeSimilar, setMensajeSimilar] = useState('');
 
   useEffect(() => {
     const fetchAlbumData = async () => {
@@ -161,6 +167,40 @@ const AlbumPage = ({ usuario }) => {
     }
   }, [id, usuario]);
 
+  useEffect(() => {
+    // Trae clusters de canciones
+    axios.get(`${API_URL}/cancion_clusters`).then(res => {
+      const map = {};
+      res.data.forEach(c => map[c.id_cancion] = c.grupo);
+      setCancionClusters(map);
+    });
+
+    if (usuario) {
+      axios.get(`${API_URL}/valoraciones`, {
+        params: { usuario: usuario.id_usuario, entidad_tipo: 'cancion' }
+      }).then(res => setValoradasIds(res.data.map(v => Number(v.cancion))));
+    }
+  }, [id, usuario]);
+
+  // 🔹 Un solo useEffect para grupo universal
+  useEffect(() => {
+    axios.get(`${API_URL}/ml/cluster/album/${id}`).then(res => {
+      setGrupoUniversal(res.data.grupo);
+
+      axios.get(`${API_URL}/ml/cluster/album/grupo/${res.data.grupo}`).then(res2 => {
+        setMiembrosGrupo(res2.data.filter(mid => mid !== parseInt(id)));
+
+        // Trae info de cada álbum
+        Promise.all(res2.data.map(mid => axios.get(`${API_URL}/albumes/${mid}`)))
+          .then(results => {
+            const map = {};
+            results.forEach(r => map[r.data.album.id_album] = r.data.album);
+            setInfoAlbums(map);
+          });
+      });
+    });
+  }, [id]);
+
   const handleRatingChange = async (newRating) => {
     setRating(newRating);
     if (usuario) {
@@ -212,40 +252,6 @@ const AlbumPage = ({ usuario }) => {
     }
   } else {
     alert('Seleccione una lista o cree una nueva');
-  }
-};
-
-const openFeedbackModal = (cancionId) => {
-  setFeedbackCancionId(cancionId);
-  setShowFeedbackModal(true);
-  setFeedbackComentario('');
-  setFeedbackSuccess(false);
-};
-
-const closeFeedbackModal = () => {
-  setShowFeedbackModal(false);
-  setFeedbackCancionId(null);
-  setFeedbackComentario('');
-  setFeedbackSuccess(false);
-};
-
-const sendFeedback = async () => {
-  setFeedbackLoading(true);
-  try {
-    await axios.post(`${API_URL}/ml/feedback`, {
-      usuario_id: usuario.id_usuario,
-      entidad_tipo: 'cancion',
-      entidad_id_1: id, // id_album
-      entidad_id_2: feedbackCancionId,
-      es_duplicado: false,
-      confianza_modelo: 0,
-      comentario: feedbackComentario
-    });
-    setFeedbackSuccess(true);
-  } catch (err) {
-    alert('Error al enviar feedback');
-  } finally {
-    setFeedbackLoading(false);
   }
 };
 
@@ -407,24 +413,45 @@ const sendFeedback = async () => {
                 <th># Valoraciones</th>
                 <th>Promedio</th>
                 <th>Popularidad</th>
+                <th>Estado</th>
               </tr>
             </thead>
             <tbody>
-              {songs.map((song, idx) => (
-                <tr key={song.id_cancion}>
-                  <td>{song.numero_pista || idx + 1}</td>
-                  <td>
-                    <Link to={`/song/${song.id_cancion}`}>{song.titulo}</Link>
-                  </td>
-                  <td>{Math.floor(song.duracion_ms / 60000)}:{((song.duracion_ms % 60000) / 1000).toFixed(0).padStart(2, '0')}</td>
-                  <td>{song.valoraciones_count || '-'}</td>
-                  <td>{song.promedio_valoracion ? `${song.promedio_valoracion} ⭐` : '-'}</td>
-                  <td>{song.popularidad}</td>
-                </tr>
-              ))}
+              {songs.map((song, idx) => {
+                let estado = "Nueva";
+                if (valoradasIds.includes(song.id_cancion)) estado = "Valorada";
+                else if (
+                  Array.isArray(sugerenciasAlbum.nuevas) &&
+                  !sugerenciasAlbum.nuevas.some(n => n.id_cancion === song.id_cancion)
+                ) estado = "Similar";
+                return (
+                  <tr key={song.id_cancion}>
+                    <td>{song.numero_pista || idx + 1}</td>
+                    <td><Link to={`/song/${song.id_cancion}`}>{song.titulo}</Link></td>
+                    <td>{Math.floor(song.duracion_ms / 60000)}:{((song.duracion_ms % 60000) / 1000).toFixed(0).padStart(2, '0')}</td>
+                    <td>{song.valoraciones_count || '-'}</td>
+                    <td>{song.promedio_valoracion ? `${song.promedio_valoracion} ⭐` : '-'}</td>
+                    <td>{song.popularidad}</td>
+                    <td>
+                      <span
+                        style={{
+                          color:
+                            estado === "Valorada"
+                              ? "#16a34a" // verde
+                              : estado === "Similar"
+                              ? "#f59e42" // naranja
+                              : "#dc2626", // rojo
+                          fontWeight: "bold"
+                        }}
+                      >
+                        {estado}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
-
           {listasDestacadas.length > 0 && (
   <div className="mt-6">
     <h4 className="font-bold">Listas destacadas con este álbum</h4>
@@ -439,68 +466,55 @@ const sendFeedback = async () => {
   </div>
 )}
 
-{/* SUGERENCIAS DE CANCIONES NUEVAS */}
-{sugerenciasAlbum.nuevas && sugerenciasAlbum.nuevas.length > 0 && (
-  <div className="mt-8">
-    <h3 className="text-xl font-bold text-green-600">Canciones nuevas por valorar en este álbum</h3>
-    <ul>
-      {sugerenciasAlbum.nuevas.map((song) => (
-        <li key={song.id_cancion}>
-          <Link to={`/song/${song.id_cancion}`}>{song.titulo || `Canción #${song.id_cancion}`}</Link>
-        </li>
-      ))}
-    </ul>
-  </div>
-)}
-
 {sugerenciasSimilar.mensaje && (
   <div className="mt-8 bg-yellow-100 border-l-4 border-yellow-500 p-4">
     <strong>{sugerenciasSimilar.mensaje}</strong>
-    {sugerenciasSimilar.nuevas.length > 0 && (
+    {/* Mostrar álbum valorado del grupo */}
+    {otrosAlbumesGrupo.length > 0 && (
       <ul>
-        {sugerenciasSimilar.nuevas.map(song => (
-          <li key={song.id_cancion}>
-            <Link to={`/song/${song.id_cancion}`} className="text-green-700 font-bold">{song.titulo}</Link>
-            <button
-          className="ml-2 text-xs text-blue-700 underline"
-          onClick={() => openFeedbackModal(song.id_cancion)}
-        >Reportar diferencia</button>
-          </li>
-        ))}
+        {otrosAlbumesGrupo
+          .filter(a => valoradasIds.includes(a.id_album))
+          .map(a => (
+            <li key={a.id_album}>
+              <Link to={`/album/${a.id_album}`} className="text-green-700 font-bold">
+                {a.titulo} ({a.anio})
+              </Link>
+            </li>
+          ))}
       </ul>
     )}
   </div>
 )}
 
-{showFeedbackModal && (
-  <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-    <div className="bg-white p-6 rounded shadow-lg w-full max-w-md">
-      <h3 className="text-lg font-bold mb-2">Reportar diferencia</h3>
-      <p className="mb-2">¿Por qué consideras que <strong>no</strong> son versiones similares?</p>
-      <textarea
-        className="w-full border rounded p-2 mb-2"
-        rows={3}
-        value={feedbackComentario}
-        onChange={e => setFeedbackComentario(e.target.value)}
-        placeholder="Explica la diferencia (ej: letra distinta, duración, demo, etc.)"
-      />
-      <div className="flex gap-2">
-        <button
-          className="bg-blue-600 text-white px-4 py-2 rounded"
-          onClick={sendFeedback}
-          disabled={feedbackLoading || !feedbackComentario}
-        >
-          {feedbackLoading ? 'Enviando...' : 'Enviar'}
-        </button>
-        <button
-          className="bg-gray-300 px-4 py-2 rounded"
-          onClick={closeFeedbackModal}
-        >Cancelar</button>
-      </div>
-      {feedbackSuccess && (
-        <p className="mt-2 text-green-600 font-bold">¡Gracias por tu feedback!</p>
-      )}
-    </div>
+{mensajeSimilar && albumValorado && (
+  <div className="mt-8 bg-yellow-100 border-l-4 border-yellow-500 p-4">
+    <strong>{mensajeSimilar}</strong>
+    <ul>
+      <li>
+        <Link to={`/album/${albumValorado}`} className="text-green-700 font-bold">
+          {infoAlbums[albumValorado]?.titulo} ({infoAlbums[albumValorado]?.anio})
+        </Link>
+      </li>
+    </ul>
+  </div>
+)}
+
+{/* Otras versiones (agrupadas por similitud) */}
+{miembrosGrupo.length > 0 && (
+  <div>
+    <h3>Otras versiones (agrupadas por similitud)</h3>
+    <ul>
+      {miembrosGrupo
+        .filter(mid => mid !== parseInt(id))
+        .map(mid => (
+          <li key={mid}>
+            <Link to={`/album/${mid}`}>
+              {infoAlbums[mid]?.titulo || `Álbum #${mid}`}
+              {infoAlbums[mid]?.anio && <> ({infoAlbums[mid].anio})</>}
+            </Link>
+          </li>
+        ))}
+    </ul>
   </div>
 )}
         </>

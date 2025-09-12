@@ -112,47 +112,174 @@ const eliminarAlbum = async (req, res) => {
 
 const sugerirCancionesNuevasAlbum = async (req, res) => {
   const { usuario_id, id_album } = req.query;
-  // 1. Obtén canciones del álbum
-  const { data: cancionesAlbum } = await supabase
+
+  // 1. Canciones del álbum
+  const { data: cancionesAlbum, error: errorAlbum } = await supabase
     .from('canciones')
     .select('id_cancion')
     .eq('album', id_album);
-  // 2. Obtén valoraciones del usuario
-  const { data: valoradas } = await supabase
+
+  if (errorAlbum) {
+    console.error("Error consultando canciones:", errorAlbum);
+    return res.status(500).json({ error: "Error obteniendo canciones" });
+  }
+
+  // 2. Canciones valoradas por el usuario
+  const { data: valoradas, error: errorVal } = await supabase
     .from('valoraciones_canciones')
     .select('cancion')
     .eq('usuario', usuario_id);
-  const valoradasIds = valoradas.map(v => v.cancion);
-  // 3. Filtra las no valoradas
-  const nuevas = cancionesAlbum.filter(c => !valoradasIds.includes(c.id_cancion));
+
+  if (errorVal) {
+    console.error("Error consultando valoraciones:", errorVal);
+    return res.status(500).json({ error: "Error obteniendo valoraciones" });
+  }
+
+  // Si no hay valoradas, que sea []
+  const valoradasIds = (valoradas || []).map(v => v.cancion);
+
+  // 3. Expandir por clusters
+  let idsClusters = [];
+  if (valoradasIds.length > 0) {
+    // 3.1 Traer grupos de las canciones valoradas
+    const { data: gruposData, error: errorGrupos } = await supabase
+      .from('cancion_clusters')
+      .select('grupo')
+      .in('id_cancion', valoradasIds);
+
+    if (errorGrupos) {
+      console.error("Error consultando grupos:", errorGrupos);
+      return res.status(500).json({ error: "Error obteniendo clusters" });
+    }
+
+    const grupos = (gruposData || []).map(g => g.grupo);
+
+    // 3.2 Traer todos los miembros de esos grupos
+    if (grupos.length > 0) {
+      const { data: clusters, error: errorClusters } = await supabase
+        .from('cancion_clusters')
+        .select('id_cancion')
+        .in('grupo', grupos);
+
+      if (errorClusters) {
+        console.error("Error consultando miembros de clusters:", errorClusters);
+        return res.status(500).json({ error: "Error obteniendo miembros de clusters" });
+      }
+
+      idsClusters = (clusters || []).map(c => c.id_cancion);
+    }
+  }
+  // 4. Unión: valoradas directas + sus similares
+  const todasValoradas = new Set([...valoradasIds, ...idsClusters]);
+
+  // 5. Filtrar canciones del álbum que no están en ese set
+  const nuevas = cancionesAlbum.filter(c => !todasValoradas.has(c.id_cancion));
+
   res.json({ nuevas });
 };
 
 const sugerirAlbumSimilar = async (req, res) => {
   const { usuario_id, id_album } = req.query;
-  const { data: emb } = await supabase.from('album_embeddings').select('embedding').eq('id_album', id_album).single();
-  if (!emb) return res.json({ mensaje: null, nuevas: [] });
 
-  // Buscar álbumes similares
-  const similares = await axios.post('http://localhost:8000/similares', { entidad: 'album', id: id_album, embedding: emb.embedding });
-  // Filtra el propio álbum
-  const similaresFiltrados = similares.data.filter(a => a.id !== parseInt(id_album));
-  if (!similaresFiltrados.length) return res.json({ mensaje: null, nuevas: [] });
+  // 1. Canciones del álbum actual
+  const { data: cancionesAlbum, error: errorAlbum } = await supabase
+    .from('canciones')
+    .select('id_cancion, titulo')
+    .eq('album', id_album);
 
-  // Tomar el álbum más similar (que no sea el mismo)
-  const album_similar_id = similaresFiltrados[0].id;
-  const { data: canciones_actual } = await supabase.from('canciones').select('id_cancion, titulo').eq('album', id_album);
-  const { data: clusters } = await supabase.from('cancion_clusters').select('id_cancion, grupo');
-  const clusterMap = Object.fromEntries(clusters.map(c => [c.id_cancion, c.grupo]));
-  const { data: valoradas } = await supabase.from('valoraciones_canciones').select('cancion').eq('usuario', usuario_id);
-  const valoradasIds = valoradas.map(v => v.cancion);
-  const valoradasClusters = new Set(valoradasIds.map(id => clusterMap[id]).filter(Boolean));
-  let nuevas = canciones_actual.filter(song => {
-    const grupo = clusterMap[song.id_cancion];
-    return grupo && !valoradasClusters.has(grupo);
-  });
-  const mensaje = `Este álbum es muy similar a otro (${album_similar_id}). Solo faltan ${nuevas.length} canciones nuevas por valorar.`;
+  if (errorAlbum) {
+    console.error("Error consultando canciones:", errorAlbum);
+    return res.status(500).json({ error: "Error obteniendo canciones" });
+  }
+
+  // 2. Canciones valoradas por el usuario
+  const { data: valoradasCancion, error: errorVal } = await supabase
+    .from('valoraciones_canciones')
+    .select('cancion')
+    .eq('usuario', usuario_id);
+
+  if (errorVal) {
+    console.error("Error consultando valoraciones:", errorVal);
+    return res.status(500).json({ error: "Error obteniendo valoraciones" });
+  }
+
+  const valoradasIds = (valoradasCancion || []).map(v => v.cancion);
+
+  // 3. Expandir por clusters
+  let idsClusters = [];
+  if (valoradasIds.length > 0) {
+    // 3.1 Traer grupos de las canciones valoradas
+    const { data: gruposData } = await supabase
+      .from('cancion_clusters')
+      .select('grupo')
+      .in('id_cancion', valoradasIds);
+
+    const grupos = (gruposData || []).map(g => g.grupo);
+
+    // 3.2 Traer todos los miembros de esos grupos
+    if (grupos.length > 0) {
+      const { data: clusters } = await supabase
+        .from('cancion_clusters')
+        .select('id_cancion')
+        .in('grupo', grupos);
+
+      idsClusters = (clusters || []).map(c => c.id_cancion);
+    }
+  }
+
+  // 4. Unión: valoradas directas + sus similares
+  const todasValoradas = new Set([...valoradasIds, ...idsClusters]);
+
+  // 5. Filtrar canciones del álbum que no están en ese set
+  const nuevas = cancionesAlbum.filter(c => !todasValoradas.has(c.id_cancion));
+  if (!nuevas.length) return res.json({ mensaje: null, nuevas: [] });
+
+  // 6. Obtener cluster del álbum y todos los miembros del grupo
+  const { data: clusterData } = await supabase
+    .from('album_clusters')
+    .select('grupo')
+    .eq('id_album', id_album)
+    .single();
+  if (!clusterData) return res.json({ mensaje: null, nuevas });
+
+  const grupo = clusterData.grupo;
+
+  const { data: miembrosGrupo } = await supabase
+    .from('album_clusters')
+    .select('id_album')
+    .eq('grupo', grupo);
+  const idsGrupo = miembrosGrupo.map(a => a.id_album);
+
+  // 7. Revisar cuál álbum del grupo ya valoró el usuario
+  const { data: valoradasAlbum } = await supabase
+    .from('valoraciones_albumes')
+    .select('album')
+    .eq('usuario', usuario_id);
+  const valoradasAlbumIds = valoradasAlbum.map(v => v.album);
+
+  const album_valorado_id = idsGrupo.find(id => valoradasAlbumIds.includes(id));
+
+  // 8. Mensaje final
+  const mensaje = album_valorado_id
+    ? `Este álbum es muy similar a otro (${album_valorado_id}). Solo faltan ${nuevas.length} canciones nuevas por valorar.`
+    : null;
+
   res.json({ mensaje, nuevas });
 };
 
-module.exports = { crearAlbum, obtenerAlbumes, obtenerAlbumPorId, actualizarAlbum, eliminarAlbum, sugerirCancionesNuevasAlbum, sugerirAlbumSimilar };
+const obtenerAlbumClusters = async (req, res) => {
+  const { album_id, grupo } = req.query;
+  if (album_id) {
+    const { data } = await supabase.from('album_clusters').select('*').eq('id_album', album_id).single();
+    return res.json(data);
+  }
+  if (grupo) {
+    const { data } = await supabase.from('albumes').select('*').in('id_album',
+      (await supabase.from('album_clusters').select('id_album').eq('grupo', grupo)).data.map(a => a.id_album)
+    );
+    return res.json(data);
+  }
+  res.status(400).json({ error: 'Falta parámetro' });
+};
+
+module.exports = { obtenerAlbumClusters, crearAlbum, obtenerAlbumes, obtenerAlbumPorId, actualizarAlbum, eliminarAlbum, sugerirCancionesNuevasAlbum, sugerirAlbumSimilar };

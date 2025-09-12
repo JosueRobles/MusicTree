@@ -18,18 +18,35 @@ def cosine_similarity(a, b):
 
 @app.route('/similares', methods=['POST'])
 def similares():
-    data = request.json
-    entidad = data['entidad']
-    embedding = data['embedding']
-    tabla = f"{entidad}_embeddings"
-    emb_db = sb.table(tabla).select('*').execute().data
-    resultados = []
-    for item in emb_db:
-        sim = cosine_similarity(embedding, item['embedding'])
-        if sim > 0.85 and item[f'id_{entidad}'] != data['id']:
-            resultados.append({'id': item[f'id_{entidad}'], 'similaridad': sim})
-    resultados.sort(key=lambda x: -x['similaridad'])
-    return jsonify(resultados)
+    try:
+        data = request.json
+        entidad = data['entidad']
+        embedding = data['embedding']
+        resultados = []
+        if entidad == 'entidad':
+            # Buscar en canciones y videos
+            emb_c = sb.table('cancion_embeddings').select('*').execute().data
+            emb_v = sb.table('video_embeddings').select('*').execute().data
+            for item in emb_c:
+                sim = cosine_similarity(embedding, item['embedding'])
+                if sim > 0.85 and item['id_cancion'] != data['id']:
+                    resultados.append({'id': item['id_cancion'], 'tipo': 'cancion', 'similaridad': sim})
+            for item in emb_v:
+                sim = cosine_similarity(embedding, item['embedding'])
+                if sim > 0.85 and item['id_video'] != data['id']:
+                    resultados.append({'id': item['id_video'], 'tipo': 'video', 'similaridad': sim})
+        else:
+            tabla = f"{entidad}_embeddings"
+            emb_db = sb.table(tabla).select('*').execute().data
+            for item in emb_db:
+                sim = cosine_similarity(embedding, item['embedding'])
+                if sim > 0.85 and item[f'id_{entidad}'] != data['id']:
+                    resultados.append({'id': item[f'id_{entidad}'], 'tipo': entidad, 'similaridad': sim})
+        resultados.sort(key=lambda x: -x['similaridad'])
+        return jsonify(resultados)
+    except Exception as e:
+        print(f"Error en /similares: {e}")
+        return jsonify([]), 500
 
 if __name__ == '__main__':
     app.run(port=8000)
