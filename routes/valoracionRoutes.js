@@ -5,6 +5,7 @@ const valoracionController = require('../controllers/valoracionController');
 router.post('/', valoracionController.crearValoracion);
 router.get('/', valoracionController.obtenerValoracion);
 router.delete('/', valoracionController.eliminarValoracion);
+router.get('/unicos', valoracionController.filtrarUnicosPorGrupo)
 router.post('/comentario', valoracionController.agregarComentario);
 router.delete('/comentario', valoracionController.eliminarComentario);
 router.get('/promedio', valoracionController.obtenerPromedio);

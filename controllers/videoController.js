@@ -184,4 +184,14 @@ const obtenerVideoClusters = async (req, res) => {
   res.status(400).json({ error: 'Falta parámetro' });
 };
 
-module.exports = { obtenerVideoClusters, crearVideoMusical, obtenerVideosMusicales, obtenerVideoMusicalPorId, actualizarVideoMusical, eliminarVideoMusical, obtenerVideosDeArtista, sugerirCancionEnVideo };
+const obtenerVideosClusters = async (req, res) => {
+  const { offset = 0, limit = 1000 } = req.query;
+  const { data, error } = await supabase
+    .from('video_clusters')
+    .select('id_video, grupo')
+    .range(Number(offset), Number(offset) + Number(limit) - 1);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+};
+
+module.exports = { obtenerVideosClusters, obtenerVideoClusters, crearVideoMusical, obtenerVideosMusicales, obtenerVideoMusicalPorId, actualizarVideoMusical, eliminarVideoMusical, obtenerVideosDeArtista, sugerirCancionEnVideo };

@@ -8,15 +8,7 @@ const API_URL = import.meta.env.VITE_API_URL;
 const defaultState = {
   modo_valoracion: "manual",
   metodo_album: null,
-  metodo_album_avanzado: null,
-  album_por_entidad: false,
-  album_por_conjunto: false,
   metodo_artista: null,
-  metodo_artista_avanzado: null,
-  artista_por_entidad: false,
-  artista_por_conjunto: false,
-  artista_promedio_de_medianas: false,
-  artista_moda_de_modas: false,
   ponderado: { albumes: 40, canciones: 30, videos: 30 },
   nivel_rigor: null,
   generos: [],
@@ -26,6 +18,7 @@ const defaultState = {
   moda_avanzado: null,
   promedio_avanzado: null,
   mediana_avanzado: null,
+  modo_ranking: "manual",
 };
 
 const Personalizacion = () => {
@@ -60,16 +53,25 @@ const Personalizacion = () => {
     }
   }, [state.generos]);
 
+  // Al cargar preferencias del usuario, limpiar campos no usados
   useEffect(() => {
     if (usuario) {
       axios.get(`${API_URL}/usuarios/usuarios/${usuario.id_usuario}`)
         .then(res => {
-          const { metodologia_valoracion, configuracion } = res.data;
-          if (metodologia_valoracion) setState(s => ({
-            ...s,
-            ...metodologia_valoracion,
-            ...configuracion
-          }));
+          let { metodologia_valoracion, configuracion } = res.data;
+          if (metodologia_valoracion) {
+            // Elimina campos no usados
+            const omit = [
+              "album_por_entidad", "album_por_conjunto",
+              "metodo_album_avanzado", "metodo_artista_avanzado"
+            ];
+            omit.forEach(k => delete metodologia_valoracion[k]);
+            setState(s => ({
+              ...s,
+              ...metodologia_valoracion,
+              ...configuracion
+            }));
+          }
         });
     }
   }, [usuario]);
@@ -95,29 +97,49 @@ const Personalizacion = () => {
     }
     setLoading(true);
     try {
+      // Prepara objeto limpio
+      const metodologia = { ...state };
+
+      // ====== LÓGICA PARA GUARDAR OPCIONES AVANZADAS POR DEFECTO ======
+      // Si el usuario eligió método de artista pero no tocó opciones avanzadas, guarda el valor predeterminado
+      if (metodologia.metodo_artista === "promedio") {
+        if (!metodologia.promedio_avanzado) metodologia.promedio_avanzado = "por_entidad";
+        metodologia.mediana_avanzado = null;
+        metodologia.moda_avanzado = null;
+      }
+      if (metodologia.metodo_artista === "mediana") {
+        if (!metodologia.mediana_avanzado) metodologia.mediana_avanzado = "por_entidad";
+        metodologia.promedio_avanzado = null;
+        metodologia.moda_avanzado = null;
+      }
+      if (metodologia.metodo_artista === "moda") {
+        if (!metodologia.moda_avanzado) metodologia.moda_avanzado = false;
+        metodologia.promedio_avanzado = null;
+        metodologia.mediana_avanzado = null;
+      }
+      if (metodologia.metodo_artista === "ponderado") {
+        metodologia.promedio_avanzado = null;
+        metodologia.mediana_avanzado = null;
+        metodologia.moda_avanzado = null;
+      }
+
+      // Si el usuario eligió método de álbum pero no tocó opciones avanzadas, guarda el valor predeterminado
+      if (metodologia.metodo_album && !metodologia.redondeo) {
+        metodologia.redondeo = "arriba";
+      }
+
+      // Elimina campos no usados
+      delete metodologia.album_por_entidad;
+      delete metodologia.album_por_conjunto;
+      delete metodologia.metodo_album_avanzado;
+      delete metodologia.metodo_artista_avanzado;
+
+      // Normaliza moda_avanzado a false si es la opción predeterminada
+      if (metodologia.moda_avanzado === false || metodologia.moda_avanzado === null) metodologia.moda_avanzado = false;
+
       // 1. Guarda preferencias y configuración
       await axios.put(`${API_URL}/usuarios/${usuario.id_usuario}/preferencias`, {
-        metodologia_valoracion: {
-          // ...todos los campos menos generos, subgeneros, artistas_seguir...
-          modo_valoracion: state.modo_valoracion,
-          metodo_album: state.metodo_album,
-          metodo_album_avanzado: state.metodo_album_avanzado,
-          album_por_entidad: state.album_por_entidad,
-          album_por_conjunto: state.album_por_conjunto,
-          metodo_artista: state.metodo_artista,
-          metodo_artista_avanzado: state.metodo_artista_avanzado,
-          artista_por_entidad: state.artista_por_entidad,
-          artista_por_conjunto: state.artista_por_conjunto,
-          artista_promedio_de_medianas: state.artista_promedio_de_medianas,
-          artista_moda_de_modas: state.artista_moda_de_modas,
-          ponderado: state.ponderado,
-          nivel_rigor: state.nivel_rigor,
-          redondeo: state.redondeo,
-          moda_avanzado: state.moda_avanzado,
-          promedio_avanzado: state.promedio_avanzado,
-          mediana_avanzado: state.mediana_avanzado,
-          modo_ranking: state.modo_ranking,
-        },
+        metodologia_valoracion: metodologia,
         configuracion: {
           generos: state.generos,
           subgeneros: state.subgeneros,
@@ -139,6 +161,31 @@ const Personalizacion = () => {
       alert("Error al guardar preferencias");
     }
   };
+
+  // =====================
+  // ARTISTAS FAVORITOS
+  // =====================
+  // Cargar artistas seguidos por el usuario y marcarlos como seleccionados
+  useEffect(() => {
+    if (usuario) {
+      axios.get(`${API_URL}/catalogos/artistas-seguidos/${usuario.id_usuario}`)
+        .then(res => {
+          const ids = res.data.map(a => a.id_artista);
+          setState(s => ({
+            ...s,
+            artistas_seguir: Array.from(new Set([...s.artistas_seguir, ...ids]))
+          }));
+        });
+    }
+  }, [usuario]);
+
+  // Si no hay géneros seleccionados, mostrar todos los artistas por popularidad
+  useEffect(() => {
+    if (state.generos.length === 0) {
+      axios.get(`${API_URL}/artistas?orden=popularidad`)
+        .then(res => setArtistasSugeridos(res.data || []));
+    }
+  }, [state.generos]);
 
   const artistasFiltrados = artistasSugeridos.filter(a =>
     a.nombre_artista.toLowerCase().includes(busquedaArtista.toLowerCase())
@@ -797,10 +844,69 @@ const Personalizacion = () => {
       {step === 8 && (
         <div>
           <h3>¡Gracias por tu tiempo!</h3>
-          <pre>{JSON.stringify(state, null, 2)}</pre>
-          <button onClick={() => navigate('/profile/' + usuario.id_usuario)}>Continuar</button>
-        </div>
-      )}
+          <table className="table-auto border-collapse border border-gray-400 my-4">
+      <tbody>
+        <tr><td className="border px-2 py-1 font-bold">Nivel de crítico</td><td className="border px-2 py-1">{state.nivel_rigor === "estricto" ? "Estricto" : state.nivel_rigor === "moderado" ? "Moderado" : "Fan"}</td></tr>
+        <tr><td className="border px-2 py-1 font-bold">¿Cómo prefieres valorar?</td><td className="border px-2 py-1">{state.modo_valoracion === "manual" ? "Manual" : "Semi-automático"}</td></tr>
+        <tr><td className="border px-2 py-1 font-bold">¿Cómo se actualiza tu ranking?</td><td className="border px-2 py-1">{state.modo_ranking === "manual" ? "Manual" : "Semiautomático"}</td></tr>
+        <tr><td className="border px-2 py-1 font-bold">Método de cálculo para álbumes</td><td className="border px-2 py-1">{state.metodo_album || "-"}</td></tr>
+        <tr><td className="border px-2 py-1 font-bold">Redondeo</td><td className="border px-2 py-1">{state.redondeo === "arriba" ? "Hacia arriba" : "Hacia abajo"}</td></tr>
+        <tr><td className="border px-2 py-1 font-bold">Método de cálculo para artistas</td><td className="border px-2 py-1">{state.metodo_artista || "-"}</td></tr>
+        {state.metodo_artista === "ponderado" && (
+          <tr>
+            <td className="border px-2 py-1 font-bold">Ponderado</td>
+            <td className="border px-2 py-1">
+              Álbumes: {state.ponderado.albumes}% | Canciones: {state.ponderado.canciones}% | Videos: {state.ponderado.videos}%
+            </td>
+          </tr>
+        )}
+        {state.metodo_artista === "promedio" && (
+          <tr>
+            <td className="border px-2 py-1 font-bold">Promedio avanzado</td>
+            <td className="border px-2 py-1">
+              {state.promedio_avanzado === "por_entidad" ? "Por entidad" : state.promedio_avanzado === "conjunto" ? "Todos juntos" : "-"}
+            </td>
+          </tr>
+        )}
+        {state.metodo_artista === "mediana" && (
+          <tr>
+            <td className="border px-2 py-1 font-bold">Mediana avanzada</td>
+            <td className="border px-2 py-1">
+              {state.mediana_avanzado === "por_entidad" ? "Por entidad" : state.mediana_avanzado === "promedio" ? "Promedio de medianas" : state.mediana_avanzado === "conjunto" ? "Todos juntos" : "-"}
+            </td>
+          </tr>
+        )}
+        {state.metodo_artista === "moda" && (
+          <tr>
+            <td className="border px-2 py-1 font-bold">Moda avanzada</td>
+            <td className="border px-2 py-1">
+              {state.moda_avanzado === "por_entidad" ? "Por entidad" : state.moda_avanzado === "promedio" ? "Promedio de modas" : state.moda_avanzado === "conjunto" ? "Todos juntos" : "-"}
+            </td>
+          </tr>
+        )}
+        <tr>
+          <td className="border px-2 py-1 font-bold">Géneros favoritos</td>
+          <td className="border px-2 py-1">{generosDisponibles.filter(g => state.generos.includes(g.id_genero)).map(g => g.nombre).join(", ") || "-"}</td>
+        </tr>
+        <tr>
+          <td className="border px-2 py-1 font-bold">Subgéneros</td>
+          <td className="border px-2 py-1">{state.subgeneros.join(", ") || "-"}</td>
+        </tr>
+        <tr>
+          <td className="border px-2 py-1 font-bold">Artistas favoritos</td>
+          <td className="border px-2 py-1">{artistasSugeridos.filter(a => state.artistas_seguir.includes(a.id_artista)).map(a => a.nombre_artista).join(", ") || "-"}</td>
+        </tr>
+      </tbody>
+    </table>
+    <button
+      disabled={loading}
+      onClick={handleSubmit}
+      className="bg-blue-600 text-white px-4 py-2 rounded"
+    >
+      {loading ? "Guardando..." : "Continuar"}
+    </button>
+  </div>
+)}
     </div>
   );
 };

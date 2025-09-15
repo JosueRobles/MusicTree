@@ -5,6 +5,7 @@ const albumController = require("../controllers/albumController");
 // Rutas CRUD
 router.post("/", albumController.crearAlbum);
 router.get('/clusters', albumController.obtenerAlbumClusters);
+router.get('/album_clusters', albumController.obtenerAlbumesClusters);
 router.get('/sugerencias-similar', albumController.sugerirAlbumSimilar);
 router.get('/sugerencias-nuevas', albumController.sugerirCancionesNuevasAlbum);
 router.get("/", albumController.obtenerAlbumes);

@@ -3,7 +3,7 @@ import PropTypes from "prop-types";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
-const sonido = "/insigniaSound.mp3";
+const sonido = "/InsigniaSound.mp3";
 const API_URL = import.meta.env.VITE_API_URL;
 
 const InsigniaToast = ({ visible, insignia, notificacionId, onClose }) => {
@@ -44,7 +44,7 @@ const InsigniaToast = ({ visible, insignia, notificacionId, onClose }) => {
       }
     }
 
-          onClose();
+    onClose();
     if (insignia && insignia.id_insignia) {
       navigate(`/badge/${insignia.id_insignia}`);
     }
@@ -55,7 +55,7 @@ const InsigniaToast = ({ visible, insignia, notificacionId, onClose }) => {
   return (
     <div
       className="insignia-toast"
-            style={{
+      style={{
         position: "fixed",
         bottom: "20px",
         right: "20px",
@@ -68,32 +68,32 @@ const InsigniaToast = ({ visible, insignia, notificacionId, onClose }) => {
         cursor: "pointer",
         border: "2px solid #16a34a",
         animation: "fadeInUp 0.3s ease-out"
-            }}
+      }}
       onClick={handleClick}
       title="Ver detalles de la insignia"
-          >
+    >
       <div className="insignia-toast-content" style={{ display: "flex", alignItems: "center", gap: "16px" }}>
         <img
           src={insignia.icono || '/insignias/placeholder.png'}
           alt={insignia.nombre}
           className="insignia-toast-img"
-            style={{
+          style={{
             width: "64px",
             height: "64px",
             objectFit: "contain",
             animation: "pulse 1.5s infinite"
-            }}
+          }}
         />
         <div>
           <div className="insignia-toast-title" style={{ fontWeight: "bold", fontSize: "18px", color: "#16a34a" }}>
             ¡Insignia desbloqueada!
-        </div>
+          </div>
           <div className="insignia-toast-name" style={{ fontWeight: "bold", fontSize: "16px", marginTop: "4px" }}>
             {insignia.nombre}
-      </div>
+          </div>
           <div className="insignia-toast-desc" style={{ fontSize: "14px", marginTop: "4px", color: "#666" }}>
             {insignia.descripcion}
-    </div>
+          </div>
           <div
             style={{
               fontSize: "13px",
@@ -105,6 +105,17 @@ const InsigniaToast = ({ visible, insignia, notificacionId, onClose }) => {
           </div>
         </div>
       </div>
+      <button
+        onClick={() => {
+          const audio = new Audio("/insigniaSound.mp3");
+          audio.volume = 0.7;
+          audio.play();
+          handleClick();
+        }}
+        style={{ marginTop: 8, background: "#16a34a", color: "#fff", border: "none", borderRadius: 4, padding: "6px 12px" }}
+      >
+        ¡Ver mi insignia!
+      </button>
     </div>
   );
 };

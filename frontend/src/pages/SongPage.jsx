@@ -32,6 +32,7 @@ const SongPage = ({ usuario }) => {
   const [grupoUniversal, setGrupoUniversal] = useState(null);
   const [miembrosGrupo, setMiembrosGrupo] = useState([]);
   const [infoCanciones, setInfoCanciones] = useState({});
+  const [showHistorial, setShowHistorial] = useState(false);
 
   const valoradasEnGrupo = useMemo(() => {
   return miembrosGrupo.filter(mid => valoradas.includes(`cancion-${mid}`));

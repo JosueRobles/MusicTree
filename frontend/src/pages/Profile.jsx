@@ -6,7 +6,7 @@ import { UsuarioContext } from '../context/UsuarioContext';
 import { Link } from 'react-router-dom';
 import ModifyPersonalRanking from '../components/ModifyPersonalRanking';
 import UserListGrid from '../components/UserListGrid';
-import ValoracionComentarioEntidad from '../components/ValoracionComentarioEntidad'; // Nuevo componente
+import ValoracionComentarioEntidad from '../components/ValoracionComentarioEntidad';
 import { Bar, Pie, Doughnut } from 'react-chartjs-2';
 import { Chart, ArcElement, BarElement, CategoryScale, LinearScale, Tooltip, Legend } from 'chart.js';
 Chart.register(ArcElement, BarElement, CategoryScale, LinearScale, Tooltip, Legend);
@@ -14,7 +14,7 @@ Chart.register(ArcElement, BarElement, CategoryScale, LinearScale, Tooltip, Lege
 const API_URL = import.meta.env.VITE_API_URL;
 
 const Profile = () => {
-  const { usuario } = useContext(UsuarioContext); // Obtener el usuario desde el contexto
+  const { usuario } = useContext(UsuarioContext);
   const { id } = useParams();
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
@@ -23,7 +23,6 @@ const Profile = () => {
   const [editing, setEditing] = useState(false);
   const [newName, setNewName] = useState('');
   const [newProfilePic, setNewProfilePic] = useState('');
-  const [following, setFollowing] = useState([]);
   const [isFollowing, setIsFollowing] = useState(false);
   const [followersList, setFollowersList] = useState([]);
   const [colecciones, setColecciones] = useState([]);
@@ -33,10 +32,14 @@ const Profile = () => {
   const [artistasSeguidos, setArtistasSeguidos] = useState([]);
   const [copied, setCopied] = useState(false);
   const [insignias, setInsignias] = useState([]);
-  const [valoraciones, setValoraciones] = useState([]);
   const [listas, setListas] = useState([]);
   const [valoracionesEnriquecidas, setValoracionesEnriquecidas] = useState([]);
   const [estadisticas, setEstadisticas] = useState(null);
+  const [metodologia, setMetodologia] = useState(null);
+  const [following, setFollowing] = useState([]);
+  const [valoraciones, setValoraciones] = useState([]);
+  const [generosDisponibles, setGenerosDisponibles] = useState([]);
+
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -250,64 +253,76 @@ useEffect(() => {
     enrichValoraciones();
   }, [user]);
 
-useEffect(() => {
-  if (user?.id_usuario) {
-    axios
-      .get(`${API_URL}/usuarios/usuarios/${user.id_usuario}/estadisticas-musicales`)
-      .then(res => setEstadisticas(res.data))
-      .catch(() => setEstadisticas(null));
-  }
-}, [user]);
+  useEffect(() => {
+    if (user?.id_usuario) {
+      axios
+        .get(`${API_URL}/usuarios/usuarios/${user.id_usuario}/estadisticas-musicales`)
+        .then(res => setEstadisticas(res.data))
+        .catch(() => setEstadisticas(null));
+    }
+  }, [user]);
 
-useEffect(() => {
-  if (user?.id_usuario) {
-    axios.get(`${API_URL}/listas-personalizadas/colaborativas-o-propias/${user.id_usuario}`)
-      .then(res => setListas(
-        res.data.filter(l =>
-          l.privacidad === 'publica' ||
-          (usuario && usuario.id_usuario === user.id_usuario) ||
-          l.privacidad === 'colaborativa'
-        )
-      ));
-  }
-}, [user, usuario]);
+  useEffect(() => {
+    if (user?.id_usuario) {
+      axios.get(`${API_URL}/listas-personalizadas/colaborativas-o-propias/${user.id_usuario}`)
+        .then(res => setListas(
+          res.data.filter(l =>
+            l.privacidad === 'publica' ||
+            (usuario && usuario.id_usuario === user.id_usuario) ||
+            l.privacidad === 'colaborativa'
+          )
+        ));
+    }
+  }, [user, usuario]);
 
-const PieChart = ({ porcentaje }) => {
-  const radius = 16;
-  const circumference = 2 * Math.PI * radius;
-  const progress = Math.min(Math.max(porcentaje, 0), 100); // Clamp 0-100
-  const offset = circumference - (progress / 100) * circumference;
-
-  return (
-    <svg width="40" height="40" viewBox="0 0 40 40">
-      <circle
-        cx="20" cy="20" r={radius}
-        fill="none"
-        stroke="#e5e7eb"
-        strokeWidth="4"
-      />
-      <circle
-        cx="20" cy="20" r={radius}
-        fill="none"
-        stroke="#22c55e"
-        strokeWidth="4"
-        strokeDasharray={circumference}
-        strokeDashoffset={offset}
-        style={{ transition: 'stroke-dashoffset 0.5s' }}
-      />
-      <text x="20" y="24" textAnchor="middle" fontSize="10" fill="#333">
-        {progress.toFixed(0)}%
-      </text>
-    </svg>
-  );
-};
-  
   useEffect(() => {
     if (usuario && followersList.length > 0) {
       setIsFollowing(followersList.some(seguidor => seguidor.id_usuario === usuario.id_usuario));
     }
   }, [usuario, followersList]);  
 
+  useEffect(() => {
+    if (user?.id_usuario) {
+      axios.get(`${API_URL}/usuarios/usuarios/${user.id_usuario}`)
+        .then(res => setMetodologia(res.data.metodologia_valoracion || null));
+    }
+  }, [user]);
+
+  // Cargar géneros disponibles al inicio
+  useEffect(() => {
+    axios.get(`${API_URL}/generos`).then(res => setGenerosDisponibles(res.data || []));
+  }, []);
+
+  const PieChart = ({ porcentaje }) => {
+    const radius = 16;
+    const circumference = 2 * Math.PI * radius;
+    const progress = Math.min(Math.max(porcentaje, 0), 100); // Clamp 0-100
+    const offset = circumference - (progress / 100) * circumference;
+
+    return (
+      <svg width="40" height="40" viewBox="0 0 40 40">
+        <circle
+          cx="20" cy="20" r={radius}
+          fill="none"
+          stroke="#e5e7eb"
+          strokeWidth="4"
+        />
+        <circle
+          cx="20" cy="20" r={radius}
+          fill="none"
+          stroke="#22c55e"
+          strokeWidth="4"
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          style={{ transition: 'stroke-dashoffset 0.5s' }}
+        />
+        <text x="20" y="24" textAnchor="middle" fontSize="10" fill="#333">
+          {progress.toFixed(0)}%
+        </text>
+      </svg>
+    );
+  };
+  
   const handleEdit = async () => {
     try {
       const formData = new FormData();
@@ -456,7 +471,153 @@ const PieChart = ({ porcentaje }) => {
               </button>
             </div>
           )}
-  
+  {/* Mostrar metodologia_valoracion arriba de seguidores */}
+      {metodologia && (
+        <div className="section mb-6">
+          <h3 className="text-2xl font-bold my-4">
+            ¿Cómo valora {user.username}?
+          </h3>
+          <table className="table-auto border-collapse border border-gray-400 my-2">
+            <tbody>
+              <tr>
+                <td className="border px-2 py-1 font-bold">Nivel de crítico</td>
+                <td className="border px-2 py-1">
+                  {metodologia.nivel_rigor === "estricto"
+                    ? "Estricto"
+                    : metodologia.nivel_rigor === "moderado"
+                    ? "Moderado"
+                    : "Fan"}
+                </td>
+              </tr>
+              <tr>
+                <td className="border px-2 py-1 font-bold">
+                  ¿Cómo prefiere valorar?
+                </td>
+                <td className="border px-2 py-1">
+                  {metodologia.modo_valoracion === "manual"
+                    ? "Manual"
+                    : "Semi-automático"}
+                </td>
+              </tr>
+              <tr>
+                <td className="border px-2 py-1 font-bold">
+                  ¿Cómo se actualiza su ranking?
+                </td>
+                <td className="border px-2 py-1">
+                  {metodologia.modo_ranking === "manual"
+                    ? "Manual"
+                    : "Semiautomático"}
+                </td>
+              </tr>
+              <tr>
+                <td className="border px-2 py-1 font-bold">
+                  Método de cálculo para álbumes
+                </td>
+                <td className="border px-2 py-1">
+                  {metodologia.metodo_album || "-"}
+                </td>
+              </tr>
+              <tr>
+                <td className="border px-2 py-1 font-bold">Redondeo</td>
+                <td className="border px-2 py-1">
+                  {metodologia.redondeo === "arriba"
+                    ? "Hacia arriba"
+                    : "Hacia abajo"}
+                </td>
+              </tr>
+              <tr>
+                <td className="border px-2 py-1 font-bold">
+                  Método de cálculo para artistas
+                </td>
+                <td className="border px-2 py-1">
+                  {metodologia.metodo_artista || "-"}
+                </td>
+              </tr>
+
+              {metodologia.metodo_artista === "ponderado" && (
+                <tr>
+                  <td className="border px-2 py-1 font-bold">Ponderado</td>
+                  <td className="border px-2 py-1">
+                    Álbumes: {metodologia.ponderado?.albumes}% | Canciones:{" "}
+                    {metodologia.ponderado?.canciones}% | Videos:{" "}
+                    {metodologia.ponderado?.videos}%
+                  </td>
+                </tr>
+              )}
+
+              {metodologia.metodo_artista === "promedio" && (
+                <tr>
+                  <td className="border px-2 py-1 font-bold">
+                    Promedio avanzado
+                  </td>
+                  <td className="border px-2 py-1">
+                    {metodologia.promedio_avanzado === "por_entidad"
+                      ? "Por entidad"
+                      : metodologia.promedio_avanzado === "conjunto"
+                      ? "Todos juntos"
+                      : "-"}
+                  </td>
+                </tr>
+              )}
+
+              {metodologia.metodo_artista === "mediana" && (
+                <tr>
+                  <td className="border px-2 py-1 font-bold">
+                    Mediana avanzada
+                  </td>
+                  <td className="border px-2 py-1">
+                    {metodologia.mediana_avanzado === "por_entidad"
+                      ? "Por entidad"
+                      : metodologia.mediana_avanzado === "promedio"
+                      ? "Promedio de medianas"
+                      : metodologia.mediana_avanzado === "conjunto"
+                      ? "Todos juntos"
+                      : "-"}
+                  </td>
+                </tr>
+              )}
+
+              {metodologia.metodo_artista === "moda" && (
+                <tr>
+                  <td className="border px-2 py-1 font-bold">Moda avanzada</td>
+                  <td className="border px-2 py-1">
+                    {metodologia.moda_avanzado === "por_entidad"
+                      ? "Por entidad"
+                      : metodologia.moda_avanzado === "promedio"
+                      ? "Promedio de modas"
+                      : metodologia.moda_avanzado === "conjunto"
+                      ? "Todos juntos"
+                      : "-"}
+                  </td>
+                </tr>
+              )}
+
+              <tr>
+                <td className="border px-2 py-1 font-bold">
+                  Géneros favoritos
+                </td>
+                <td className="border px-2 py-1">
+                  {Array.isArray(metodologia.generos) && metodologia.generos.length > 0
+                    ? generosDisponibles
+                        .filter(g => metodologia.generos.includes(g.id_genero))
+                        .map(g => g.nombre)
+                        .join(", ")
+                    : "-"}
+                </td>
+              </tr>
+              <tr>
+                <td className="border px-2 py-1 font-bold">Subgéneros</td>
+                <td className="border px-2 py-1">
+                  {Array.isArray(metodologia.subgeneros) &&
+                  metodologia.subgeneros.length > 0
+                    ? metodologia.subgeneros.join(", ")
+                    : "-"}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      )}
       <div className="section mt-6">
         <h3 className="text-2xl font-bold my-4">Seguidores</h3>
         {followers === 0 ? <p>No tiene seguidores aún.</p> : (
@@ -515,99 +676,148 @@ const PieChart = ({ porcentaje }) => {
         </>
       )}
       {usuario && usuario.id_usuario === user.id_usuario ? (
-        <ModifyPersonalRanking usuario={usuario} />
-      ) : (
-        <div className="section mt-6">
-          <h3 className="text-2xl font-bold my-4">Ranking Personal de {user.username}</h3>
-          <ModifyPersonalRanking usuario={user} soloLectura={true} />
-        </div>
-      )
-      }
-      {estadisticas && (
+  <ModifyPersonalRanking usuario={usuario} />
+) : (
+  <div className="section mt-6">
+    <h3 className="text-2xl font-bold my-4">
+      Ranking Personal de {user.username}
+    </h3>
+    <ModifyPersonalRanking usuario={user} soloLectura={true} />
+  </div>
+)}
+
+{estadisticas && (
   <div className="section mt-6">
     <h3 className="text-2xl font-bold my-4">Estadísticas y hábitos musicales</h3>
+
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
       <div style={{ minWidth: 320 }}>
         <strong>Distribución de estrellas</strong>
         <Bar
           data={{
             labels: Object.keys(estadisticas.distribucionEstrellas),
-            datasets: [{
-              label: 'Valoraciones',
-              data: Object.values(estadisticas.distribucionEstrellas),
-              backgroundColor: '#22c55e'
-            }]
+            datasets: [
+              {
+                label: "Valoraciones",
+                data: Object.values(estadisticas.distribucionEstrellas),
+                backgroundColor: "#22c55e",
+              },
+            ],
           }}
           options={{
-            scales: { y: { beginAtZero: true } }
+            scales: { y: { beginAtZero: true } },
           }}
         />
       </div>
+
       <div style={{ minWidth: 220 }}>
         <strong>Por género</strong>
         <Pie
           data={{
-            labels: estadisticas.porGenero.map(g => g.nombre),
-            datasets: [{
-              data: estadisticas.porGenero.map(g => g.count),
-              backgroundColor: [
-                '#22c55e', '#3b82f6', '#f59e42', '#eab308', '#ef4444', '#a78bfa', '#f472b6', '#14b8a6'
-              ]
-            }]
+            labels: estadisticas.porGenero.map((g) => g.nombre),
+            datasets: [
+              {
+                data: estadisticas.porGenero.map((g) => g.count),
+                backgroundColor: [
+                  "#22c55e",
+                  "#3b82f6",
+                  "#f59e42",
+                  "#eab308",
+                  "#ef4444",
+                  "#a78bfa",
+                  "#f472b6",
+                  "#14b8a6",
+                ],
+              },
+            ],
           }}
         />
       </div>
+
       <div style={{ minWidth: 220 }}>
         <strong>Por año</strong>
         <Bar
           data={{
             labels: Object.keys(estadisticas.porAnio),
-            datasets: [{
-              label: 'Valoraciones',
-              data: Object.values(estadisticas.porAnio),
-              backgroundColor: '#3b82f6'
-            }]
+            datasets: [
+              {
+                label: "Valoraciones",
+                data: Object.values(estadisticas.porAnio),
+                backgroundColor: "#3b82f6",
+              },
+            ],
           }}
           options={{
-            scales: { y: { beginAtZero: true } }
+            scales: { y: { beginAtZero: true } },
           }}
         />
       </div>
+
       <div style={{ minWidth: 220 }}>
         <strong>Familiaridad</strong>
         <Doughnut
           data={{
             labels: Object.keys(estadisticas.familiaridadCount),
-            datasets: [{
-              data: Object.values(estadisticas.familiaridadCount),
-              backgroundColor: ['#22c55e', '#f59e42', '#3b82f6']
-            }]
+            datasets: [
+              {
+                data: Object.values(estadisticas.familiaridadCount),
+                backgroundColor: ["#22c55e", "#f59e42", "#3b82f6"],
+              },
+            ],
           }}
         />
       </div>
+
       <div style={{ minWidth: 220 }}>
         <strong>Emociones</strong>
         <Pie
           data={{
             labels: Object.keys(estadisticas.emocionCount),
-            datasets: [{
-              data: Object.values(estadisticas.emocionCount),
-              backgroundColor: [
-                '#f59e42', '#3b82f6', '#eab308', '#ef4444', '#a78bfa', '#f472b6', '#14b8a6', '#22c55e'
-              ]
-            }]
+            datasets: [
+              {
+                data: Object.values(estadisticas.emocionCount),
+                backgroundColor: [
+                  "#f59e42",
+                  "#3b82f6",
+                  "#eab308",
+                  "#ef4444",
+                  "#a78bfa",
+                  "#f472b6",
+                  "#14b8a6",
+                  "#22c55e",
+                ],
+              },
+            ],
           }}
         />
       </div>
-      <div>
-        <strong>Valoraciones por tipo:</strong>
-        <ul>
-          <li>Artistas: {estadisticas.porTipo.artista}</li>
-          <li>Álbumes: {estadisticas.porTipo.album}</li>
-          <li>Canciones: {estadisticas.porTipo.cancion}</li>
-          <li>Videos: {estadisticas.porTipo.video}</li>
-        </ul>
-      </div>
+    </div>
+
+    <div className="mt-4">
+      <strong>Valoraciones por tipo:</strong>
+      <ul>
+        <li>Artistas: {estadisticas.porTipo.artista}</li>
+        <li>Álbumes: {estadisticas.porTipo.album}</li>
+        <li>Canciones: {estadisticas.porTipo.cancion}</li>
+        <li>Videos: {estadisticas.porTipo.video}</li>
+      </ul>
+    </div>
+  </div>
+)}
+
+{/* === NUEVA SECCIÓN: Últimas valoraciones enriquecidas === */}
+{valoracionesEnriquecidas.length > 0 && (
+  <div className="section mt-6">
+    <h3 className="text-2xl font-bold my-4">
+      Últimas valoraciones de {user.username}
+    </h3>
+    <div className="space-y-4">
+      {valoracionesEnriquecidas.map((v) => (
+        <ValoracionComentarioEntidad
+          key={`${v.tipo}-${v.entidad_id}`}
+          valoracion={v}
+        />
+      ))}
     </div>
   </div>
 )}
@@ -662,18 +872,6 @@ const PieChart = ({ porcentaje }) => {
               </Link>
             ))}
           </div>
-        )}
-      </div>
-
-      {/* Feed de valoraciones */}
-      <div className="section mt-6">
-        <h3 className="text-2xl font-bold my-4">Valoraciones recientes</h3>
-        {valoracionesEnriquecidas.length === 0 ? (
-          <div>No hay valoraciones aún.</div>
-        ) : (
-          valoracionesEnriquecidas.map((valoracion, idx) => (
-            <ValoracionComentarioEntidad key={idx} valoracion={valoracion} />
-          ))
         )}
       </div>
     </main>

@@ -5,3 +5,7 @@ node_modules
 frontend/.env
 uploads/
 ml_service/venv
+ml_service/__pycache__
+embedding-service/__pycache__
+embedding-service/venv
+embedding-service/.env

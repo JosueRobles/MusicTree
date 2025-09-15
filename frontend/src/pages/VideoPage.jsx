@@ -30,6 +30,7 @@ const VideoPage = ({ usuario }) => {
   const [grupoUniversal, setGrupoUniversal] = useState(null);
   const [miembrosGrupo, setMiembrosGrupo] = useState([]);
   const [infoVideos, setInfoVideos] = useState({});
+  const [showHistorial, setShowHistorial] = useState(false);
 
   useEffect(() => {
     const fetchVideoData = async () => {

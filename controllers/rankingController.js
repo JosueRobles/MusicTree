@@ -225,16 +225,105 @@ const recalcularRankingPersonal = async (req, res) => {
   const { usuario, tipo_entidad } = req.body;
 
   try {
-    // Obtener los elementos del ranking personal ordenados por calificación
-    const { data: elementos, error } = await supabase
+    // Consulta preferencias del usuario
+    const { data: userData } = await supabase
+      .from("usuarios")
+      .select("metodologia_valoracion")
+      .eq("id_usuario", usuario)
+      .single();
+    const prefs = userData?.metodologia_valoracion || {};
+
+    // Obtener los elementos del ranking personal
+    let { data: elementos, error } = await supabase
       .from('ranking_elementos')
       .select('*')
       .eq('ranking_id', usuario)
-      .eq('tipo_entidad', tipo_entidad)
-      .order('valoracion', { ascending: false }) // Ordenar por calificación descendente
-      .order('posicion', { ascending: true }); // Mantener manual para empates
+      .eq('tipo_entidad', tipo_entidad);
 
     if (error) throw error;
+
+    // Si modo_ranking=semiautomatico, ordena por valoracion y desempata por % de 5*, 4.5*, etc.
+    if (prefs.modo_ranking === "semiautomatico") {
+      // Trae valoraciones internas para desempate
+      for (const el of elementos) {
+        if (tipo_entidad === "album") {
+          // Canciones del álbum
+          const { data: canciones } = await supabase
+            .from("canciones")
+            .select("id_cancion")
+            .eq("album", el.entidad_id);
+          const cancionIds = canciones.map(c => c.id_cancion);
+          const { data: vals } = await supabase
+            .from("valoraciones_canciones")
+            .select("calificacion")
+            .eq("usuario", usuario)
+            .in("cancion", cancionIds);
+          // Calcula % de 5*, 4.5*, 4*, 3.5*, 3*, etc.
+          el.porcentajes = [5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5, 1, 0.5, 0].map(star => {
+            const count = vals.filter(v => v.calificacion === star).length;
+            return vals.length ? count / vals.length : 0;
+          });
+        } else if (tipo_entidad === "artista") {
+          // Albumes, canciones y videos del artista
+          const { data: albumes } = await supabase
+            .from("album_artistas")
+            .select("album_id")
+            .eq("artista_id", el.entidad_id);
+          const albumIds = albumes.map(a => a.album_id);
+          const { data: valsAlbum } = await supabase
+            .from("valoraciones_albumes")
+            .select("calificacion")
+            .eq("usuario", usuario)
+            .in("album", albumIds);
+
+          const { data: canciones } = await supabase
+            .from("cancion_artistas")
+            .select("cancion_id")
+            .eq("artista_id", el.entidad_id);
+          const cancionIds = canciones.map(c => c.cancion_id);
+          const { data: valsCancion } = await supabase
+            .from("valoraciones_canciones")
+            .select("calificacion")
+            .eq("usuario", usuario)
+            .in("cancion", cancionIds);
+
+          const { data: videos } = await supabase
+            .from("video_artistas")
+            .select("video_id")
+            .eq("artista_id", el.entidad_id);
+          const videoIds = videos.map(v => v.video_id);
+          const { data: valsVideo } = await supabase
+            .from("valoraciones_videos_musicales")
+            .select("calificacion")
+            .eq("usuario", usuario)
+            .in("video", videoIds);
+
+          // Junta todas las valoraciones
+          const allVals = [
+            ...valsAlbum.map(v => v.calificacion),
+            ...valsCancion.map(v => v.calificacion),
+            ...valsVideo.map(v => v.calificacion),
+          ];
+          el.porcentajes = [5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5, 1, 0.5, 0].map(star => {
+            const count = allVals.filter(v => v === star).length;
+            return allVals.length ? count / allVals.length : 0;
+          });
+        } else {
+          el.porcentajes = [];
+        }
+      }
+      // Ordena por valoracion y luego por % de 5*, 4.5*, etc.
+      elementos.sort((a, b) => {
+        if (b.valoracion !== a.valoracion) return b.valoracion - a.valoracion;
+        for (let i = 0; i < a.porcentajes.length; i++) {
+          if (b.porcentajes[i] !== a.porcentajes[i]) return b.porcentajes[i] - a.porcentajes[i];
+        }
+        return 0;
+      });
+    } else {
+      // Orden manual: por posicion
+      elementos.sort((a, b) => a.posicion - b.posicion);
+    }
 
     // Recalcular las posiciones
     for (let i = 0; i < elementos.length; i++) {

@@ -185,4 +185,14 @@ const obtenerCancionClusters = async (req, res) => {
   res.status(400).json({ error: 'Falta parámetro' });
 };
 
-module.exports = { obtenerCancionClusters, crearCancion, obtenerCanciones, obtenerCancionPorId, actualizarCancion, eliminarCancion, sugerirCancionDuplicada, reportarNoMusical };
+const obtenerCancionesClusters = async (req, res) => {
+  const { offset = 0, limit = 1000 } = req.query;
+  const { data, error } = await supabase
+    .from('cancion_clusters')
+    .select('id_cancion, grupo')
+    .range(Number(offset), Number(offset) + Number(limit) - 1);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+};
+
+module.exports = { obtenerCancionesClusters, obtenerCancionClusters, crearCancion, obtenerCanciones, obtenerCancionPorId, actualizarCancion, eliminarCancion, sugerirCancionDuplicada, reportarNoMusical };

@@ -282,4 +282,14 @@ const obtenerAlbumClusters = async (req, res) => {
   res.status(400).json({ error: 'Falta parámetro' });
 };
 
-module.exports = { obtenerAlbumClusters, crearAlbum, obtenerAlbumes, obtenerAlbumPorId, actualizarAlbum, eliminarAlbum, sugerirCancionesNuevasAlbum, sugerirAlbumSimilar };
+const obtenerAlbumesClusters = async (req, res) => {
+  const { offset = 0, limit = 1000 } = req.query;
+  const { data, error } = await supabase
+    .from('album_clusters')
+    .select('id_album, grupo')
+    .range(Number(offset), Number(offset) + Number(limit) - 1);
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+};
+
+module.exports = { obtenerAlbumesClusters, obtenerAlbumClusters, crearAlbum, obtenerAlbumes, obtenerAlbumPorId, actualizarAlbum, eliminarAlbum, sugerirCancionesNuevasAlbum, sugerirAlbumSimilar };

@@ -5,6 +5,7 @@ const videoController = require('../controllers/videoController');
 router.post('/', videoController.crearVideoMusical);
 router.get('/sugerencias-cancion', videoController.sugerirCancionEnVideo);
 router.get('/clusters', videoController.obtenerVideoClusters);
+router.get('/video_clusters', videoController.obtenerVideosClusters);
 router.get('/', videoController.obtenerVideosMusicales);
 router.get('/:id', videoController.obtenerVideoMusicalPorId);
 router.put('/:id', videoController.actualizarVideoMusical);

@@ -5,6 +5,7 @@ const cancionController = require("../controllers/cancionController");
 // Rutas CRUD
 router.post("/", cancionController.crearCancion);
 router.get('/sugerencias-duplicado', cancionController.sugerirCancionDuplicada);
+router.get('/cancion_clusters', cancionController.obtenerCancionesClusters);
 router.get('/clusters', cancionController.obtenerCancionClusters);
 router.get("/", cancionController.obtenerCanciones);
 router.get("/:id", cancionController.obtenerCancionPorId);

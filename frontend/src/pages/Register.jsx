@@ -49,7 +49,7 @@ const Register = () => {
   };
 
   return (
-    <div className="max-w-sm mx-auto p-4 border rounded shadow-md mt-10">
+    <div className="max-w-sm w-full mx-auto p-4 border rounded shadow-md mt-10" style={{ minWidth: 0 }}>
       <h2 className="text-xl font-semibold mb-4 text-center">Registrarse</h2>
 
       {error && <p className="text-red-500">{error}</p>}

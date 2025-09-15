@@ -1,3 +1,67 @@
+@media (max-width: 600px) {
+  .grid-cols-2, .md\:grid-cols-2 {
+    grid-template-columns: 1fr !important;
+  }
+  .p-6, .px-4, .py-4 {
+    padding: 1rem !important;
+  }
+  .text-4xl {
+    font-size: 2rem !important;
+  }
+  .max-w-sm {
+    max-width: 98vw !important;
+  }
+  .p-4 {
+    padding: 0.75rem !important;
+  }
+  header, footer {
+    padding: 0.5rem !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+  }
+  header nav {
+    flex-direction: column !important;
+    gap: 0.5rem !important;
+    font-size: 1rem !important;
+  }
+  .profile-img {
+    width: 90vw !important;
+    height: auto !important;
+    max-width: 320px !important;
+    max-height: 320px !important;
+  }
+  .feed-card {
+    flex-direction: column !important;
+    gap: 10px !important;
+    padding: 10px 6px !important;
+  }
+  .feed-card-img {
+    width: 48px !important;
+    height: 48px !important;
+  }
+  body, html, #root {
+    width: 100vw;
+    overflow-x: hidden;
+  }
+  .max-w-4xl {
+    max-width: 98vw !important;
+  }
+  .px-2 {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+  }
+  /* ...otros ajustes para móvil... */
+}
+
+@media (min-width: 768px) {
+  .md\:hidden { display: none !important; }
+  .md\:flex { display: flex !important; }
+}
+@media (max-width: 767px) {
+  .md\:hidden { display: block !important; }
+  .md\:flex { display: none !important; }
+}
+
 .tendencias-container {
   text-align: center;
 }

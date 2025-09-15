@@ -19,6 +19,18 @@ const ParaTiFeed = ({ usuario }) => {
   const [actividad, setActividad] = useState([]);
   const [pendientes, setPendientes] = useState([]);
   const [actividadEnriquecida, setActividadEnriquecida] = useState([]);
+  const [pendientesAgrupados, setPendientesAgrupados] = useState({
+    artista: [],
+    album: [],
+    cancion: [],
+    video: [],
+  });
+  const [albumesPendientes, setAlbumesPendientes] = useState([]);
+  const [albumOffset, setAlbumOffset] = useState(0);
+  const [cancionesPendientes, setCancionesPendientes] = useState([]);
+  const [cancionOffset, setCancionOffset] = useState(0);
+  const [videosPendientes, setVideosPendientes] = useState([]);
+  const [videoOffset, setVideoOffset] = useState(0);
 
   useEffect(() => {
     if (!usuario?.id_usuario) return;
@@ -32,10 +44,47 @@ const ParaTiFeed = ({ usuario }) => {
       }
     };
 
+    // Agrupa por grupo y prioriza popularidad
+    function agruparPorCluster(pendientes, tipo, clustersMap, popularidadMap) {
+      const porGrupo = {};
+      pendientes.forEach(item => {
+        const grupo = clustersMap[item.id] || item.id; // Si no hay cluster, usa id único
+        if (!porGrupo[grupo] || (popularidadMap[item.id] > popularidadMap[porGrupo[grupo].id])) {
+          porGrupo[grupo] = item;
+        }
+      });
+      // Devuelve solo los más populares, máximo 10
+      return Object.values(porGrupo).sort((a, b) => (popularidadMap[b.id] || 0) - (popularidadMap[a.id] || 0)).slice(0, 10);
+    }
+
     const fetchPendientesValoracion = async () => {
       try {
         const response = await axios.get(`${API_URL}/catalogos/pendientes-valoracion/${usuario.id_usuario}`);
-        setPendientes(response.data);
+        const pendientes = response.data;
+
+        // Trae clusters y popularidad para cada tipo
+        const [cancionClusters, albumClusters, videoClusters] = await Promise.all([
+          axios.get(`${API_URL}/canciones/cancion_clusters`),
+          axios.get(`${API_URL}/albumes/album_clusters`),
+          axios.get(`${API_URL}/videos/video_clusters`)
+        ]);
+        const cancionClusterMap = Object.fromEntries(cancionClusters.data.map(c => [c.id_cancion, c.grupo]));
+        const albumClusterMap = Object.fromEntries(albumClusters.data.map(a => [a.id_album, a.grupo]));
+        const videoClusterMap = Object.fromEntries(videoClusters.data.map(v => [v.id_video, v.grupo]));
+
+        // Popularidad
+        const cancionPopMap = Object.fromEntries(pendientes.filter(p => p.tipo === "cancion").map(c => [c.id, c.popularidad || 0]));
+        const albumPopMap = Object.fromEntries(pendientes.filter(p => p.tipo === "album").map(a => [a.id, a.popularidad || 0]));
+        const videoPopMap = Object.fromEntries(pendientes.filter(p => p.tipo === "video").map(v => [v.id, v.popularidad || 0]));
+
+        // Agrupa y limita
+        const pendientesAgrupados = {
+          artista: pendientes.filter(p => p.tipo === "artista").slice(0, 10),
+          album: agruparPorCluster(pendientes.filter(p => p.tipo === "album"), "album", albumClusterMap, albumPopMap),
+          cancion: agruparPorCluster(pendientes.filter(p => p.tipo === "cancion"), "cancion", cancionClusterMap, cancionPopMap),
+          video: agruparPorCluster(pendientes.filter(p => p.tipo === "video"), "video", videoClusterMap, videoPopMap),
+        };
+        setPendientesAgrupados(pendientesAgrupados);
       } catch (error) {
         console.error('Error fetching pendientes valoracion:', error);
       }
@@ -43,6 +92,9 @@ const ParaTiFeed = ({ usuario }) => {
 
     fetchFeedActividad();
     fetchPendientesValoracion();
+    fetchMasAlbumes();
+    fetchMasCanciones();
+    fetchMasVideos();
   }, [usuario]);
 
   // Enriquecer valoraciones con emoción y familiaridad
@@ -115,16 +167,23 @@ const ParaTiFeed = ({ usuario }) => {
   else setActividadEnriquecida([]);
 }, [actividad]);
 
-  // Agrupa pendientes por tipo
-  const pendientesAgrupados = {
-    artista: [],
-    album: [],
-    cancion: [],
-    video: [],
+  const fetchMasAlbumes = async () => {
+    const res = await axios.get(`${API_URL}/catalogos/pendientes-valoracion/${usuario.id_usuario}?tipo=album&offset=${albumOffset}&limit=10`);
+    setAlbumesPendientes(prev => [...prev, ...res.data]);
+    setAlbumOffset(prev => prev + 10);
   };
-  pendientes.forEach(item => {
-    pendientesAgrupados[item.tipo]?.push(item);
-  });
+
+  const fetchMasCanciones = async () => {
+    const res = await axios.get(`${API_URL}/catalogos/pendientes-valoracion/${usuario.id_usuario}?tipo=cancion&offset=${cancionOffset}&limit=10`);
+    setCancionesPendientes(prev => [...prev, ...res.data]);
+    setCancionOffset(prev => prev + 10);
+  };
+
+  const fetchMasVideos = async () => {
+    const res = await axios.get(`${API_URL}/catalogos/pendientes-valoracion/${usuario.id_usuario}?tipo=video&offset=${videoOffset}&limit=10`);
+    setVideosPendientes(prev => [...prev, ...res.data]);
+    setVideoOffset(prev => prev + 10);
+  };
 
   if (!usuario) return null;
 
@@ -229,28 +288,88 @@ const ParaTiFeed = ({ usuario }) => {
 
       <div className="mt-8">
         <h4 className="text-xl font-bold mb-2">Pendientes de valorar de tus artistas seguidos</h4>
-        {['artista', 'album', 'cancion', 'video'].map(tipo => (
-          pendientesAgrupados[tipo].length > 0 && (
-            <div key={tipo} className="pendientes-grupo">
-              <div className="pendientes-titulo">
-                {tipo === 'artista' ? 'Artistas' : tipo === 'album' ? 'Álbumes' : tipo === 'cancion' ? 'Canciones' : 'Videos Musicales'}
-              </div>
-              <div className="pendientes-lista">
-                {pendientesAgrupados[tipo].map(item => (
-                  <div key={`${item.tipo}-${item.id}`} className="pendiente-card">
-                    <Link to={`/${item.tipo === 'album' ? 'album' : item.tipo === 'cancion' ? 'song' : item.tipo === 'video' ? 'video' : 'artist'}/${item.id}`}>
-                      <img src={
-                          item.foto || '/default.png'
-                        } alt={item.titulo} />
-                      <div>{item.titulo}</div>
-                      <div className="pendiente-tipo">{tipo === 'artista' ? 'Artista' : tipo === 'album' ? 'Álbum' : tipo === 'cancion' ? 'Canción' : 'Video Musical'}</div>
-                    </Link>
-                  </div>
-                ))}
-              </div>
+
+        {/* Artistas (solo agrupados) */}
+        {pendientesAgrupados.artista.length > 0 && (
+          <div className="pendientes-grupo">
+            <div className="pendientes-titulo">Artistas</div>
+            <div className="pendientes-lista">
+              {pendientesAgrupados.artista.map(item => (
+                <div key={`artista-${item.id}`} className="pendiente-card">
+                  <Link to={`/artist/${item.id}`}>
+                    <img src={item.foto || '/default.png'} alt={item.titulo} />
+                    <div>{item.titulo}</div>
+                    <div className="pendiente-tipo">Artista</div>
+                  </Link>
+                </div>
+              ))}
             </div>
-          )
-        ))}
+          </div>
+        )}
+
+        {/* Álbumes */}
+        {(pendientesAgrupados.album.length > 0 || albumesPendientes.length > 0) && (
+          <div className="pendientes-grupo">
+            <div className="pendientes-titulo">Álbumes</div>
+            {/* Álbumes */}
+            <div className="pendientes-lista">
+              {[...pendientesAgrupados.album, ...albumesPendientes].map(item => (
+                <div key={`album-${item.referencia_id}`} className="pendiente-card">
+                  <Link to={`/album/${item.referencia_id}`}>
+                    <img src={item.referencia_info?.foto_album || '/default.png'} alt={item.referencia_info?.titulo} />
+                    <div>{item.referencia_info?.titulo}</div>
+                    <div className="pendiente-tipo">Álbum</div>
+                  </Link>
+                </div>
+              ))}
+            </div>
+            <button onClick={fetchMasAlbumes} className="btn-ver-mas mt-2">
+              Ver más álbumes pendientes
+            </button>
+          </div>
+        )}
+
+        {/* Canciones */}
+        {(pendientesAgrupados.cancion.length > 0 || cancionesPendientes.length > 0) && (
+          <div className="pendientes-grupo">
+            <div className="pendientes-titulo">Canciones</div>
+            <div className="pendientes-lista">
+              {[...pendientesAgrupados.cancion, ...cancionesPendientes].map(item => (
+                <div key={`cancion-${item.referencia_id}`} className="pendiente-card">
+                  <Link to={`/song/${item.referencia_id}`}>
+                    <img src={item.referencia_info?.foto || '/default-song.png'} alt={item.referencia_info?.titulo} />
+                    <div>{item.referencia_info?.titulo}</div>
+                    <div className="pendiente-tipo">Canción</div>
+                  </Link>
+                </div>
+              ))}
+            </div>
+            <button onClick={fetchMasCanciones} className="btn-ver-mas mt-2">
+              Ver más canciones pendientes
+            </button>
+          </div>
+        )}
+
+        {/* Videos */}
+        {(pendientesAgrupados.video.length > 0 || videosPendientes.length > 0) && (
+          <div className="pendientes-grupo">
+            <div className="pendientes-titulo">Videos Musicales</div>
+            <div className="pendientes-lista">
+              {[...pendientesAgrupados.video, ...videosPendientes].map(item => (
+                <div key={`video-${item.referencia_id}`} className="pendiente-card">
+                  <Link to={`/video/${item.referencia_id}`}>
+                    <img src={item.referencia_info?.miniatura || '/default.png'} alt={item.referencia_info?.titulo} />
+                    <div>{item.referencia_info?.titulo}</div>
+                    <div className="pendiente-tipo">Video Musical</div>
+                  </Link>
+                </div>
+              ))}
+            </div>
+            <button onClick={fetchMasVideos} className="btn-ver-mas mt-2">
+              Ver más videos pendientes
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
