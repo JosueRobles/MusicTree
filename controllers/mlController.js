@@ -1,6 +1,8 @@
 const supabase = require('../db');
 const axios = require('axios');
 
+const MICROSERVICIO_URL = process.env.MICROSERVICIO_URL || 'http://localhost:8000';
+
 // Exporta datos de canciones para ML
 const exportCancionesForML = async (req, res) => {
   const { offset = 0, limit = 1000 } = req.query;
@@ -101,7 +103,7 @@ const sugerirSimilares = async (req, res) => {
 
 async function obtenerSimilaresDesdePython(entidad, id, embedding) {
   try {
-    const { data } = await axios.post('http://localhost:8000/similares', {
+    const { data } = await axios.post(`${MICROSERVICIO_URL}/similares`, {
       entidad,
       id,
       embedding
