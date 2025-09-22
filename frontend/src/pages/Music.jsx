@@ -301,8 +301,13 @@ const Music = () => {
       return;
     }
 
+    // Si es ranking comunitario, llama a la función especial SIEMPRE
+    if (filtros.orden === 'ranking_comunitario' && filtros.entidad) {
+      handleAdvancedSearch(filtros); // Esto ya llama a la ruta especial
+      return;
+    }
+
     // Si hay algún filtro o cambio de orden, aplica la búsqueda avanzada
-    // (Ranking comunitario, valoración, popularidad, predeterminado con filtros)
     handleAdvancedSearch(filtros);
   }, [filtros]);
 

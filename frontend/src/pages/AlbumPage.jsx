@@ -413,7 +413,7 @@ const AlbumPage = ({ usuario }) => {
                 <th># Valoraciones</th>
                 <th>Promedio</th>
                 <th>Popularidad</th>
-                <th>Estado</th>
+                {usuario && <th>Estado</th>}
               </tr>
             </thead>
             <tbody>
@@ -444,7 +444,7 @@ const AlbumPage = ({ usuario }) => {
                           fontWeight: "bold"
                         }}
                       >
-                        {estado}
+                        {usuario && <td>{estado}</td>}
                       </span>
                     </td>
                   </tr>

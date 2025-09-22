@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import PropTypes from 'prop-types';
@@ -61,6 +61,14 @@ const ArtistPage = ({ usuario }) => {
   const [historial, setHistorial] = useState([]);
   const [listasDestacadas, setListasDestacadas] = useState([]);
   const [showHistorial, setShowHistorial] = useState(false);
+  const [albumClusters, setAlbumClusters] = useState({});
+  const [cancionClusters, setCancionClusters] = useState({});
+  const [videoClusters, setVideoClusters] = useState({});
+  const [valoradosClusters, setValoradosClusters] = useState({
+    album: new Set(),
+    cancion: new Set(),
+    video: new Set(),
+  });
 
   useEffect(() => {
     const fetchArtistData = async () => {
@@ -197,6 +205,42 @@ const ArtistPage = ({ usuario }) => {
   fetchValorados();
 }, [usuario, id]);
 
+  useEffect(() => {
+  // Trae clusters de todas las entidades
+  const fetchClusters = async () => {
+    const [alb, can, vid] = await Promise.all([
+      axios.get(`${API_URL}/albumes/album_clusters`),
+      axios.get(`${API_URL}/canciones/cancion_clusters`),
+      axios.get(`${API_URL}/videos/video_clusters`)
+    ]);
+    setAlbumClusters(Object.fromEntries(alb.data.map(a => [a.id_album, a.grupo])));
+    setCancionClusters(Object.fromEntries(can.data.map(c => [c.id_cancion, c.grupo])));
+    setVideoClusters(Object.fromEntries(vid.data.map(v => [v.id_video, v.grupo])));
+  };
+  fetchClusters();
+}, []);
+
+  useEffect(() => {
+  // Calcula los grupos valorados por el usuario
+  const albGrupos = valorados
+    .filter(v => v.startsWith('album-'))
+    .map(v => albumClusters[parseInt(v.split('-')[1])])
+    .filter(Boolean);
+  const canGrupos = valorados
+    .filter(v => v.startsWith('cancion-'))
+    .map(v => cancionClusters[parseInt(v.split('-')[1])])
+    .filter(Boolean);
+  const vidGrupos = valorados
+    .filter(v => v.startsWith('video-'))
+    .map(v => videoClusters[parseInt(v.split('-')[1])])
+    .filter(Boolean);
+  setValoradosClusters({
+    album: new Set(albGrupos),
+    cancion: new Set(canGrupos),
+    video: new Set(vidGrupos),
+  });
+}, [valorados, albumClusters, cancionClusters, videoClusters]);
+
   const handleRatingChange = async (newRating) => {
     setRating(newRating);
     if (usuario) {
@@ -291,6 +335,21 @@ const handleAddToList = async () => {
     acc[tipo].push(album);
     return acc;
   }, {});
+
+  // Helper para estado visual
+  function getEstadoEntidad(tipo, id) {
+    const key = `${tipo}-${id}`;
+    if (valorados.includes(key)) return 'valorada';
+    const grupo = tipo === 'album'
+      ? albumClusters[id]
+      : tipo === 'cancion'
+      ? cancionClusters[id]
+      : tipo === 'video'
+      ? videoClusters[id]
+      : null;
+    if (grupo && valoradosClusters[tipo].has(grupo)) return 'similar';
+    return '';
+  }
 
   return (
     <div className="pt-20 px-4">
@@ -428,60 +487,72 @@ const handleAddToList = async () => {
       {tipo === 'album' ? 'Álbumes' : tipo === 'compilation' ? 'Compilaciones' : tipo === 'single' ? 'Singles' : tipo}
     </h4>
     <ul className="artist-grid gap-4 w-full justify-items-center mx-auto">
-      {lista.map((album) => (
-        <li key={album.id_album}>
-          <Link to={`/album/${album.id_album}`}>
-            <img
-              src={album.foto_album}
-              alt={album.titulo}
-              style={{ width: '255px', height: '255px', objectFit: 'cover' }}
-              className={`rounded-md ${valorados.includes(`album-${album.id_album}`) ? 'valorada-img' : ''}`}
-            />
-            <p className={`text-center mt-2 text-xs font-semibold ${valorados.includes(`album-${album.id_album}`) ? 'valorada' : ''}`}>
-              {album.titulo}
-              {valorados.includes(`album-${album.id_album}`) && <span style={{ marginLeft: 6 }}>⭐</span>}
-            </p>
-          </Link>
-        </li>
-      ))}
+      {lista.map((album) => {
+        const estado = getEstadoEntidad('album', album.id_album);
+        return (
+          <li key={album.id_album}>
+            <Link to={`/album/${album.id_album}`}>
+              <img
+                src={album.foto_album}
+                alt={album.titulo}
+                style={{ width: '255px', height: '255px', objectFit: 'cover' }}
+                className={`rounded-md ${estado === 'valorada' ? 'valorada-img' : estado === 'similar' ? 'similar-img' : ''}`}
+              />
+              <p className={`text-center mt-2 text-xs font-semibold ${estado === 'valorada' ? 'valorada' : estado === 'similar' ? 'similar' : ''}`}>
+                {album.titulo}
+                {estado === 'valorada' && <span style={{ marginLeft: 6 }}>⭐</span>}
+                {estado === 'similar' && <span style={{ marginLeft: 6, color: '#f59e42' }}>🟧</span>}
+              </p>
+            </Link>
+          </li>
+        );
+      })}
     </ul>
   </div>
 ))}
 
 <h3 className="text-2xl font-bold mt-8">Videos Musicales</h3>
 <ul className="artist-grid gap-4 w-full justify-items-center mx-auto">
-  {videos.map((video) => (
-    <li key={video.id_video}>
-      <Link to={`/video/${video.id_video}`}>
-        <img
-          src={video.miniatura}
-          alt={video.titulo}
-          style={{ width: '256px', height: '144px', objectFit: 'cover' }}
-          className={`rounded-md ${valorados.includes(`video-${video.id_video}`) ? 'valorada-img' : ''}`}
-        />
-        <p className={`text-center mt-2 text-xs font-semibold ${valorados.includes(`video-${video.id_video}`) ? 'valorada' : ''}`}>
-          {video.titulo}
-          {valorados.includes(`video-${video.id_video}`) && <span style={{ marginLeft: 6 }}>⭐</span>}
-        </p>
-      </Link>
-    </li>
-  ))}
+  {videos.map((video) => {
+    const estado = getEstadoEntidad('video', video.id_video);
+    return (
+      <li key={video.id_video}>
+        <Link to={`/video/${video.id_video}`}>
+          <img
+            src={video.miniatura}
+            alt={video.titulo}
+            style={{ width: '256px', height: '144px', objectFit: 'cover' }}
+            className={`rounded-md ${estado === 'valorada' ? 'valorada-img' : estado === 'similar' ? 'similar-img' : ''}`}
+          />
+          <p className={`text-center mt-2 text-xs font-semibold ${estado === 'valorada' ? 'valorada' : estado === 'similar' ? 'similar' : ''}`}>
+            {video.titulo}
+            {estado === 'valorada' && <span style={{ marginLeft: 6 }}>⭐</span>}
+            {estado === 'similar' && <span style={{ marginLeft: 6, color: '#f59e42' }}>🟧</span>}
+          </p>
+        </Link>
+      </li>
+    );
+  })}
 </ul>
 
 {/* Canciones */}
 <h3 className="text-2xl font-bold mt-8">Canciones</h3>
 <ul>
-  {cancionesOrdenadas.map((song) => (
-    <li key={song.id_cancion}>
-      <Link
-        to={`/song/${song.id_cancion}`}
-        className={valorados.includes(`cancion-${song.id_cancion}`) ? 'valorada' : ''}
-      >
-        {song.titulo}
-        {valorados.includes(`cancion-${song.id_cancion}`) && <span style={{ marginLeft: 6 }}>⭐</span>}
-      </Link>
-    </li>
-  ))}
+  {cancionesOrdenadas.map((song) => {
+    const estado = getEstadoEntidad('cancion', song.id_cancion);
+    return (
+      <li key={song.id_cancion}>
+        <Link
+          to={`/song/${song.id_cancion}`}
+          className={estado === 'valorada' ? 'valorada' : estado === 'similar' ? 'similar' : ''}
+        >
+          {song.titulo}
+          {estado === 'valorada' && <span style={{ marginLeft: 6 }}>⭐</span>}
+          {estado === 'similar' && <span style={{ marginLeft: 6, color: '#f59e42' }}>🟧</span>}
+        </Link>
+      </li>
+    );
+  })}
 </ul>
 {valoracionesUsuarios.length > 0 && (
   <div className="mt-6">

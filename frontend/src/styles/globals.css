@@ -95,6 +95,21 @@
   transition: border 0.2s, box-shadow 0.2s;
 }
 
+.similar {
+  color: #f59e42 !important;
+  font-weight: bold !important;
+  background: #3d2c00 !important;
+  border-radius: 6px;
+  padding: 2px 8px;
+  transition: background 0.2s, color 0.2s;
+}
+.similar-img {
+  border: 4px solid #f59e42 !important;
+  box-shadow: 0 0 12px #f59e4255;
+  border-radius: 8px;
+  transition: border 0.2s, box-shadow 0.2s;
+}
+
 .profile-icon {
   width: 100px !important;
   height: 100px !important;

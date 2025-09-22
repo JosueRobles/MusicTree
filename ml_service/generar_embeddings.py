@@ -4,6 +4,7 @@ import requests
 import supabase
 from sentence_transformers import SentenceTransformer
 import numpy as np
+import re
 
 # Carga variables de entorno
 load_dotenv()
@@ -36,6 +37,21 @@ def get_data(endpoint):
         page += 1
     return all_data
 
+def normalizar_titulo_base(titulo: str) -> str:
+    if not titulo:
+        return ""
+    t = titulo.lower()
+    # eliminar términos comunes de versiones
+    t = re.sub(r'\b(remaster(ed)?|deluxe|edition|bonus|live|demo|super|anniversary|expanded|complete|'
+               r'version|mix|radio edit|remix|original|mono|stereo|explicit|clean|instrumental|'
+               r'karaoke|single|ep|lp|box set|disc \d+|cd\d+|vinyl|digital|special|reissue|commentary)\b',
+               '', t, flags=re.I)
+    # limpiar (feat. ...), with ...
+    t = re.sub(r'(\(feat.*?\)|feat\.?.*|with .*)', '', t, flags=re.I)
+    # quitar años y números sueltos
+    t = re.sub(r'\b\d{2,4}\b', '', t)
+    return re.sub(r'\s+', ' ', t).strip()
+
 def get_canciones():
     return get_data("canciones")
 
@@ -47,24 +63,27 @@ def get_videos():
 
 # Funciones para generar embedding
 def embed_cancion(cancion):
-    texto = f"{cancion.get('titulo', '')} {cancion.get('albumes', {}).get('titulo', '')} " \
+    titulo = normalizar_titulo_base(cancion.get('titulo', ''))
+    texto = f"{titulo} {cancion.get('albumes', {}).get('titulo', '')} " \
             f"{' '.join(str(a['artista_id']) for a in cancion.get('cancion_artistas', []))} " \
-            f"{' '.join(str(g['genero_id']) for g in cancion.get('cancion_generos', []))}" \
+            f"{' '.join(str(g['genero_id']) for g in cancion.get('cancion_generos', []))} " \
             f"{cancion.get('duracion_ms', '')}"
     return model.encode(texto).tolist()
 
 def embed_album(album):
-    texto = f"{album.get('titulo', '')} {album.get('tipo_album', '')} {album.get('anio', '')} " \
+    titulo = normalizar_titulo_base(album.get('titulo', ''))
+    texto = f"{titulo} {album.get('tipo_album', '')} {album.get('anio', '')} " \
             f"{' '.join(str(a['artista_id']) for a in album.get('album_artistas', []))} " \
             f"{' '.join(str(g['genero_id']) for g in album.get('album_generos', []))}"
     return model.encode(texto).tolist()
 
 def embed_video(video):
-    texto = f"{video.get('titulo', '')} {video.get('anio', '')} {video.get('duracion', '')} " \
+    titulo = normalizar_titulo_base(video.get('titulo', ''))
+    texto = f"{titulo} {video.get('anio', '')} {video.get('duracion', '')} " \
             f"{' '.join(str(a['artista_id']) for a in video.get('video_artistas', []))} " \
             f"{' '.join(str(g['genero_id']) for g in video.get('video_generos', []))}"
     return model.encode(texto).tolist()
-
+    
 # Funciones para guardar embeddings
 def save_embedding_cancion(id_cancion, emb):
     sb.table('cancion_embeddings').upsert({

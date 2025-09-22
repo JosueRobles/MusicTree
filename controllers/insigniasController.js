@@ -76,6 +76,9 @@ const eliminarInsignia = async (req, res) => {
 // Obtener progreso y desbloquear insignias
 const obtenerProgresoYDesbloquear = async (req, res) => {
   const { userId } = req.params;
+  if (!userId || isNaN(Number(userId))) {
+    return res.status(400).json({ error: 'userId requerido y debe ser numérico.' });
+  }
   try {
     // 1. Consulta la vista de progreso
     const { data: progreso, error } = await supabase

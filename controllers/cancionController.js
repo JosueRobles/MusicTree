@@ -2,6 +2,8 @@ const supabase = require("../db");
 const { notificarNuevosLanzamientos } = require('./utils/notifyHelpers');
 const axios = require('axios');
 
+const MICROSERVICIO_URL = process.env.MICROSERVICIO_URL || 'http://localhost:8000';
+
 const crearCancion = async (req, res) => {
   const { titulo, album_id, orden, duracion_segundos } = req.body;
 
@@ -124,7 +126,7 @@ const sugerirCancionDuplicada = async (req, res) => {
   if (!emb) return res.json({ mensaje: null, duplicados: [] });
 
   // Buscar canciones similares
-  const similares = await axios.post('http://localhost:8000/similares', { entidad: 'cancion', id: id_cancion, embedding: emb.embedding });
+  const similares = await axios.post(`${MICROSERVICIO_URL}/similares`, { entidad: 'cancion', id: id_cancion, embedding: emb.embedding });
   // Filtra el propio id
   const similaresFiltrados = similares.data.filter(s => s.id !== parseInt(id_cancion));
   const { data: clusterActual } = await supabase.from('cancion_clusters').select('grupo').eq('id_cancion', id_cancion).single();

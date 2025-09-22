@@ -27,6 +27,7 @@ const BusquedaAvanzada = ({
   const [anios, setAnios] = useState([]);
   const [sugerencias, setSugerencias] = useState([]);
   const [entidadError, setEntidadError] = useState(false);
+  const [resetBarra, setResetBarra] = useState(false);
 
   useEffect(() => {
     const fetchGeneros = async () => {
@@ -77,7 +78,6 @@ const BusquedaAvanzada = ({
 
   useEffect(() => {
     if (filtros.artista) {
-      // Normaliza artistas a array de números
       const trabajosAnios = [
         ...albums.filter(a => {
           const artistasArr = Array.isArray(a.artistas)
@@ -96,23 +96,29 @@ const BusquedaAvanzada = ({
           return artistasArr.includes(Number(filtros.artista));
         }).map(v => v.anio)
       ];
-      setAnios([...new Set(trabajosAnios)].sort((a, b) => b - a));
+      let nuevosAnios = [...new Set(trabajosAnios)].sort((a, b) => b - a);
+      // Si el año seleccionado no está, agrégalo temporalmente
+      if (filtros.anio && !nuevosAnios.includes(Number(filtros.anio))) {
+        nuevosAnios = [Number(filtros.anio), ...nuevosAnios];
+      }
+      setAnios(nuevosAnios);
     } else {
-      // Recopila todos los años únicos de álbumes y videos
       const todosAnios = [...new Set([...albums.map(album => album.anio), ...videos.map(video => video.anio)])].sort((a, b) => b - a);
       setAnios(todosAnios);
     }
   }, [filtros.artista, albums, videos]);
 
   const handleFiltroChange = (campo, valor) => {
-    const nuevosFiltros = { ...filtros, [campo]: valor };
+    const nuevosFiltros = { ...filtros, [campo]: valor, orden: filtros.orden || 'predeterminado' };
     setFiltros(nuevosFiltros);
     onSearch(nuevosFiltros);
   };
 
   const handleSearchInput = (termino) => {
-    setFiltros({ ...filtros, termino });
-    if (onBarraSearch) onBarraSearch(termino); // NUEVO: solo actualiza el término
+    setFiltros(f => ({ ...f, termino }));
+    // Actualiza todos los filtros, no solo el término
+    onSearch({ ...filtros, termino });
+    if (onBarraSearch) onBarraSearch(termino);
   };
 
   const handleResetFilters = () => {
@@ -124,17 +130,18 @@ const BusquedaAvanzada = ({
       entidad: '',
       orden: 'predeterminado',
     });
-    onSortOrderChange('predeterminado'); // <-- Añade esto
-    onReset(); // Llama la función para restablecer la vista predeterminada
+    setResetBarra(true); // <-- activa el reset de la barra
+    onSortOrderChange('predeterminado');
+    onReset();
   };
+
+  useEffect(() => {
+    if (resetBarra) setResetBarra(false); // vuelve a false después de limpiar
+  }, [resetBarra]);
 
   const handleSortChange = (e) => {
     const order = e.target.value;
-    if ((order === 'ranking_comunitario') && !filtros.entidad) {
-      setEntidadError(true);
-      return;
-    }
-    setEntidadError(false);
+    setFiltros(f => ({ ...f, orden: order }));
     onSearch({ ...filtros, orden: order });
   };
   
@@ -148,6 +155,7 @@ const BusquedaAvanzada = ({
             onSearch={handleSearchInput}
             placeholder="Artistas, álbumes, canciones, videos musicales..."
             sugerencias={sugerencias}
+            reset={resetBarra} // <-- nueva prop
           />
         </div>
         
