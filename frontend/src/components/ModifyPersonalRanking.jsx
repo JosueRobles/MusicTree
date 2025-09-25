@@ -74,7 +74,10 @@ const ModifyPersonalRanking = ({ usuario, soloLectura = false }) => {
   const handleVerDetalle = async (item) => {
     setDetalleAbierto(item);
     setDetalleStats(null);
-    // Segmentación álbumes/canciones/videos/artistas
+    setSegmentacionCanciones(null);
+    setSegmentacionVideos(null);
+    setAlbumArtistas([]);
+    // Segmentación principal
     const segRes = await axios.get(`${API_URL}/valoraciones/segmentacion-personal`, {
       params: {
         usuario: usuario.id_usuario,
@@ -84,6 +87,35 @@ const ModifyPersonalRanking = ({ usuario, soloLectura = false }) => {
     });
     setDetalleStats(segRes.data);
 
+    // Si es artista, trae canciones y videos
+    if (tipoActivo === "artista") {
+      // Canciones del artista
+      const cancionesRes = await axios.get(`${API_URL}/relaciones/artistas/${item.entidad_id}/canciones`);
+      const cancionesIds = (cancionesRes.data.canciones || []).map(c => c.id_cancion);
+      if (cancionesIds.length) {
+        const segCancionesRes = await axios.get(`${API_URL}/valoraciones/segmentacion-personal`, {
+          params: {
+            usuario: usuario.id_usuario,
+            entidad_tipo: "cancion",
+            entidad_id: cancionesIds.join(",")
+          }
+        });
+        setSegmentacionCanciones(segCancionesRes.data);
+      }
+      // Videos del artista
+      const videosRes = await axios.get(`${API_URL}/relaciones/artistas/${item.entidad_id}/videos`);
+      const videosIds = (videosRes.data || []).map(v => v.id_video);
+      if (videosIds.length) {
+        const segVideosRes = await axios.get(`${API_URL}/valoraciones/segmentacion-personal`, {
+          params: {
+            usuario: usuario.id_usuario,
+            entidad_tipo: "video",
+            entidad_id: videosIds.join(",")
+          }
+        });
+        setSegmentacionVideos(segVideosRes.data);
+      }
+    }
     // Si es álbum, trae artistas y segmentación de canciones
     if (tipoActivo === "album") {
       const artistasRes = await axios.get(`${API_URL}/relaciones/albumes/${item.entidad_id}/artistas`);
@@ -97,25 +129,6 @@ const ModifyPersonalRanking = ({ usuario, soloLectura = false }) => {
       });
       setSegmentacionCanciones(segCancionesRes.data);
     }
-    // Si es artista, trae segmentación de canciones y videos
-    if (tipoActivo === "artista") {
-      const segCancionesRes = await axios.get(`${API_URL}/valoraciones/segmentacion-personal`, {
-        params: {
-          usuario: usuario.id_usuario,
-          entidad_tipo: "cancion",
-          entidad_id: item.entidad_id
-        }
-      });
-      setSegmentacionCanciones(segCancionesRes.data);
-      const segVideosRes = await axios.get(`${API_URL}/valoraciones/segmentacion-personal`, {
-        params: {
-          usuario: usuario.id_usuario,
-          entidad_tipo: "video",
-          entidad_id: item.entidad_id
-        }
-      });
-      setSegmentacionVideos(segVideosRes.data);
-    }
   };
 
   const groupedByValoracion = {};
@@ -126,7 +139,7 @@ const ModifyPersonalRanking = ({ usuario, soloLectura = false }) => {
   });
 
   const rankingFiltrado = (rankings[tipoActivo] || [])
-    .filter(item => filtroEstrella === "all" || item.valoracion === Number(filtroEstrella))
+    .filter(item => filtroEstrella === "all" || (item.valoracion ?? 0) === Number(filtroEstrella))
     .slice(0, customTop ? Math.max(5, Math.min(1000, Number(customTop))) : limiteTop);
 
   return (
@@ -149,7 +162,7 @@ const ModifyPersonalRanking = ({ usuario, soloLectura = false }) => {
           <label>Filtrar por estrellas: </label>
           <select value={filtroEstrella} onChange={e => setFiltroEstrella(e.target.value)}>
             <option value="all">Todas</option>
-            {[5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5, 1].map(val =>
+            {[5, 4.5, 4, 3.5, 3, 2.5, 2, 1.5, 1, 0.5, 0].map(val =>
               <option key={val} value={val}>{val}★</option>
             )}
           </select>
@@ -257,17 +270,24 @@ const ModifyPersonalRanking = ({ usuario, soloLectura = false }) => {
                               <img src={item.foto || '/default-artist.png'} alt={item.nombre} style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", marginRight: 12 }} />
                               <span style={{ fontWeight: "bold" }}>{item.nombre || `ID ${item.entidad_id}`}</span>
                             </Link>
+                            {tipoActivo === "album" && (
+                              <span style={{ marginLeft: 8, color: "#aaa", fontSize: "0.95rem" }}>
+                                {item.artistas?.length ? `Artista(s): ${item.artistas.join(", ")}` : ""}
+                                {item.numero_canciones ? ` | Canciones: ${item.numero_canciones}` : ""}
+                                {item.porcentaje_5_estrellas ? ` | % 5★: ${item.porcentaje_5_estrellas}` : ""}
+                              </span>
+                            )}
                             <span style={{ marginLeft: "auto", color: "#ffd700" }}>
                               {item.valoracion ? `${item.valoracion} ⭐` : ""}
                             </span>
-                            {!soloLectura && (
+                            {!soloLectura || soloLectura ? (
                               <button
                                 style={{ marginLeft: 12, background: "#2563eb", color: "#fff", borderRadius: 6, padding: "4px 10px", fontWeight: "bold" }}
                                 onClick={() => handleVerDetalle(item)}
                               >
                                 Ver detalles
                               </button>
-                            )}
+                            ) : null}
                           </li>
                         )}
                       </Draggable>
@@ -310,6 +330,24 @@ const ModifyPersonalRanking = ({ usuario, soloLectura = false }) => {
               }}
             />
             <div style={{ fontSize: "1.05rem", marginTop: 8 }}>
+              {tipoActivo === "cancion" && (
+                <>
+                  <div>Valoración: <b style={{ color: "#ffd700" }}>{detalleAbierto.valoracion} ★</b></div>
+                  <div>Artista(s): <b>{detalleAbierto.artistas?.join(", ")}</b></div>
+                  {detalleAbierto.duracion_ms && (
+                    <div>Duración: <b>{Math.floor(detalleAbierto.duracion_ms / 60000)}:{String(Math.floor((detalleAbierto.duracion_ms % 60000) / 1000)).padStart(2, "0")}</b></div>
+                  )}
+                </>
+              )}
+              {tipoActivo === "video" && (
+                <>
+                  <div>Valoración: <b style={{ color: "#ffd700" }}>{detalleAbierto.valoracion} ★</b></div>
+                  <div>Artista(s): <b>{detalleAbierto.artistas?.join(", ")}</b></div>
+                  {detalleAbierto.duracion && (
+                    <div>Duración: <b>{Math.floor(detalleAbierto.duracion / 60)}:{String(detalleAbierto.duracion % 60).padStart(2, "0")}</b></div>
+                  )}
+                </>
+              )}
               {tipoActivo === "artista" && (
                 <>
                   <div>Valoración: <b style={{ color: "#ffd700" }}>{detalleAbierto.valoracion} ★</b></div>

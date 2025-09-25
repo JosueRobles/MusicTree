@@ -11,7 +11,6 @@ const ColeccionPage = () => {
   const { usuario } = useContext(UsuarioContext);
   const [coleccion, setColeccion] = useState(null);
   const [elementos, setElementos] = useState([]);
-  const [detalles, setDetalles] = useState({});
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -21,47 +20,43 @@ const ColeccionPage = () => {
   const [progreso, setProgreso] = useState(0); // Progreso del usuario en la colección
   const [valorados, setValorados] = useState([]); // <-- NUEVO
   const [filtroEstado, setFiltroEstado] = useState('todos'); // 'todos', 'valorados', 'pendientes'
-  const [ordenarPor, setOrdenarPor] = useState('predeterminada'); // 'predeterminada', 'nombre', 'calificacion', etc.
+  const [ordenarPor, setOrdenarPor] = useState('predeterminada'); // 'predeterminada', 'titulo', 'calificacion', etc.
   const [ordenDireccion, setOrdenDireccion] = useState('desc'); // 'asc', 'desc'
+  const [pagina, setPagina] = useState(1);
+  const [totalPaginas, setTotalPaginas] = useState(1);
 
 
   // Función para cargar los elementos de la colección con paginación
-  const fetchElementos = useCallback(async (currentOffset) => {
+  const fetchElementos = useCallback(async (paginaActual = 1) => {
+    setLoading(true);
     try {
-      setLoadingMore(true);
       const elementosResponse = await axios.get(`${API_URL}/colecciones/${id}/elementos`, {
         params: {
-          offset: currentOffset,
+          offset: (paginaActual - 1) * limit,
           limit,
           userId: usuario?.id_usuario,
-          orderBy: ordenarPor !== 'predeterminada' ? ordenarPor : undefined,
-          orderDirection: ordenarPor !== 'predeterminada' ? ordenDireccion : undefined,
-          filterValorados: filtroEstado === 'todos' ? undefined : filtroEstado === 'valorados'
-            ? true
-            : false,
+          orderBy: ordenarPor,             // siempre manda algo
+          orderDirection: ordenDireccion,  // siempre manda algo
+          filterValorados: filtroEstado === 'todos' ? undefined :
+                          filtroEstado === 'valorados' ? true : false,
         },
       });
+      setElementos(elementosResponse.data);
+      setPagina(paginaActual);
 
-      if (elementosResponse.data.length === 0) {
-        setHasMore(false);
-      } else {
-        setElementos((prev) => [...prev, ...elementosResponse.data]);
-        setOffset((prev) => prev + limit);
-
-        // Usa los detalles que ya vienen del backend
-        const detallesTemp = {};
-        elementosResponse.data.forEach((elemento) => {
-          detallesTemp[elemento.id_elemento] = elemento.detalles || {};
-        });
-        setDetalles((prev) => ({ ...prev, ...detallesTemp }));
-      }
+      // Obtener el total de elementos para calcular totalPaginas
+      const totalRes = await axios.get(`${API_URL}/colecciones/${id}/elementos/count`, {
+        params: {
+          userId: usuario?.id_usuario,
+          filterValorados: filtroEstado === 'todos' ? undefined :
+                 filtroEstado === 'valorados' ? 'true' : 'false',
+        },
+      });
+      setTotalPaginas(Math.ceil(totalRes.data.total / limit));
       setLoading(false);
-      setLoadingMore(false);
     } catch (error) {
-      console.error('Error fetching elementos:', error);
       setError('Error al cargar los elementos.');
       setLoading(false);
-      setLoadingMore(false);
     }
   }, [id, limit, ordenarPor, ordenDireccion, filtroEstado, usuario]);
 
@@ -84,203 +79,39 @@ const ColeccionPage = () => {
     }
   }, [id, limit, ordenarPor, ordenDireccion, filtroEstado, usuario]);
 
-  // Manejo de scroll para cargar más elementos
-  const handleScroll = useCallback(() => {
-    if (
-      window.innerHeight + document.documentElement.scrollTop >=
-        document.documentElement.offsetHeight - 100 &&
-      hasMore &&
-      !loadingMore
-    ) {
-      fetchElementos(offset);
-    }
-  }, [offset, hasMore, loadingMore, fetchElementos]);
-
   // Cargar los datos de la colección
   useEffect(() => {
     const fetchColeccionData = async () => {
       try {
         const coleccionResponse = await axios.get(`${API_URL}/colecciones/${id}`);
         setColeccion(coleccionResponse.data);
-        fetchElementos(0); // Cargar elementos iniciales
-        fetchProgreso(); // Cargar el progreso del usuario (solo si hay usuario)
+        fetchElementos(1); // <-- Página inicial debe ser 1
+        fetchProgreso();
       } catch (coleccionError) {
-        console.error('Error fetching collection data:', coleccionError);
         setError('Error al cargar la colección');
         setLoading(false);
       }
     };
-
     fetchColeccionData();
   }, [id, fetchElementos, fetchProgreso]);
-
-  useEffect(() => {
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [handleScroll]);
 
   const getOpcionesOrdenamiento = () => {
     if (!coleccion) return [];
     return [
       { value: 'predeterminada', label: 'Predeterminada' },
-      { value: 'nombre', label: 'Nombre' },
+      { value: 'titulo', label: 'Titulo' },
       { value: 'artista', label: 'Artista' }, // <-- NUEVO
       { value: 'popularidad', label: 'Popularidad' },
       ...(coleccion.tipo_coleccion === 'cancion' || coleccion.tipo_coleccion === 'video'
         ? [{ value: 'duracion', label: 'Duración' }]
         : []),
       ...(coleccion.tipo_coleccion !== 'artista'
-        ? [{ value: 'año', label: 'Año' }]
+        ? [{ value: 'anio', label: 'Año' }]
         : [])
     ];
   };
 
-  const ordenarElementos = (elementos) => {
-    return [...elementos].sort((a, b) => {
-      const detalleA = detalles[a.id_elemento] || {};
-      const detalleB = detalles[b.id_elemento] || {};
-
-      switch (ordenarPor) {
-        case 'predeterminada': {
-          return ordenDireccion === 'asc'
-            ? a.id_elemento - b.id_elemento
-            : b.id_elemento - a.id_elemento;
-        }
-        case 'nombre': {
-          const nombreA = detalleA.titulo || detalleA.nombre_artista || '';
-          const nombreB = detalleB.titulo || detalleB.nombre_artista || '';
-          return ordenDireccion === 'asc'
-            ? nombreA.localeCompare(nombreB)
-            : nombreB.localeCompare(nombreA);
-        }
-        case 'artista': { // <-- NUEVO
-          const artistaA = detalleA.artista || detalleA.nombre_artista || '';
-          const artistaB = detalleB.artista || detalleB.nombre_artista || '';
-          return ordenDireccion === 'asc'
-            ? artistaA.localeCompare(artistaB)
-            : artistaB.localeCompare(artistaA);
-        }
-        case 'popularidad': {
-          const popularidadA = detalleA.popularidad || 0;
-          const popularidadB = detalleB.popularidad || 0;
-          return ordenDireccion === 'asc'
-            ? popularidadA - popularidadB
-            : popularidadB - popularidadA;
-        }
-        case 'duracion': {
-          const duracionA = detalleA.duracion || 0;
-          const duracionB = detalleB.duracion || 0;
-          return ordenDireccion === 'asc'
-            ? duracionA - duracionB
-            : duracionB - duracionA;
-        }
-        case 'año': {
-          const anioA = detalleA.anio || 0;
-          const anioB = detalleB.anio || 0;
-          return ordenDireccion === 'asc'
-            ? anioA - anioB
-            : anioB - anioA;
-        }
-        default:
-          return 0;
-      }
-    });
-  };
-
-  const filtrarElementos = () => {
-  // Asocia los detalles a cada elemento primero
-  let elementosConDetalles = elementos.map(el => ({
-    ...el,
-    detalles: detalles[el.id_elemento] || {}
-  }));
-
-  if (filtroEstado !== 'todos') {
-    elementosConDetalles = elementosConDetalles.filter(el => {
-      const estaValorado = valorados.includes(el.id_elemento);
-      return filtroEstado === 'valorados' ? estaValorado : !estaValorado;
-    });
-  }
-
-  // Eliminar duplicados basado en id_elemento
-  const vistos = new Set();
-  elementosConDetalles = elementosConDetalles.filter(el => {
-    if (vistos.has(el.id_elemento)) return false;
-    vistos.add(el.id_elemento);
-    return true;
-  });
-
-  return ordenarElementos(elementosConDetalles);
-};
-
-  const mostrarDetallesElemento = (elemento, detalle) => {
-    if (!detalle || detalle.error) return null;
-
-    const detallesComunes = (
-      <>
-        {detalle.calificacion_usuario && (
-          <div style={{
-            backgroundColor: '#4b5563',
-            color: 'white',
-            padding: '2px 6px',
-            borderRadius: '4px',
-            display: 'inline-block',
-            marginBottom: '8px'
-          }}>
-            Tu valoración: {detalle.calificacion_usuario.toFixed(1)}
-          </div>
-        )}
-        <div style={{
-          backgroundColor: '#6b7280',
-          color: 'white',
-          padding: '2px 6px',
-          borderRadius: '4px',
-          display: 'inline-block',
-          marginLeft: '8px'
-        }}>
-          Popularidad: {detalle.popularidad}
-        </div>
-      </>
-    );
-
-    switch (elemento.entidad_tipo) {
-      case 'cancion':
-        return (
-          <>
-            {detallesComunes}
-            <p>Artista: {detalle.artista}</p>
-            <p>Duración: {Math.floor(detalle.duracion / 60)}:{(detalle.duracion % 60).toString().padStart(2, '0')}</p>
-            <p>Año: {detalle.anio}</p>
-          </>
-        );
-      case 'album':
-        return (
-          <>
-            {detallesComunes}
-            <p>Artista: {detalle.artista}</p>
-            <p>Año: {detalle.anio}</p>
-          </>
-        );
-      case 'video':
-        return (
-          <>
-            {detallesComunes}
-            <p>Artista: {detalle.artista}</p>
-            <p>Duración: {Math.floor(detalle.duracion / 60)}:{(detalle.duracion % 60).toString().padStart(2, '0')}</p>
-            <p>Año: {detalle.anio}</p>
-          </>
-        );
-      case 'artista':
-        return (
-          <>
-            {detallesComunes}
-          </>
-        );
-      default:
-        return null;
-    }
-  };
-
-  const elementosConDetalles = filtrarElementos();
+  const elementosConDetalles = elementos; // Ya vienen filtrados y ordenados del backend
 
   return (
   <div>
@@ -356,11 +187,19 @@ const ColeccionPage = () => {
           gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))'
         }}>
           {elementosConDetalles.map((el) => {
-            const detalle = el.detalles || {};
+            const detalle = {
+              titulo: el.titulo,
+              nombre_artista: el.nombre_artista, // solo para artistas
+              artista: el.artista,
+              anio: el.anio,
+              popularidad: el.popularidad,
+              imagen: el.imagen,
+              calificacion_usuario: el.calificacion_usuario // si lo agregas luego
+            };
             return (
               <div
                 key={el.id_elemento}
-                className={`elemento-card ${valorados.includes(el.id_elemento) ? 'valorado' : ''}`}
+                className={`elemento-card ${el.valorado ? 'valorado' : ''}`}
                 style={{
                   padding: '16px',
                   borderRadius: '8px',
@@ -395,26 +234,19 @@ const ColeccionPage = () => {
                     <h3 style={{ margin: 0, color: '#1a56db' }}>
                       {detalle.titulo || detalle.nombre_artista || 'Cargando...'}
                     </h3>
-                    {detalle.artista && (
-                      <p style={{ margin: '4px 0', color: '#4b5563' }}>{detalle.artista}</p>
-                    )}
+                    {detalle.artista && <p style={{ margin: '4px 0', color: '#4b5563' }}>Artista(s): {detalle.artista}</p>}
+                    {detalle.anio && <p style={{ margin: '4px 0', color: '#4b5563' }}>Año: {detalle.anio}</p>}
+                    {detalle.popularidad && <p style={{ margin: '4px 0', color: '#4b5563' }}>Popularidad: {detalle.popularidad}</p>}
+                    {detalle.generos && <p style={{ margin: '4px 0', color: '#4b5563' }}>Géneros: {detalle.generos.join(", ")}</p>}
                   </div>
 
                   <div style={{ fontSize: '0.9rem', color: '#4b5563' }}>
-                    {typeof detalle.popularidad === 'number' && <p>Popularidad: {detalle.popularidad}</p>}
-                    {detalle.duracion && (
-                      <p>
-                        Duración: {Math.floor(detalle.duracion / 60)}:
-                        {(detalle.duracion % 60).toString().padStart(2, '0')}
-                      </p>
-                    )}
-                    {detalle.anio && <p>Año: {detalle.anio}</p>}
                     {detalle.calificacion_usuario && <p>Tu valoración: {detalle.calificacion_usuario}</p>}
                   </div>
                 </Link>
 
                 {/* Indicador de valoración */}
-                {valorados.includes(el.id_elemento) && (
+                {el.valorado && (
                   <div
                     style={{
                       position: 'absolute',
@@ -434,6 +266,27 @@ const ColeccionPage = () => {
             );
           })}
         </div>
+
+        {/* Botones de paginación */}
+<div style={{ display: 'flex', justifyContent: 'center', margin: '24px 0', gap: 12 }}>
+  <button
+    disabled={pagina <= 1}
+    onClick={() => fetchElementos(pagina - 1)}
+    style={{ padding: '8px 16px', borderRadius: 6, background: '#2563eb', color: '#fff', border: 'none' }}
+  >
+    Anterior
+  </button>
+  <span style={{ fontWeight: 'bold', color: '#222', fontSize: '1.1rem' }}>
+    Página {pagina} de {totalPaginas}
+  </span>
+  <button
+    disabled={pagina >= totalPaginas}
+    onClick={() => fetchElementos(pagina + 1)}
+    style={{ padding: '8px 16px', borderRadius: 6, background: '#2563eb', color: '#fff', border: 'none' }}
+  >
+    Siguiente
+  </button>
+</div>
 
         {/* Indicador de carga adicional */}
         {loadingMore && (

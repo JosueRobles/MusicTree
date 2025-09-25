@@ -201,6 +201,7 @@
 
 .music-carousel-container {
   padding: 9px 0;
+  justify-content: center;
 }
 
 .music-carousel-item {

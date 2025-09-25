@@ -15,7 +15,7 @@ const Colecciones = () => {
   useEffect(() => {
     const fetchColecciones = async () => {
       try {
-        const response = await axios.get(`${API_URL}/colecciones`);
+        const response = await axios.get(`${API_URL}/colecciones?orderBy=predeterminada`);
         setColecciones(response.data);
       } catch (error) {
         setError('No se pudieron cargar las colecciones.');
@@ -28,7 +28,7 @@ const Colecciones = () => {
     const fetchProgresos = async () => {
       if (!usuario) return;
       try {
-        const response = await axios.get(`${API_URL}/colecciones/usuario/${usuario.id_usuario}`);
+        const response = await axios.get(`${API_URL}/colecciones?orderBy=predeterminada/usuario/${usuario.id_usuario}`);
         const progresosObj = {};
         response.data.forEach(item => {
           progresosObj[item.id_coleccion] = item.progreso;

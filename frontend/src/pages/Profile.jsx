@@ -652,11 +652,13 @@ useEffect(() => {
                 const progreso = progresos[coleccion.id_coleccion] || 0;
                 const completada = progreso >= 100;
                 return (
-                  <div key={coleccion.id_coleccion} className={`profile-coleccion-card${completada ? ' completada' : ''}`}>
-                    <img src={coleccion.icono || '/default_collection.png'} alt={coleccion.nombre} />
-                    <div style={{ margin: '8px 0' }}>{coleccion.nombre}</div>
-                    <div className="pie-chart"><PieChart porcentaje={progreso} /></div>
-                  </div>
+                  <Link to={`/collection/${coleccion.id_coleccion}`}>
+                    <div key={coleccion.id_coleccion} className={`profile-coleccion-card${completada ? ' completada' : ''}`}>
+                      <img src={coleccion.icono || '/default_collection.png'} alt={coleccion.nombre} />
+                      <div style={{ margin: '8px 0' }}>{coleccion.nombre}</div>
+                      <div className="pie-chart"><PieChart porcentaje={progreso} /></div>
+                    </div>
+                  </Link>
                 );
               })}
             </div>
@@ -665,11 +667,13 @@ useEffect(() => {
             <h3 className="text-2xl font-bold my-4">Catálogos de Artistas</h3>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 16 }}>
               {catalogos.map(cat => (
-                <div key={cat.id_artista} className={`profile-catalogo-card${cat.progreso >= 100 ? ' completada' : ''}`}>
-                  <img src={cat.foto_artista || '/default-artist.png'} alt={cat.nombre_artista} />
-                  <div style={{ margin: '8px 0' }}>{cat.nombre_artista}</div>
-                  <div className="pie-chart"><PieChart porcentaje={cat.progreso} /></div>
-                </div>
+                <Link to={`/artist/${cat.id_artista}`}>
+                  <div key={cat.id_artista} className={`profile-catalogo-card${cat.progreso >= 100 ? ' completada' : ''}`}>
+                    <img src={cat.foto_artista || '/default-artist.png'} alt={cat.nombre_artista} />
+                    <div style={{ margin: '8px 0' }}>{cat.nombre_artista}</div>
+                    <div className="pie-chart"><PieChart porcentaje={cat.progreso} /></div>
+                  </div>
+                </Link>
               ))}
             </div>
           </div>
@@ -689,113 +693,71 @@ useEffect(() => {
 {estadisticas && (
   <div className="section mt-6">
     <h3 className="text-2xl font-bold my-4">Estadísticas y hábitos musicales</h3>
-
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-      <div style={{ minWidth: 320 }}>
-        <strong>Distribución de estrellas</strong>
+    <div className="grid grid-cols-2 md:grid-cols-3 gap-6" style={{ maxWidth: 700, margin: "0 auto" }}>
+      <div>
+        <strong>Estrellas</strong>
         <Bar
           data={{
             labels: Object.keys(estadisticas.distribucionEstrellas),
-            datasets: [
-              {
-                label: "Valoraciones",
-                data: Object.values(estadisticas.distribucionEstrellas),
-                backgroundColor: "#22c55e",
-              },
-            ],
+            datasets: [{ label: "Valoraciones", data: Object.values(estadisticas.distribucionEstrellas), backgroundColor: "#22c55e" }],
           }}
-          options={{
-            scales: { y: { beginAtZero: true } },
-          }}
+          options={{ plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }}
+          width={160}
+          height={120}
         />
       </div>
-
-      <div style={{ minWidth: 220 }}>
-        <strong>Por género</strong>
+      <div>
+        <strong>Género</strong>
         <Pie
           data={{
             labels: estadisticas.porGenero.map((g) => g.nombre),
-            datasets: [
-              {
-                data: estadisticas.porGenero.map((g) => g.count),
-                backgroundColor: [
-                  "#22c55e",
-                  "#3b82f6",
-                  "#f59e42",
-                  "#eab308",
-                  "#ef4444",
-                  "#a78bfa",
-                  "#f472b6",
-                  "#14b8a6",
-                ],
-              },
-            ],
+            datasets: [{ data: estadisticas.porGenero.map((g) => g.count), backgroundColor: ["#22c55e", "#3b82f6", "#f59e42", "#eab308"] }],
           }}
+          options={{ plugins: { legend: { display: false } } }}
+          width={120}
+          height={120}
         />
       </div>
-
-      <div style={{ minWidth: 220 }}>
-        <strong>Por año</strong>
+      <div>
+        <strong>Año</strong>
         <Bar
           data={{
             labels: Object.keys(estadisticas.porAnio),
-            datasets: [
-              {
-                label: "Valoraciones",
-                data: Object.values(estadisticas.porAnio),
-                backgroundColor: "#3b82f6",
-              },
-            ],
+            datasets: [{ label: "Valoraciones", data: Object.values(estadisticas.porAnio), backgroundColor: "#3b82f6" }],
           }}
-          options={{
-            scales: { y: { beginAtZero: true } },
-          }}
+          options={{ plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }}
+          width={120}
+          height={120}
         />
       </div>
-
-      <div style={{ minWidth: 220 }}>
+      <div>
         <strong>Familiaridad</strong>
         <Doughnut
           data={{
             labels: Object.keys(estadisticas.familiaridadCount),
-            datasets: [
-              {
-                data: Object.values(estadisticas.familiaridadCount),
-                backgroundColor: ["#22c55e", "#f59e42", "#3b82f6"],
-              },
-            ],
+            datasets: [{ data: Object.values(estadisticas.familiaridadCount), backgroundColor: ["#22c55e", "#f59e42", "#3b82f6"] }],
           }}
+          options={{ plugins: { legend: { display: false } } }}
+          width={120}
+          height={120}
         />
       </div>
-
-      <div style={{ minWidth: 220 }}>
+      <div>
         <strong>Emociones</strong>
         <Pie
           data={{
             labels: Object.keys(estadisticas.emocionCount),
-            datasets: [
-              {
-                data: Object.values(estadisticas.emocionCount),
-                backgroundColor: [
-                  "#f59e42",
-                  "#3b82f6",
-                  "#eab308",
-                  "#ef4444",
-                  "#a78bfa",
-                  "#f472b6",
-                  "#14b8a6",
-                  "#22c55e",
-                ],
-              },
-            ],
+            datasets: [{ data: Object.values(estadisticas.emocionCount), backgroundColor: ["#f59e42", "#3b82f6", "#eab308", "#ef4444"] }],
           }}
+          options={{ plugins: { legend: { display: false } } }}
+          width={120}
+          height={120}
         />
       </div>
     </div>
-
-    <div className="mt-4">
+    <div className="mt-2" style={{ fontSize: "0.95rem" }}>
       <strong>Valoraciones por tipo:</strong>
-      <ul>
+      <ul style={{ display: "flex", gap: "24px", flexWrap: "wrap", marginTop: "8px" }}>
         <li>Artistas: {estadisticas.porTipo.artista}</li>
         <li>Álbumes: {estadisticas.porTipo.album}</li>
         <li>Canciones: {estadisticas.porTipo.cancion}</li>
@@ -857,7 +819,7 @@ useEffect(() => {
 
       {/* Listas personalizadas */}
       <div className="section mt-6">
-        <h3 className="text-2xl font-bold my-4">Listas personalizadas creadas por este usuario</h3>
+        <h3 className="text-2xl font-bold my-4">Listas personalizadas creadas por este usuario o que colabora</h3>
         {listas.length === 0 ? (
           <div>No hay listas públicas o colaborativas.</div>
         ) : (

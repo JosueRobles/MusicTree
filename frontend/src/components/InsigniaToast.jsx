@@ -9,10 +9,10 @@ const API_URL = import.meta.env.VITE_API_URL;
 const InsigniaToast = ({ visible, insignia, notificacionId, onClose }) => {
   const navigate = useNavigate();
 
-  // Auto-cierre normal
+  // Autocierre a 8 segundos
   useEffect(() => {
     if (visible && insignia) {
-      const timer = setTimeout(onClose, 5000);
+      const timer = setTimeout(onClose, 8000);
       return () => clearTimeout(timer);
     }
   }, [visible, insignia, onClose]);
@@ -72,6 +72,24 @@ const InsigniaToast = ({ visible, insignia, notificacionId, onClose }) => {
       onClick={handleClick}
       title="Ver detalles de la insignia"
     >
+      {/* Botón de cierre (X) */}
+      <button
+        onClick={(e) => { e.stopPropagation(); onClose(); }}
+        style={{
+          position: "absolute",
+          top: 8,
+          right: 8,
+          background: "none",
+          border: "none",
+          fontSize: 22,
+          color: "#888",
+          cursor: "pointer",
+          zIndex: 10
+        }}
+        aria-label="Cerrar notificación"
+      >
+        ×
+      </button>
       <div className="insignia-toast-content" style={{ display: "flex", alignItems: "center", gap: "16px" }}>
         <img
           src={insignia.icono || '/insignias/placeholder.png'}

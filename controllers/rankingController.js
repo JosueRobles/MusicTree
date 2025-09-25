@@ -124,6 +124,11 @@ const obtenerRankingPersonal = async (req, res) => {
         const entidad = entidades.find(e => e[entidadIdCol] === item.entidad_id);
         foto = entidad ? entidad[entidadFotoCol] : undefined;
         nombre = entidad ? entidad[entidadNameCol] : `ID ${item.entidad_id}`;
+        // Artistas
+        const { data: artistas } = await supabase
+          .from('album_artistas')
+          .select('artistas(nombre_artista)')
+          .eq('album_id', item.entidad_id);
         // Canciones
         const { data: canciones } = await supabase
           .from('canciones')
@@ -139,6 +144,7 @@ const obtenerRankingPersonal = async (req, res) => {
         const cincoEstrellas = valoraciones.filter(v => v.calificacion === 5).length;
         const porcentaje_5_estrellas = valoraciones.length > 0 ? (cincoEstrellas / valoraciones.length) * 100 : null;
         detalles = {
+          artistas: (artistas || []).map(a => a.artistas?.nombre_artista).filter(Boolean),
           numero_canciones: canciones.length,
           anio: entidad?.anio,
           valoracion: promedio,

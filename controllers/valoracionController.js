@@ -644,13 +644,23 @@ const crearValoracion = async (req, res) => {
     if (rankingError && rankingError.code !== 'PGRST116') throw rankingError;
 
     if (!rankingExistente) {
+      // Busca la última posición actual
+      const { data: maxPos } = await supabase
+        .from('ranking_elementos')
+        .select('posicion')
+        .eq('ranking_id', usuario)
+        .eq('tipo_entidad', referenciaId === "album" ? "album" : "artista")
+        .order('posicion', { ascending: false })
+        .limit(1);
+      const nuevaPos = (maxPos && maxPos[0]?.posicion ? maxPos[0].posicion + 1 : 1);
       await supabase
         .from('ranking_elementos')
         .insert([{
           ranking_id: usuario,
           entidad_id,
-          tipo_entidad: entidad_tipo,
-          valoracion: calificacion
+          tipo_entidad: referenciaId === "album" ? "album" : "artista",
+          valoracion: calificacion,
+          posicion: nuevaPos
         }]);
     } else {
       await supabase
@@ -1140,6 +1150,17 @@ const obtenerValoracionAgregada = async (req, res) => {
 
 // Nueva función utilitaria para insertar o actualizar la valoración automática
 async function upsertValoracionAutomatica(usuario, tableName, referenciaId, entidad_id, calificacion) {
+  // Verifica existencia y cantidad de entidades
+  if (referenciaId === "artista") {
+    const { data: artista } = await supabase.from('artistas').select('id_artista').eq('id_artista', entidad_id).single();
+    if (!artista) return; // No existe
+    // Cuenta entidades
+    const { data: albumes } = await supabase.from('album_artistas').select('album_id').eq('artista_id', entidad_id);
+    const { data: canciones } = await supabase.from('cancion_artistas').select('cancion_id').eq('artista_id', entidad_id);
+    const { data: videos } = await supabase.from('video_artistas').select('video_id').eq('artista_id', entidad_id);
+    const total = (albumes?.length || 0) + (canciones?.length || 0) + (videos?.length || 0);
+    if (total < 10) return; // No cumple mínimo
+  }
   // Busca si ya existe
   const { data: existente, error: errorExistente } = await supabase
     .from(tableName)
@@ -1191,13 +1212,23 @@ async function upsertValoracionAutomatica(usuario, tableName, referenciaId, enti
     .single();
 
   if (!rankingExistente) {
+    // Busca la última posición actual
+    const { data: maxPos } = await supabase
+      .from('ranking_elementos')
+      .select('posicion')
+      .eq('ranking_id', usuario)
+      .eq('tipo_entidad', referenciaId === "album" ? "album" : "artista")
+      .order('posicion', { ascending: false })
+      .limit(1);
+    const nuevaPos = (maxPos && maxPos[0]?.posicion ? maxPos[0].posicion + 1 : 1);
     await supabase
       .from('ranking_elementos')
       .insert([{
         ranking_id: usuario,
         entidad_id,
         tipo_entidad: referenciaId === "album" ? "album" : "artista",
-        valoracion: calificacion
+        valoracion: calificacion,
+        posicion: nuevaPos
       }]);
   } else {
     await supabase

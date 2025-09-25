@@ -56,136 +56,60 @@ const getColeccionElementos = async (req, res) => {
   const { id } = req.params;
   const limit = parseInt(req.query.limit) || 50;
   const offset = parseInt(req.query.offset) || 0;
-  const userId = req.query.userId;
   const orderBy = req.query.orderBy;
-  const orderDirection = req.query.orderDirection;
-  let filterValorados = req.query.filterValorados;
+  const orderDirection = req.query.orderDirection?.toLowerCase() === 'asc' ? 'asc' : 'desc';
+  const filterValorados = req.query.filterValorados; // 'true' | 'false' | undefined
 
   try {
-    // 1. Obtener elementos base de la colección
-    let elementosQuery = supabase
-      .from('colecciones_elementos')
-      .select('*')
-      .eq('coleccion_id', id)
-      .range(offset, offset + limit - 1);
+    // 1. Tipo de colección
+    const { data: coleccion, error: errorColeccion } = await supabase
+      .from('colecciones')
+      .select('tipo_coleccion')
+      .eq('id_coleccion', id)
+      .single();
 
-    // SOLO permite ordenar por campos que existen en colecciones_elementos
-    if (orderBy && ['id_elemento', 'entidad_id', 'entidad_tipo'].includes(orderBy)) {
-      elementosQuery = elementosQuery.order(orderBy, { ascending: orderDirection === 'asc' });
+    if (errorColeccion || !coleccion) {
+      return res.status(404).json({ error: 'Colección no encontrada.' });
     }
 
-    const { data: elementos, error } = await elementosQuery;
+    let vista = '';
+    const tipo = (coleccion.tipo_coleccion || '').toLowerCase();
+    if (tipo.includes('cancion')) vista = 'vista_coleccion_canciones';
+    else if (tipo.includes('album')) vista = 'vista_coleccion_albumes';
+    else if (tipo.includes('artista')) vista = 'vista_coleccion_artistas';
+    else if (tipo.includes('video')) vista = 'vista_coleccion_videos';
+    else return res.status(400).json({ error: `Tipo de colección no soportado: ${coleccion.tipo_coleccion}` });
+
+    // 2. Query base
+    let query = supabase
+      .from(vista)
+      .select('*')
+      .eq('coleccion_id', id);
+
+    // 3. Filtro por valorados
+    if (filterValorados === 'true') {
+      query = query.eq('valorado', true);
+    } else if (filterValorados === 'false' || filterValorados === 'pendientes') {
+      query = query.eq('valorado', false);
+    }
+
+    // 4. Ordenamiento
+    if (orderBy && orderBy !== 'predeterminada') {
+      query = query.order(orderBy, { ascending: orderDirection === 'asc' });
+    }
+
+    // 5. Paginación
+    query = query.range(offset, offset + limit - 1);
+
+    const { data: elementos, error } = await query;
     if (error) throw error;
 
-    // 2. Obtener detalles de cada elemento
-    const elementosConDetalles = await Promise.all(
-      elementos.map(async (elemento) => {
-        let detalles = null;
-
-        try {
-          switch (elemento.entidad_tipo) {
-            case 'album': {
-              const { data: albumData } = await supabase
-                .from('albumes')
-                .select('id_album,titulo,anio,foto_album')
-                .eq('id_album', elemento.entidad_id)
-                .single();
-              detalles = {
-                titulo: albumData?.titulo,
-                imagen: albumData?.foto_album, // <-- portada del álbum
-                anio: albumData?.anio,
-              };
-              break;
-            }
-            case 'artista': {
-              const { data: artistaData } = await supabase
-                .from('artistas')
-                .select('id_artista,nombre_artista,foto_artista')
-                .eq('id_artista', elemento.entidad_id)
-                .single();
-              detalles = {
-                nombre_artista: artistaData?.nombre_artista,
-                imagen: artistaData?.foto_artista, // <-- foto del artista
-              };
-              break;
-            }
-            case 'cancion': {
-              const { data: cancionData } = await supabase
-                .from('canciones')
-                .select('id_cancion,titulo,album')
-                .eq('id_cancion', elemento.entidad_id)
-                .single();
-              // Trae la carátula del álbum
-              let albumCaratula = null;
-              if (cancionData?.album) {
-                const { data: albumData } = await supabase
-                  .from('albumes')
-                  .select('foto_album')
-                  .eq('id_album', cancionData.album)
-                  .single();
-                albumCaratula = albumData?.foto_album || null;
-              }
-              detalles = {
-                titulo: cancionData?.titulo,
-                imagen: albumCaratula, // <-- carátula del álbum
-              };
-              break;
-            }
-            case 'video': {
-              const { data: videoData } = await supabase
-                .from('videos_musicales')
-                .select('id_video,titulo,miniatura')
-                .eq('id_video', elemento.entidad_id)
-                .single();
-              detalles = {
-                titulo: videoData?.titulo,
-                imagen: videoData?.miniatura, // <-- miniatura del video
-              };
-              break;
-            }
-            default:
-              detalles = { error: 'Tipo de entidad desconocido' };
-          }
-        } catch (error) {
-          console.error(`Error obteniendo detalles para ${elemento.entidad_tipo} ${elemento.entidad_id}:`, error);
-          detalles = { error: 'No encontrado' };
-        }
-
-        return {
-          ...elemento,
-          detalles,
-        };
-      })
-    );
-
-    // Filtro por valoraciones (filtra elementos con o sin calificación)
-    let resultadoFiltrado = elementosConDetalles;
-    if (filterValorados === 'true') {
-      resultadoFiltrado = elementosConDetalles.filter(
-        (el) => el.detalles?.calificacion_usuario != null
-      );
-    } else if (filterValorados === 'false') {
-      resultadoFiltrado = elementosConDetalles.filter(
-        (el) => el.detalles?.calificacion_usuario == null
-      );
-    }
-
-    // Ordenar después de obtener detalles, si se pidió ordenar por calificación
-    if (orderBy === 'calificacion') {
-      resultadoFiltrado.sort((a, b) => {
-        const calA = typeof a.detalles?.calificacion_usuario === 'number' ? a.detalles.calificacion_usuario : -1;
-        const calB = typeof b.detalles?.calificacion_usuario === 'number' ? b.detalles.calificacion_usuario : -1;
-        return orderDirection === 'asc' ? calA - calB : calB - calA;
-      });
-    }
-
-    res.status(200).json(resultadoFiltrado);
+    res.status(200).json(elementos);
   } catch (err) {
-    console.error('Error al obtener elementos de la colección:', err);
+    console.error('Error en getColeccionElementos:', err);
     res.status(500).json({ error: 'Error al obtener elementos de la colección.' });
   }
 };
-
 
 // Obtener el progreso del usuario en una colección
 const getProgresoColeccion = async (req, res) => {
@@ -276,10 +200,68 @@ const getProgresoColeccion = async (req, res) => {
   }
 };
 
+// Contar elementos de una colección
+const getColeccionElementosCount = async (req, res) => {
+  const { id } = req.params;
+  const userId = req.query.userId;
+  let filterValorados = req.query.filterValorados;
+
+  try {
+    let elementosQuery = supabase
+      .from('colecciones_elementos')
+      .select('id_elemento, entidad_id')
+      .eq('coleccion_id', id);
+
+    const { data: elementos, error } = await elementosQuery;
+    if (error) throw error;
+
+    // Si hay filtro de valorados, filtra aquí
+    let total = elementos.length;
+    if (filterValorados !== undefined && userId) {
+      // Determina tipo de colección
+      const { data: coleccion } = await supabase
+        .from('colecciones')
+        .select('tipo_coleccion')
+        .eq('id_coleccion', id)
+        .single();
+      let tablaValoraciones = '';
+      let campoEntidad = '';
+      let tipo = (coleccion.tipo_coleccion || '').toLowerCase();
+      if (tipo === 'cancion' || tipo === 'canciones') {
+        tablaValoraciones = 'valoraciones_canciones';
+        campoEntidad = 'cancion';
+      } else if (tipo === 'album' || tipo === 'álbum' || tipo === 'albumes' || tipo === 'álbumes') {
+        tablaValoraciones = 'valoraciones_albumes';
+        campoEntidad = 'album';
+      } else if (tipo === 'artista' || tipo === 'artistas') {
+        tablaValoraciones = 'valoraciones_artistas';
+        campoEntidad = 'artista';
+      } else if (tipo === 'video' || tipo === 'videos' || tipo === 'video musical' || tipo === 'videos musicales') {
+        tablaValoraciones = 'valoraciones_videos_musicales';
+        campoEntidad = 'video';
+      }
+      const { data: valorados } = await supabase
+        .from(tablaValoraciones)
+        .select(campoEntidad)
+        .eq('usuario', userId);
+      const idsValorados = (valorados || []).map(v => v[campoEntidad]);
+      if (filterValorados === 'true') {
+        total = elementos.filter(e => idsValorados.includes(e.entidad_id)).length;
+      } else if (filterValorados === 'false') {
+        total = elementos.filter(e => !idsValorados.includes(e.entidad_id)).length;
+      }
+    }
+    res.json({ total });
+  } catch (err) {
+    res.status(500).json({ error: 'Error al contar elementos.' });
+  }
+};
+
 module.exports = {
   getProgresoColeccion,
   getAllColecciones,
   getColeccionById,
   getColeccionesByUsuario,
   getColeccionElementos,
+  getColeccionElementosCount,
 };

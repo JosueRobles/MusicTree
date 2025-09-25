@@ -146,7 +146,14 @@ function App() {
         visible={!!toastInsignia}
         insignia={toastInsignia}
         notificacionId={toastNotificacionId}
-        onClose={() => {
+        onClose={async () => {
+          if (toastNotificacionId) {
+            try {
+              await axios.put(`${API_URL}/notificaciones/${toastNotificacionId}/visto`);
+            } catch (e) {
+              // Silenciar error
+            }
+          }
           setToastInsignia(null);
           setToastNotificacionId(null);
         }}
