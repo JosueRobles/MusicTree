@@ -40,8 +40,16 @@ const Encabezado = ({ usuario, onLogout }) => {
           <img src={logo} alt="MusicTree Logo" height={64} width={64} />
         </Link>
         {/* Búsqueda solo en escritorio */}
-        <div className="flex-1 hidden md:flex">
-          <div style={{ marginLeft: '0.5rem', marginRight: '1rem', minWidth: "15%", maxWidth: '10%' }}>
+        <div className="flex-1 hidden md:flex" style={{ alignItems: 'center', display: 'flex' }}>
+          <div style={{
+            marginLeft: '0.5rem',
+            alignItems: 'center',
+            marginRight: '1rem',
+            minWidth: "15%",
+            maxWidth: '10%',
+            display: 'flex', // <-- Asegura flex para centrar
+            alignItems: 'center' // <-- Centrado vertical
+          }}>
             <BusquedaEncabezado />
           </div>
           <nav style={{
@@ -56,6 +64,7 @@ const Encabezado = ({ usuario, onLogout }) => {
             <Link to="/lists" style={{ textDecoration: 'none', color: 'white' }}>Listas</Link>
             <Link to="/badges" style={{ textDecoration: 'none', color: 'white' }}>Insignias</Link>
             <Link to="/collections" style={{ textDecoration: 'none', color: 'white' }}>Colecciones</Link>
+            <Link to="/catalogs" style={{ textDecoration: 'none', color: 'white' }}>Catálogos</Link>
             <Link to="/about" style={{ textDecoration: 'none', color: 'white' }}>Acerca de</Link>
             {usuario && (
               <Link to="/notificaciones" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
@@ -104,6 +113,7 @@ const Encabezado = ({ usuario, onLogout }) => {
           <Link to="/lists" style={{ textDecoration: 'none', color: 'white' }}>Listas</Link>
           <Link to="/badges" style={{ textDecoration: 'none', color: 'white' }}>Insignias</Link>
           <Link to="/collections" style={{ textDecoration: 'none', color: 'white' }}>Colecciones</Link>
+          <Link to="/catalogs" style={{ textDecoration: 'none', color: 'white' }}>Catálogos</Link>
           <Link to="/about" style={{ textDecoration: 'none', color: 'white' }}>Acerca de</Link>
           {usuario && (
             <Link to="/notificaciones" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>

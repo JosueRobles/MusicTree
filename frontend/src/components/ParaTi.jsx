@@ -264,6 +264,13 @@ const ParaTiFeed = ({ usuario }) => {
                           {item.referencia_info?.username || 'Usuario'}
                         </Link>
                       </>
+                    ) : item.tipo === 'pedido_catalogo' ? (
+                      <>
+                        solicitó el catálogo completo del artista{' '}
+                        <Link to={`/artist/${item.referencia_id}`} className="feed-card-entity">
+                          {item.referencia_info?.nombre_artista || 'Artista'}
+                        </Link>
+                      </>
                     ) : null}
                   </div>
                   <div className="feed-card-date">

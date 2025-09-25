@@ -267,9 +267,18 @@ const AlbumPage = ({ usuario }) => {
           {album.categoria && (
             <div className="text-center mb-2">
               <span className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-semibold">
-                Obtenido desde: {album.categoria}
+                Obtenido desde:&nbsp;
+                {album.categoria.toLowerCase().includes('coleccion') && (
+                  <>
+                    <Link to="/collections" style={{ color: '#2563eb', textDecoration: 'underline' }}>colección</Link>
+                    {album.categoria.toLowerCase().includes('catalogo') && ' y '}
+                  </>
+                )}
+                {album.categoria.toLowerCase().includes('catalogo') && (
+                  <Link to="/catalogs" style={{ color: '#2563eb', textDecoration: 'underline' }}>catálogo</Link>
+                )}
               </span>
-              {album.categoria.toLowerCase() === 'coleccion' && (
+              {album.categoria.toLowerCase().includes('coleccion') && !album.categoria.toLowerCase().includes('catalogo') && (
                 <div className="text-red-600 text-xs mt-1">
                   Este álbum fue obtenido desde una colección y <b>no contiene todas las canciones</b>, solo las incluidas en la colección.
                 </div>

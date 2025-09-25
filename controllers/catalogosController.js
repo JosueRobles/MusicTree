@@ -25,11 +25,8 @@ const getCatalogosByUsuario = async (req, res) => {
     ]);
 
     // Solo muestra progreso si valoró al menos una entidad de ese artista
-    const resultado = data.filter(row => {
-      // Aquí podrías hacer una consulta más precisa para saber si valoró algo de ese artista
-      // Pero para simplificar, si progreso > 0, lo mostramos
-      return row.progreso > 0.01;
-    });
+    // Devuelve todos los catálogos principales, aunque el progreso sea 0
+    const resultado = data; // <-- Quita el filtro por progreso
 
     res.status(200).json(resultado);
   } catch (err) {

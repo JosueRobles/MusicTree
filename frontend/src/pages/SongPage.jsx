@@ -194,12 +194,21 @@ useEffect(() => {
             {song.titulo}
           </h2>
           {song.categoria && (
-          <div className="text-center mb-2">
-            <span className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-semibold">
-              Contenida en las categorias: {song.categoria}
-            </span>
-          </div>
-        )}
+            <div className="text-center mb-2">
+              <span className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-semibold">
+                Contenida en las categorias:&nbsp;
+                {song.categoria.toLowerCase().includes('coleccion') && (
+                  <>
+                    <Link to="/collections" style={{ color: '#2563eb', textDecoration: 'underline' }}>colección</Link>
+                    {song.categoria.toLowerCase().includes('catalogo') && ' y '}
+                  </>
+                )}
+                {song.categoria.toLowerCase().includes('catalogo') && (
+                  <Link to="/catalogs" style={{ color: '#2563eb', textDecoration: 'underline' }}>catálogo</Link>
+                )}
+              </span>
+            </div>
+          )}
           {posicionRanking && (
             <div className="text-center mt-2">
               <span className="ranking-global">

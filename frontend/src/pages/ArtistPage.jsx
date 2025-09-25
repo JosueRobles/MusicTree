@@ -69,6 +69,7 @@ const ArtistPage = ({ usuario }) => {
     cancion: new Set(),
     video: new Set(),
   });
+  const [votoEnviado, setVotoEnviado] = useState(false);
 
   useEffect(() => {
     const fetchArtistData = async () => {
@@ -351,6 +352,33 @@ const handleAddToList = async () => {
     return '';
   }
 
+  const handleVotarCatalogo = async () => {
+    if (!usuario) return;
+    try {
+      await axios.post(`${API_URL}/catalogos/votar-pedido`, {
+        usuario_id: usuario.id_usuario,
+        artista_id: parseInt(id, 10)
+      });
+      setVotoEnviado(true);
+      // Notificación y actividad
+      await axios.post(`${API_URL}/notificaciones`, {
+        usuario_id: usuario.id_usuario,
+        tipo_notificacion: 'pedido_catalogo',
+        entidad_tipo: 'artista',
+        entidad_id: parseInt(id, 10),
+        mensaje: `Solicitaste el catálogo completo de ${artist?.nombre_artista || 'este artista'}`
+      });
+      await axios.post(`${API_URL}/actividad`, {
+        usuario: usuario.id_usuario,
+        tipo_actividad: 'pedido_catalogo',
+        referencia_id: parseInt(id, 10),
+        referencia_entidad: 'artista'
+      });
+    } catch (e) {
+      setVotoEnviado(false);
+    }
+  };
+
   return (
     <div className="pt-20 px-4">
       {loading ? (
@@ -362,11 +390,19 @@ const handleAddToList = async () => {
           </h2>
           {artist.es_principal ? (
             <div className="bg-yellow-100 border-l-4 border-yellow-400 text-yellow-800 p-3 my-4 rounded text-center font-semibold">
-              Artista Principal: Puedes valorar la <b>totalidad de su catálogo</b> para ganarte una medalla especial.
+              Artista Principal: Puedes valorar la totalidad de su{' '}
+              <Link to="/catalogs" style={{ color: '#2563eb', textDecoration: 'underline' }}>catálogo</Link>
+              {' '}para ganarte una medalla especial.
             </div>
           ) : (
             <div className="bg-blue-100 border-l-4 border-blue-400 text-blue-800 p-3 my-4 rounded text-center font-semibold">
-              Artista de colección o colaborador. Puedes solicitar la extracción de su catálogo completo haciendo clic <span className="underline cursor-pointer" onClick={() => {/* lógica de petición aquí */}}>aquí</span>.
+              Artista de <Link to="/collections" style={{ color: '#2563eb', textDecoration: 'underline' }}>colección</Link> o colaborador.
+              Puedes solicitar la extracción de su catálogo completo haciendo{' '}
+              <button
+                style={{ color: '#2563eb', textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}
+                onClick={handleVotarCatalogo}
+              >clic aquí</button>.
+              {votoEnviado && <span className="ml-2 text-green-600">¡Voto registrado!</span>}
             </div>
           )}
           {posicionRanking && (

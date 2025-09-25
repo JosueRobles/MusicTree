@@ -64,6 +64,7 @@ async function initializeServer() {
     const youtubeRoutes = require('./routes/youtubeRoutes');   
     const shareRoutes = require('./routes/shareRoutes');
     const mlRoutes = require('./routes/mlRoutes');
+    const actividadRoutes = require('./routes/actividadRoutes');
 
     app.use("/auth", authRoutes);
     app.use("/usuarios", userRoutes);
@@ -98,6 +99,7 @@ async function initializeServer() {
     app.use('/ml', mlRoutes);
     app.use('/album_clusters', albumRoutes);     // <-- para /album_clusters
     app.use('/cancion_clusters', cancionRoutes); // <-- para /cancion_clusters
+    app.use('/actividad', actividadRoutes); // <-- para /actividad
 
 
     // Ruta para iniciar la autenticación de Spotify

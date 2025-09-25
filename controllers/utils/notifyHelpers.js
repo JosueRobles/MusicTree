@@ -64,7 +64,43 @@ async function notificarCatalogoCompletado(usuario_id, artista_id) {
   }
 }
 
+async function notificarCatalogoExtraido(artista_id) {
+  // 1. Traer usuarios que votaron
+  const { data: votos } = await supabase
+    .from('pedidos_catalogo')
+    .select('usuario_id')
+    .eq('artista_id', artista_id);
+
+  if (!votos || votos.length === 0) return;
+
+  // 2. Traer info del artista
+  const { data: artista } = await supabase
+    .from('artistas')
+    .select('nombre_artista')
+    .eq('id_artista', artista_id)
+    .single();
+
+  // 3. Notificar a cada usuario
+  for (const voto of votos) {
+    await supabase.from('notificaciones').insert([{
+      usuario_id: voto.usuario_id,
+      tipo_notificacion: 'catalogo_extraido',
+      entidad_tipo: 'artista',
+      entidad_id: artista_id,
+      mensaje: `¡El catálogo de ${artista?.nombre_artista || 'un artista'} ya está disponible para valorar!`,
+      visto: false
+    }]);
+  }
+
+  // 4. Borrar los votos
+  await supabase
+    .from('pedidos_catalogo')
+    .delete()
+    .eq('artista_id', artista_id);
+}
+
 module.exports = {
   notificarNuevosLanzamientos,
-  notificarCatalogoCompletado
+  notificarCatalogoCompletado,
+  notificarCatalogoExtraido
 };

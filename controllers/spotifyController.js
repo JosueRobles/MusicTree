@@ -16,6 +16,8 @@ const {
 const { processArtistList, importFullArtistCatalog,  } = require('./utils/spotifyHelpers');
 const supabase = require('../supabaseClient');
 const { safeSpotifyCall } = require('./utils/spotifySafeCall');
+const { notificarCatalogoExtraido } = require('./utils/notifyHelpers');
+
 
 const importFullArtistCatalogController = async (req, res) => {
   const { artistId } = req.params;
@@ -57,6 +59,8 @@ const importFullArtistCatalogController = async (req, res) => {
         .update({ es_principal: true })
         .eq('id_artista', id_artista);
     }
+
+    await notificarCatalogoExtraido(id_artista);
 
     res.status(200).send(`Catálogo importado y artista ${id_artista} marcado como principal.`);
   } catch (err) {

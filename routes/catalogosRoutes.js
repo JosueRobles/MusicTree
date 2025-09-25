@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { getCatalogosByUsuario, seguirArtistaCatalogo, getArtistasSeguidos, dejarDeSeguirArtista } = require('../controllers/catalogosController');
+const { registrarActividad } = require('../controllers/utils/actividadUtils');
 const supabase = require('../supabaseClient'); // o '../db' según tu estructura
 
 router.get('/usuario/:usuarioId', getCatalogosByUsuario);
@@ -175,6 +176,85 @@ router.get('/pendientes-valoracion/:usuarioId', async (req, res) => {
     .slice(Number(offset), Number(offset) + Number(limit));
 
   res.json(pendientes);
+});
+
+router.post('/votar-pedido', async (req, res) => {
+  const { usuario_id, artista_id } = req.body;
+  if (!usuario_id || !artista_id) return res.status(400).json({ error: 'Faltan datos.' });
+
+  // Evita votos duplicados
+  const { data: existente } = await supabase
+    .from('pedidos_catalogo')
+    .select('id')
+    .eq('usuario_id', usuario_id)
+    .eq('artista_id', artista_id)
+    .single();
+
+  if (existente) return res.status(200).json({ message: 'Ya votaste por este artista.' });
+
+  const { error } = await supabase
+    .from('pedidos_catalogo')
+    .insert([{ usuario_id, artista_id }]);
+
+  if (error) return res.status(500).json({ error: 'Error al registrar el voto.' });
+
+  // REGISTRA ACTIVIDAD PARA EL FEED
+  try {
+    await registrarActividad(usuario_id, 'pedido_catalogo', 'artista', artista_id);
+  } catch (e) {
+    console.error('Error al registrar actividad de pedido_catalogo:', e);
+  }
+
+  res.status(201).json({ message: 'Voto registrado.' });
+});
+
+router.get('/mas-pedidos', async (req, res) => {
+  // Trae todos los votos
+  const { data, error } = await supabase
+    .from('pedidos_catalogo')
+    .select('artista_id');
+
+  if (error) return res.status(500).json({ error: 'Error al obtener artistas más pedidos.' });
+
+  // Cuenta votos por artista_id
+  const conteo = {};
+  for (const row of data) {
+    conteo[row.artista_id] = (conteo[row.artista_id] || 0) + 1;
+  }
+  // Ordena por votos descendente
+  const ordenados = Object.entries(conteo)
+    .sort((a, b) => b[1] - a[1])
+    .map(([artista_id, votos]) => ({ artista_id: parseInt(artista_id), votos }));
+
+  // Trae info de los artistas
+  const ids = ordenados.map(d => d.artista_id);
+  let artistasInfo = [];
+  if (ids.length > 0) {
+    const { data: artistas } = await supabase
+      .from('artistas')
+      .select('id_artista, nombre_artista, foto_artista')
+      .in('id_artista', ids);
+    artistasInfo = artistas || [];
+  }
+
+  // Une info
+  const resultado = ordenados.map(d => ({
+    artista_id: d.artista_id,
+    votos: d.votos,
+    ...artistasInfo.find(a => a.id_artista === d.artista_id)
+  }));
+
+  res.json(resultado);
+});
+
+router.get('/votos-usuario/:usuario_id', async (req, res) => {
+  const { usuario_id } = req.params;
+  const { data, error } = await supabase
+    .from('pedidos_catalogo')
+    .select('artista_id')
+    .eq('usuario_id', usuario_id);
+  if (error) return res.status(500).json({ error: 'Error al obtener votos.' });
+  res.json(data);
 });
 
 module.exports = router;

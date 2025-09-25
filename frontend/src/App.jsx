@@ -32,6 +32,7 @@ import BadgePage from './pages/BadgePage';
 import ShareablePage from './pages/ShareablePage';
 import InsigniaToast from './components/InsigniaToast';
 import Personalizacion from './pages/Personalizacion'; // Importar la página de personalización
+import Catalogos from './pages/Catalogos'; // Importa la nueva página
 
 import './styles/globals.css';
 import './App.css';
@@ -189,6 +190,7 @@ function App() {
             <ShareablePage usuario={usuario} hideLayout={true} />
           } />
           <Route path="/personalizacion" element={<Personalizacion />} /> {/* Nueva ruta para personalización */}
+          <Route path="catalogs" element={<Catalogos />} /> {/* Nueva ruta para catálogos */}
           
           {/* Rutas protegidas */}
           <Route path="admin" element={
