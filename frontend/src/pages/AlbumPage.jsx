@@ -31,9 +31,6 @@ const AlbumPage = ({ usuario }) => {
   const [sugerenciasAlbum, setSugerenciasAlbum] = useState({ nuevas: [] });
   const [sugerenciasSimilar, setSugerenciasSimilar] = useState({ mensaje: '', nuevas: [] });
   const [showHistorial, setShowHistorial] = useState(false);
-  // 1. Trae los clusters de canciones y valoraciones del usuario
-  const [cancionClusters, setCancionClusters] = useState({});
-  const [valoradasIds, setValoradasIds] = useState([]);
   const [grupoAlbum, setGrupoAlbum] = useState(null);
   const [otrosAlbumesGrupo, setOtrosAlbumesGrupo] = useState([]);
   const [grupoUniversal, setGrupoUniversal] = useState(null);
@@ -164,21 +161,6 @@ const AlbumPage = ({ usuario }) => {
       axios.get(`${API_URL}/albumes/sugerencias-similar`, {
         params: { usuario_id: usuario.id_usuario, id_album: id }
       }).then(res => setSugerenciasSimilar(res.data));
-    }
-  }, [id, usuario]);
-
-  useEffect(() => {
-    // Trae clusters de canciones
-    axios.get(`${API_URL}/cancion_clusters`).then(res => {
-      const map = {};
-      res.data.forEach(c => map[c.id_cancion] = c.grupo);
-      setCancionClusters(map);
-    });
-
-    if (usuario) {
-      axios.get(`${API_URL}/valoraciones`, {
-        params: { usuario: usuario.id_usuario, entidad_tipo: 'cancion' }
-      }).then(res => setValoradasIds(res.data.map(v => Number(v.cancion))));
     }
   }, [id, usuario]);
 
@@ -427,12 +409,10 @@ const AlbumPage = ({ usuario }) => {
             </thead>
             <tbody>
               {songs.map((song, idx) => {
-                let estado = "Nueva";
-                if (valoradasIds.includes(song.id_cancion)) estado = "Valorada";
-                else if (
-                  Array.isArray(sugerenciasAlbum.nuevas) &&
-                  !sugerenciasAlbum.nuevas.some(n => n.id_cancion === song.id_cancion)
-                ) estado = "Similar";
+                // El backend debe devolver sugerenciasSimilar.valoradas_en_otros_albumes como array de id_cancion
+                const esValorada = valoradas.includes(song.id_cancion);
+                const esSimilar = sugerenciasSimilar.valoradas_en_otros_albumes?.includes(song.id_cancion);
+                const estado = esValorada ? "Valorada" : esSimilar ? "Similar" : "Nueva";
                 return (
                   <tr key={song.id_cancion}>
                     <td>{song.numero_pista || idx + 1}</td>
@@ -441,21 +421,23 @@ const AlbumPage = ({ usuario }) => {
                     <td>{song.valoraciones_count || '-'}</td>
                     <td>{song.promedio_valoracion ? `${song.promedio_valoracion} ⭐` : '-'}</td>
                     <td>{song.popularidad}</td>
-                    <td>
-                      <span
-                        style={{
-                          color:
-                            estado === "Valorada"
-                              ? "#16a34a" // verde
-                              : estado === "Similar"
-                              ? "#f59e42" // naranja
-                              : "#dc2626", // rojo
-                          fontWeight: "bold"
-                        }}
-                      >
-                        {usuario && <td>{estado}</td>}
-                      </span>
-                    </td>
+                    {usuario && (
+                      <td>
+                        <span
+                          style={{
+                            color:
+                              estado === "Valorada"
+                                ? "#16a34a"
+                                : estado === "Similar"
+                                ? "#f59e42"
+                                : "#dc2626",
+                            fontWeight: "bold"
+                          }}
+                        >
+                          {estado}
+                        </span>
+                      </td>
+                    )}
                   </tr>
                 );
               })}

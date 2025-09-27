@@ -26,10 +26,6 @@ const VideoPage = ({ usuario }) => {
   const [historial, setHistorial] = useState([]);
   const [genres, setGenres] = useState([]);
   const [listasDestacadas, setListasDestacadas] = useState([]);
-  const [sugerencias, setSugerencias] = useState({ duplicados: [] });
-  const [grupoUniversal, setGrupoUniversal] = useState(null);
-  const [miembrosGrupo, setMiembrosGrupo] = useState([]);
-  const [infoVideos, setInfoVideos] = useState({});
   const [showHistorial, setShowHistorial] = useState(false);
 
   useEffect(() => {
@@ -165,35 +161,6 @@ const handleAddToList = async () => {
     alert('Seleccione una lista o cree una nueva');
   }
 };
-
-const fetchSugerencias = async () => {
-  try {
-    const res = await axios.get(`${API_URL}/ml/sugerencias/video/${id}`);
-    setSugerencias(res.data);
-  } catch (err) {
-    setSugerencias({ duplicados: [] });
-  }
-};
-
-useEffect(() => {
-  fetchSugerencias();
-}, [id]);
-
-useEffect(() => {
-  // Consulta el grupo universal y sus miembros
-  axios.get(`${API_URL}/ml/cluster/video/${id}`).then(res => {
-    setGrupoUniversal(res.data.grupo);
-    axios.get(`${API_URL}/ml/cluster/video/grupo/${res.data.grupo}`).then(res2 => {
-      setMiembrosGrupo(res2.data.filter(mid => mid !== parseInt(id)));
-      Promise.all(res2.data.map(mid => axios.get(`${API_URL}/videos/${mid}`)))
-        .then(results => {
-          const map = {};
-          results.forEach(r => map[r.data.id_video] = r.data);
-          setInfoVideos(map);
-        });
-    });
-  });
-}, [id]);
 
   if (loading) return <p>Cargando...</p>;
   if (!video) return <p>Error: Video no encontrado.</p>;
@@ -358,45 +325,6 @@ useEffect(() => {
           </li>
         ))}
       </ul>
-      {/* SUGERENCIAS DE VIDEOS SIMILARES */}
-      {sugerencias.duplicados && sugerencias.duplicados.length > 0 && (
-  <div className="mt-8">
-    <h3 className="text-xl font-bold text-blue-600">Videos similares/alternativos</h3>
-    <ul>
-      {sugerencias.duplicados.map((dup) => (
-        <li key={dup.id}>
-          <Link to={`/video/${dup.id}`}>Video similar (similitud: {(dup.similaridad * 100).toFixed(1)}%)</Link>
-        </li>
-      ))}
-    </ul>
-  </div>
-)}
-{sugerencias.canciones && sugerencias.canciones.length > 0 && (
-  <ul>
-    {sugerencias.canciones.map(song => (
-      <li key={song.id}>
-        <Link to={`/song/${song.id}`}>Canción relacionada (similitud: {(song.similaridad * 100).toFixed(1)}%)</Link>
-      </li>
-    ))}
-  </ul>
-)}
-{miembrosGrupo.length > 0 && (
-  <div>
-    <h3>Otras versiones (agrupadas por similitud)</h3>
-    <ul>
-      {miembrosGrupo.map(mid => (
-        <li key={mid}>
-          <Link to={`/video/${mid}`}>
-            {infoVideos[mid]?.titulo || `Video #${mid}`}
-            {infoVideos[mid] && (
-              <> — {infoVideos[mid].anio} — {Math.floor(infoVideos[mid].duracion/60)}:{(infoVideos[mid].duracion%60).toString().padStart(2, '0')}</>
-            )}
-          </Link>
-        </li>
-      ))}
-    </ul>
-  </div>
-)}
     </div>
   );
 };

@@ -5,6 +5,7 @@ import PropTypes from 'prop-types';
 import StarRating from '../components/StarRating';
 import ValoracionComentario from '../components/ValoracionComentario';
 import React from 'react';
+import { FaArrowLeft, FaArrowRight } from 'react-icons/fa'; // Instala react-icons si no lo tienes
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -27,12 +28,11 @@ const SongPage = ({ usuario }) => {
   const [posicionRanking, setPosicionRanking] = useState(null);
   const [historial, setHistorial] = useState([]);
   const [listasDestacadas, setListasDestacadas] = useState([]);
-  const [sugerencias, setSugerencias] = useState({ duplicados: [], videos: [] });
-  const [sugerenciasDuplicado, setSugerenciasDuplicado] = useState({ mensaje: '', duplicados: [] });
   const [grupoUniversal, setGrupoUniversal] = useState(null);
   const [miembrosGrupo, setMiembrosGrupo] = useState([]);
   const [infoCanciones, setInfoCanciones] = useState({});
   const [showHistorial, setShowHistorial] = useState(false);
+  const [albumSongs, setAlbumSongs] = useState([]);
 
   const valoradasEnGrupo = useMemo(() => {
   return miembrosGrupo.filter(mid => valoradas.includes(`cancion-${mid}`));
@@ -116,15 +116,6 @@ const SongPage = ({ usuario }) => {
   }
 }, [usuario, id]);
 
-  const fetchSugerencias = async () => {
-    try {
-      const res = await axios.get(`${API_URL}/ml/sugerencias/cancion/${id}`);
-      setSugerencias(res.data);
-    } catch (err) {
-      setSugerencias({ duplicados: [], videos: [] });
-    }
-  };
-
   const handleRatingChange = async (newRating) => {
     setRating(newRating);
     if (usuario) {
@@ -157,32 +148,21 @@ useEffect(() => {
   }).then(res => setPosicionRanking(res.data.posicion));
 }, [id, usuario]);
 
-useEffect(() => {
-  if (usuario) {
-    axios.get(`${API_URL}/canciones/sugerencias-duplicado`, {
-      params: { usuario_id: usuario.id_usuario, id_cancion: id }
-    }).then(res => setSugerenciasDuplicado(res.data));
-  }
-}, [id, usuario]);
-
   useEffect(() => {
-  // Trae grupo universal y miembros
-  axios.get(`${API_URL}/ml/cluster/cancion/${id}`).then(res => {
-    setGrupoUniversal(res.data.grupo);
-
-    axios.get(`${API_URL}/ml/cluster/cancion/grupo/${res.data.grupo}`).then(res2 => {
-      setMiembrosGrupo(res2.data.filter(mid => mid !== parseInt(id)));
-
-      // Trae info de canciones
-      Promise.all(res2.data.map(mid => axios.get(`${API_URL}/canciones/${mid}`)))
-        .then(results => {
-          const map = {};
-          results.forEach(r => map[r.data.id_cancion] = r.data);
-          setInfoCanciones(map);
+    // ...existing fetchSongData...
+    // Al final de fetchSongData, si tienes el álbum:
+    if (album && album.id_album) {
+      axios.get(`${API_URL}/relaciones/albumes/${album.id_album}/canciones`)
+        .then(res => {
+          setAlbumSongs(Array.isArray(res.data.canciones) ? res.data.canciones : []);
         });
-    });
-  });
-}, [id]);
+    }
+  }, [album]);
+
+  // Encuentra la posición de la canción actual en el álbum
+  const currentIdx = albumSongs.findIndex(c => String(c.id_cancion) === String(id));
+  const prevSong = currentIdx > 0 ? albumSongs[currentIdx - 1] : null;
+  const nextSong = currentIdx >= 0 && currentIdx < albumSongs.length - 1 ? albumSongs[currentIdx + 1] : null;
 
   return (
     <div className="pt-16 p-4">
@@ -193,6 +173,22 @@ useEffect(() => {
           <h2 className="text-4xl font-bold my-4 text-center">
             {song.titulo}
           </h2>
+          <div className="flex justify-between items-center mb-2">
+  <div style={{ flex: 1, textAlign: "left" }}>
+    {prevSong ? (
+      <Link to={`/song/${prevSong.id_cancion}`} className="text-blue-600 flex items-center">
+        <FaArrowLeft /> <span className="ml-1">{prevSong.titulo}</span>
+      </Link>
+    ) : <span />}
+  </div>
+  <div style={{ flex: 1, textAlign: "right" }}>
+    {nextSong ? (
+      <Link to={`/song/${nextSong.id_cancion}`} className="text-blue-600 flex items-center justify-end">
+        <span className="mr-1">{nextSong.titulo}</span> <FaArrowRight />
+      </Link>
+    ) : <span />}
+  </div>
+</div>
           {song.categoria && (
             <div className="text-center mb-2">
               <span className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-semibold">
@@ -382,78 +378,6 @@ useEffect(() => {
   </div>
 )}
 
-{/* SUGERENCIAS DE DUPLICADOS Y VIDEOS */}
-{sugerencias.duplicados && sugerencias.duplicados.length > 0 && (
-  <div className="mt-8">
-    <h3 className="text-xl font-bold text-red-600">Versiones similares/duplicadas</h3>
-    <ul>
-      {sugerencias.duplicados.map((dup) => (
-        <li key={dup.id}>
-          <Link to={`/song/${dup.id}`}>Canción similar (similitud: {(dup.similaridad * 100).toFixed(1)}%)</Link>
-        </li>
-      ))}
-    </ul>
-  </div>
-)}
-{sugerencias.videos && sugerencias.videos.length > 0 && (
-  <div className="mt-4">
-    <h3 className="text-xl font-bold text-blue-600">Videos musicales relacionados</h3>
-    <ul>
-      {sugerencias.videos.map((vid) => (
-        <li key={vid.video_id}>
-          <Link to={`/video/${vid.video_id}`}>Video musical relacionado</Link>
-        </li>
-      ))}
-    </ul>
-  </div>
-)}
-
-{/* Sugerencias de duplicado específicas */}
-{sugerenciasDuplicado.mensaje && valoradasEnGrupo.length > 0 && (
-  <div className="mt-8 bg-red-100 border-l-4 border-red-500 p-4">
-    <strong>
-      Esta canción parece una versión duplicada de otra que ya valoraste:
-    </strong>
-    <ul>
-      {valoradasEnGrupo.map(mid => (
-        <li key={mid}>
-          <Link to={`/song/${mid}`}>
-            {infoCanciones[mid]?.titulo || `Canción #${mid}`}
-            {infoCanciones[mid]?.album && (
-              <> ({infoCanciones[mid].album.titulo}, {infoCanciones[mid].album.anio})</>
-            )}
-            {sugerenciasDuplicado.duplicados.find(d => d.id === mid) &&
-              <> (similitud: {(sugerenciasDuplicado.duplicados.find(d => d.id === mid).similaridad * 100).toFixed(1)}%)</>
-            }
-          </Link>
-        </li>
-      ))}
-    </ul>
-    <div className="mt-2">
-      ¿Quieres aun así valorarla como nueva?
-      {/* Aquí puedes poner el botón para permitir valorar si el usuario lo desea */}
-    </div>
-  </div>
-)}
-
-{/* Otras versiones (agrupadas por similitud) */}
-{miembrosGrupo.length > 0 && (
-  <div>
-    <h3>Otras versiones (agrupadas por similitud)</h3>
-    <ul>
-      {miembrosGrupo.map(mid => (
-        <li key={mid}>
-          <Link to={`/song/${mid}`}>
-            {infoCanciones[mid]?.titulo || `Canción #${mid}`}
-            {infoCanciones[mid] && (
-              <> — {infoCanciones[mid].album && `${infoCanciones[mid].album.titulo} (${infoCanciones[mid].album.anio})`} — {Math.floor(infoCanciones[mid].duracion_ms/60000)}:{((infoCanciones[mid].duracion_ms%60000)/1000).toFixed(0).padStart(2, '0')}</>
-            )}
-          </Link>
-        </li>
-      ))}
-    </ul>
-  </div>
-)}
         </>
       ) : (
         <p>Canción no encontrada.</p>

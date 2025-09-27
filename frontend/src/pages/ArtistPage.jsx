@@ -62,14 +62,8 @@ const ArtistPage = ({ usuario }) => {
   const [listasDestacadas, setListasDestacadas] = useState([]);
   const [showHistorial, setShowHistorial] = useState(false);
   const [albumClusters, setAlbumClusters] = useState({});
-  const [cancionClusters, setCancionClusters] = useState({});
-  const [videoClusters, setVideoClusters] = useState({});
-  const [valoradosClusters, setValoradosClusters] = useState({
-    album: new Set(),
-    cancion: new Set(),
-    video: new Set(),
-  });
   const [votoEnviado, setVotoEnviado] = useState(false);
+  const [valoradosClusters, setValoradosClusters] = useState({ album: new Set() });
 
   useEffect(() => {
     const fetchArtistData = async () => {
@@ -209,14 +203,10 @@ const ArtistPage = ({ usuario }) => {
   useEffect(() => {
   // Trae clusters de todas las entidades
   const fetchClusters = async () => {
-    const [alb, can, vid] = await Promise.all([
+    const [alb] = await Promise.all([
       axios.get(`${API_URL}/albumes/album_clusters`),
-      axios.get(`${API_URL}/canciones/cancion_clusters`),
-      axios.get(`${API_URL}/videos/video_clusters`)
     ]);
     setAlbumClusters(Object.fromEntries(alb.data.map(a => [a.id_album, a.grupo])));
-    setCancionClusters(Object.fromEntries(can.data.map(c => [c.id_cancion, c.grupo])));
-    setVideoClusters(Object.fromEntries(vid.data.map(v => [v.id_video, v.grupo])));
   };
   fetchClusters();
 }, []);
@@ -227,20 +217,10 @@ const ArtistPage = ({ usuario }) => {
     .filter(v => v.startsWith('album-'))
     .map(v => albumClusters[parseInt(v.split('-')[1])])
     .filter(Boolean);
-  const canGrupos = valorados
-    .filter(v => v.startsWith('cancion-'))
-    .map(v => cancionClusters[parseInt(v.split('-')[1])])
-    .filter(Boolean);
-  const vidGrupos = valorados
-    .filter(v => v.startsWith('video-'))
-    .map(v => videoClusters[parseInt(v.split('-')[1])])
-    .filter(Boolean);
   setValoradosClusters({
     album: new Set(albGrupos),
-    cancion: new Set(canGrupos),
-    video: new Set(vidGrupos),
   });
-}, [valorados, albumClusters, cancionClusters, videoClusters]);
+}, [valorados, albumClusters]);
 
   const handleRatingChange = async (newRating) => {
     setRating(newRating);
@@ -337,21 +317,6 @@ const handleAddToList = async () => {
     return acc;
   }, {});
 
-  // Helper para estado visual
-  function getEstadoEntidad(tipo, id) {
-    const key = `${tipo}-${id}`;
-    if (valorados.includes(key)) return 'valorada';
-    const grupo = tipo === 'album'
-      ? albumClusters[id]
-      : tipo === 'cancion'
-      ? cancionClusters[id]
-      : tipo === 'video'
-      ? videoClusters[id]
-      : null;
-    if (grupo && valoradosClusters[tipo].has(grupo)) return 'similar';
-    return '';
-  }
-
   const handleVotarCatalogo = async () => {
     if (!usuario) return;
     try {
@@ -378,6 +343,18 @@ const handleAddToList = async () => {
       setVotoEnviado(false);
     }
   };
+
+    function getEstadoEntidad(tipo, id) {
+    if (tipo === 'album') {
+      // Si valoraste este álbum directamente
+      if (valorados.includes(`album-${id}`)) return 'valorada';
+      // Si valoraste algún otro álbum del mismo grupo
+      const grupo = albumClusters[id];
+      if (grupo && Array.from(valoradosClusters.album).includes(grupo)) return 'similar';
+      return '';
+    }
+    return '';
+  }
 
   return (
     <div className="pt-20 px-4">

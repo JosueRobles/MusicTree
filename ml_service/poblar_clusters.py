@@ -236,7 +236,7 @@ def bulk_fetch_video_artistas(ids):
 def bulk_fetch_album_meta(ids):
     if not ids:
         return {}
-    rows = sb.table("albumes").select("id_album, titulo, anio, popularidad_album").in_("id_album", ids).execute().data
+    rows = sb.table("albumes").select("id_album, titulo, anio, popularidad_album, numero_canciones").in_("id_album", ids).execute().data
     return {r["id_album"]: r for r in rows}
 
 
@@ -260,6 +260,16 @@ def bulk_fetch_album_generos(ids):
     return m
 
 
+def bulk_fetch_album_canciones(ids):
+    if not ids:
+        return {}
+    rows = sb.table("canciones").select("id_cancion, album, titulo").in_("album", ids).execute().data
+    m = {}
+    for r in rows:
+        m.setdefault(r["album"], set()).add(normalizar_titulo_base(r["titulo"]))
+    return m
+
+
 # -----------------------------
 # Lógica de matching (score-based)
 # -----------------------------
@@ -277,66 +287,12 @@ VIDEO_WEIGHTS = SONG_WEIGHTS.copy()
 VIDEO_THRESHOLD = 0.60
 
 ALBUM_WEIGHTS = {
-    "title": 0.60,
-    "artist": 0.30,
+    "title": 0.50,   # baja un poco para compensar
+    "artist": 0.35,  # sube el peso
     "genre": 0.08,
-    "embedding": 0.02,
+    "embedding": 0.07,
 }
-ALBUM_THRESHOLD = 0.55
-
-
-def compute_song_match_score(m1, a1, d1, m2, a2, d2, sim_obj=None):
-    # titulo
-    title_score = titulo_ratio(m1.get("titulo", ""), m2.get("titulo", ""))
-    # artistas
-    artist_score = artistas_overlap_score(a1, a2)
-    # duracion
-    dur_score = duracion_score(d1, d2)
-    dur_score_val = 0.0 if dur_score is None else dur_score
-    # embedding score
-    emb_score = parse_microservice_score(sim_obj) or 0.0
-    score = (
-        SONG_WEIGHTS["title"] * title_score +
-        SONG_WEIGHTS["artist"] * artist_score +
-        SONG_WEIGHTS["duration"] * dur_score_val +
-        SONG_WEIGHTS["embedding"] * emb_score
-    )
-    # reglas adicionales de leniency: si hay al menos 1 artista en comun + titulo razonable, aceptamos
-    if artist_score > 0 and title_score >= 0.7 and (dur_score is None or dur_score == 1.0):
-        score = max(score, 0.7)
-    # fallback boost: si títulos son casi idénticos (>=0.85) y hay un artista en común
-    if title_score >= 0.85 and artist_score > 0:
-        score = max(score, 0.8)
-    # fallback para duetos/versiones: si título >=0.75 y duración casi igual
-    if title_score >= 0.75 and duracion_score(d1, d2) >= 0.8:
-        score = max(score, 0.75)
-    if emb_score >= 0.85 and title_score >= 0.5:
-        score = max(score, 0.7)
-    # fallback fuerte: mismo artista + duración casi igual
-    if artist_score > 0 and title_score >= 0.65 and duracion_relajada(d1, d2) >= 0.8:
-        score = max(score, 0.75)
-    # títulos base casi idénticos aunque score baje
-    if normalizar_titulo_base(m1.get("titulo","")) == normalizar_titulo_base(m2.get("titulo","")):
-        score = max(score, 0.9)
-    return score
-
-
-def compute_video_match_score(m1, a1, d1, m2, a2, d2, sim_obj=None):
-    # usamos misma lógica que canciones
-    title_score = titulo_ratio(m1.get("titulo", ""), m2.get("titulo", ""))
-    artist_score = artistas_overlap_score(a1, a2)
-    dur_score = duracion_score(d1, d2)
-    dur_score_val = 0.0 if dur_score is None else dur_score
-    emb_score = parse_microservice_score(sim_obj) or 0.0
-    score = (
-        VIDEO_WEIGHTS["title"] * title_score +
-        VIDEO_WEIGHTS["artist"] * artist_score +
-        VIDEO_WEIGHTS["duration"] * dur_score_val +
-        VIDEO_WEIGHTS["embedding"] * emb_score
-    )
-    if artist_score > 0 and title_score >= 0.7 and (dur_score is None or dur_score == 1.0):
-        score = max(score, 0.7)
-    return score
+ALBUM_THRESHOLD = 0.60  # puedes ajustar tras pruebas
 
 
 def compute_album_match_score(m1, a1, g1, m2, a2, g2, sim_obj=None):
@@ -348,9 +304,9 @@ def compute_album_match_score(m1, a1, g1, m2, a2, g2, sim_obj=None):
     year2 = m2.get("anio")
     if year1 and year2:
         diff = abs(int(year1) - int(year2))
-        if diff > 3 and title_score < 0.7:
+        if diff > 3 and title_score < 0.85:
             return 0.0
-        if diff > 1 and title_score < 0.6:
+        if diff > 1 and title_score < 0.7:
             return 0.0
     emb_score = parse_microservice_score(sim_obj) or 0.0
     score = (
@@ -410,179 +366,33 @@ def artista_principal(artistas):
     # Devuelve el primer artista (o el más popular si tienes ese dato)
     return sorted([str(a).lower().strip() for a in artistas])[0] if artistas else None
 
-def poblar_cancion_clusters():
-    print("Procesando clusters de canciones (full)...")
-    all_rows = []
-    offset = 0
-    page_size = 1000
-    while True:
-        rows = sb.table("cancion_embeddings").select("id_cancion", "embedding").range(offset, offset + page_size - 1).execute().data
-        if not rows:
-            break
-        all_rows.extend(rows)
-        if len(rows) < page_size:
-            break
-        offset += page_size
-    ids = [r["id_cancion"] for r in all_rows]
-    if not ids:
-        print("No hay embeddings de canciones.")
-        return
+def jaccard(set1, set2):
+    if not set1 or not set2:
+        return 0.0
+    inter = len(set1 & set2)
+    union = len(set1 | set2)
+    return inter / union if union > 0 else 0.0
 
-    meta_map = bulk_fetch_cancion_meta(ids)
-    artistas_map = bulk_fetch_cancion_artistas(ids)
-    popularity_map = {k: (v.get("popularidad") or 0) for k, v in meta_map.items()}
-
-    # Agrupa por (frozenset(artistas), título normalizado)
-    grupos = {}
-    for id_c in ids:
-        t = meta_map.get(id_c, {}).get("titulo", "")
-        a = artistas_map.get(id_c, set())
-        norm_t = normalizar_titulo_base(t)
-        if not norm_t:
-            norm_t = t.lower().strip()
-        clave = (frozenset(str(x).lower().strip() for x in a), norm_t)
-        grupos.setdefault(clave, []).append(id_c)
-
-    # Asigna grupos y representante
-    groups_with_rep = []
-    for miembros in grupos.values():
-        rep = max(miembros, key=lambda x: popularity_map.get(x, 0))
-        rep_pop = popularity_map.get(rep, 0)
-        groups_with_rep.append((miembros, rep, rep_pop))
-    groups_with_rep.sort(key=lambda x: x[2], reverse=True)
-
-    sb.table("cancion_clusters").delete().neq("grupo", -1).execute()
-    grupo_num = 1
-    batch = []
-    for miembros, rep, rep_pop in groups_with_rep:
-        for i in miembros:
-            batch.append({"id_cancion": i, "grupo": grupo_num})
-        grupo_num += 1
-        if len(batch) >= 5000:
-            sb.table("cancion_clusters").upsert(batch).execute()
-            batch = []
-    if batch:
-        sb.table("cancion_clusters").upsert(batch).execute()
-    print(f"Clusters de canciones poblados: {grupo_num-1} grupos.")
-    agrupadas = set()
-    for miembros, _, _ in groups_with_rep:
-        agrupadas.update(miembros)
-    no_agrupadas = [i for i in ids if i not in agrupadas]
-    
-    # Agrupa por título base y al menos un artista en común
-    grupos_duetos = []
-    usados = set()
-    for i in no_agrupadas:
-        if i in usados:
-            continue
-        t1 = meta_map.get(i, {}).get("titulo", "")
-        a1 = artistas_map.get(i, set())
-        norm_t1 = normalizar_titulo_base(t1)
-        grupo = [i]
-        for j in no_agrupadas:
-            if j == i or j in usados:
+def mutual_knn(ids, embs, k=10, emb_threshold=0.60):
+    index = faiss.IndexFlatIP(embs.shape[1])
+    index.add(embs)
+    D, I = index.search(embs, k+1)
+    neighbors = {i: set() for i in range(len(ids))}
+    for i, row in enumerate(I):
+        for j, sim in zip(row, D[i]):
+            if i == j or sim < emb_threshold:
                 continue
-            t2 = meta_map.get(j, {}).get("titulo", "")
-            a2 = artistas_map.get(j, set())
-            norm_t2 = normalizar_titulo_base(t2)
-            # Título base igual y al menos un artista en común
-            if norm_t1 == norm_t2 and len(set(a1) & set(a2)) > 0:
-                grupo.append(j)
-                usados.add(j)
-        if len(grupo) > 1:
-            grupos_duetos.append(grupo)
-            usados.update(grupo)
-    
-    # Asigna nuevos grupos para duetos/remixes
-    for grupo in grupos_duetos:
-        rep = max(grupo, key=lambda x: popularity_map.get(x, 0))
-        for i in grupo:
-            batch.append({"id_cancion": i, "grupo": grupo_num})
-        grupo_num += 1
-        if len(batch) >= 5000:
-            sb.table("cancion_clusters").upsert(batch).execute()
-            batch = []
-    if batch:
-        sb.table("cancion_clusters").upsert(batch).execute()
-    print(f"Clusters de duetos/remixes agregados: {len(grupos_duetos)} grupos.")
-
-def poblar_video_clusters():
-    print("Procesando clusters de videos (full)...")
-    videos = get_all_items("video_embeddings", "id_video")
-    ids = [v["id_video"] for v in videos]
-    if not ids:
-        print("No hay embeddings de videos.")
-        return
-
-    meta_map = bulk_fetch_video_meta(ids)
-    artistas_map = bulk_fetch_video_artistas(ids)
-    popularity_map = {k: (v.get("popularidad") or 0) for k, v in meta_map.items()}
-
-    uf = UnionFind(ids)
-    similitud_cache = {}
-
-    for v in videos:
-        v_id = v["id_video"]
-        cache_key = f"video_{v_id}"
-        if cache_key in similitud_cache:
-            similares = similitud_cache[cache_key]
-        else:
-            try:
-                resp = requests.post(MICROSERVICIO_URL, json={
-                    "entidad": "video",
-                    "id": v_id,
-                    "embedding": v["embedding"]
-                }, timeout=30)
-                similares = resp.json()
-            except Exception as e:
-                print(f"Error microservicio similitud para video {v_id}: {e}")
-                similares = []
-            similitud_cache[cache_key] = similares
-
-        m1 = meta_map.get(v_id, {})
-        a1 = artistas_map.get(v_id, set())
-        d1 = m1.get("duracion")
-
-        for s in similares:
-            s_id = s.get("id")
-            if s_id is None or s_id not in meta_map:
-                continue
-            m2 = meta_map.get(s_id, {})
-            a2 = artistas_map.get(s_id, set())
-            d2 = m2.get("duracion")
-            sim_obj = s
-            score = compute_video_match_score(m1, a1, d1, m2, a2, d2, sim_obj)
-            if score >= VIDEO_THRESHOLD:
-                uf.union(v_id, s_id)
-
-    grupos = {}
-    for i in ids:
-        root = uf.find(i)
-        grupos.setdefault(root, []).append(i)
-
-    groups_with_rep = []
-    for root, miembros in grupos.items():
-        rep = max(miembros, key=lambda x: popularity_map.get(x, 0))
-        rep_pop = popularity_map.get(rep, 0)
-        groups_with_rep.append((root, miembros, rep, rep_pop))
-    groups_with_rep.sort(key=lambda x: x[3], reverse=True)
-
-    sb.table("video_clusters").delete().neq("grupo", -1).execute()
-    grupo_num = 1
-    for root, miembros, rep, rep_pop in groups_with_rep:
-        for i in miembros:
-            sb.table("video_clusters").upsert({
-                "id_video": i,
-                "grupo": grupo_num
-            }).execute()
-        grupo_num += 1
-
-    print(f"Clusters de videos poblados: {grupo_num-1} grupos.")
-
+            neighbors[i].add(j)
+    # mutual kNN
+    pairs = set()
+    for i in range(len(ids)):
+        for j in neighbors[i]:
+            if i in neighbors[j]:
+                pairs.add(tuple(sorted((i, j))))
+    return pairs
 
 def poblar_album_clusters():
-    print("Procesando clusters de álbumes (full)...")
-    # Pagina para obtener todos los embeddings
+    print("Procesando clusters de álbumes (mutual-kNN + combined_score)...")
     all_rows = []
     offset = 0
     page_size = 1000
@@ -601,48 +411,112 @@ def poblar_album_clusters():
         return
     embs = np.vstack([v/np.linalg.norm(v) if np.linalg.norm(v)>0 else v for v in embs])
 
-    grupos = cluster_por_embedding(ids, embs, threshold=0.80)
-    uf = UnionFind(ids)
+    # 1. Vecinos recíprocos
+    pairs = mutual_knn(ids, embs, k=10, emb_threshold=0.70)
 
+    # 2. Cargar metadatos
     meta_map = bulk_fetch_album_meta(ids)
     artistas_map = bulk_fetch_album_artistas(ids)
     generos_map = bulk_fetch_album_generos(ids)
+    canciones_map = bulk_fetch_album_canciones(ids)
     popularity_map = {k: (v.get("popularidad_album") or 0) for k, v in meta_map.items()}
 
-    for root, miembros in grupos.items():
-        for i in miembros:
-            for j in miembros:
-                if i == j: continue
-                a1, a2 = artistas_map.get(i, set()), artistas_map.get(j, set())
-                t1, t2 = meta_map.get(i, {}).get("titulo", ""), meta_map.get(j, {}).get("titulo", "")
-                artist_overlap = artistas_overlap_score(a1, a2)
-                t_ratio = titulo_ratio(t1, t2)
-                # Solo si artistas son exactamente iguales y título >= 0.65
-                if a1 == a2 and t_ratio >= 0.65:
-                    if not son_albumes_ediciones_distintas(t1, t2):
-                        uf.union(i, j)
-                # Si el artista principal está en ambos y título >= 0.70
-                elif artista_principal(a1) and artista_principal(a1) == artista_principal(a2) and t_ratio >= 0.65:
-                    if not son_albumes_ediciones_distintas(t1, t2):
-                        uf.union(i, j)
-                # Nunca mezclar si los artistas son distintos
+    uf = UnionFind(ids)
+    combined_threshold = 0.60
 
+    for i_idx, j_idx in pairs:
+        i, j = ids[i_idx], ids[j_idx]
+        m1, m2 = meta_map.get(i, {}), meta_map.get(j, {})
+        a1, a2 = artistas_map.get(i, set()), artistas_map.get(j, set())
+        g1, g2 = generos_map.get(i, set()), generos_map.get(j, set())
+        can1, can2 = canciones_map.get(i, set()), canciones_map.get(j, set())
+        t1, t2 = m1.get("titulo", ""), m2.get("titulo", "")
+        tipo1, tipo2 = m1.get("tipo_album", ""), m2.get("tipo_album", "")
+        num_tracks1 = m1.get("numero_canciones", 0) or 0
+        num_tracks2 = m2.get("numero_canciones", 0) or 0
+        year1 = m1.get("anio")
+        year2 = m2.get("anio")
+
+        # --- Scores ---
+        title_score = titulo_ratio(t1, t2)
+        artist_score = artistas_overlap_score(a1, a2)
+        genre_score = generos_overlap_score(g1, g2)
+        songs_jaccard = jaccard(can1, can2)
+
+        # Filtro obligatorio: artistas
+        if artist_score < 0.7:
+            continue
+
+        # Filtro por año
+        if year1 and year2:
+            diff = abs(int(year1) - int(year2))
+            if diff > 3 and title_score < 0.85:
+                continue
+            if diff > 1 and title_score < 0.7:
+                continue
+
+        # No unir singles/EPs cortos con álbumes completos
+        if (num_tracks1 <= 3 or num_tracks2 <= 3) and abs(num_tracks1 - num_tracks2) > 1:
+            continue
+
+        # Evitar secuelas numéricas (LP2, Vol. 2, II, III, etc.)
+        if tiene_sufijo_numerico(t1) or tiene_sufijo_numerico(t2):
+            if songs_jaccard < 0.5:
+                continue
+
+        # Soundtracks y compilations: solo agrupar con reediciones propias
+        is_soundtrack = "soundtrack" in (tipo1 or "").lower() or "soundtrack" in (tipo2 or "").lower()
+        is_compilation = (
+            "compilation" in (tipo1 or "").lower()
+            or "compilation" in (tipo2 or "").lower()
+            or "greatest" in t1.lower()
+            or "greatest" in t2.lower()
+        )
+        if (is_soundtrack or is_compilation) and title_score < 0.85:
+            continue
+
+        # --- Reglas de unión (como antes) ---
+        if title_score >= 0.9 and artist_score >= 0.7:
+            uf.union(i, j)
+            continue
+        if songs_jaccard >= 0.6:
+            uf.union(i, j)
+            continue
+        songs_weight = 0.25 * (0.4 if is_compilation else 1.0)
+        combined_score = (
+            0.35 * title_score +
+            0.35 * artist_score +
+            songs_weight * songs_jaccard +
+            0.05 * genre_score +
+            0.10  # emb_score, ya filtrado
+        )
+        if combined_score >= combined_threshold:
+            uf.union(i, j)
+            continue
+        if any(tok in t1.lower() or tok in t2.lower() for tok in ["remix", "live", "acoustic"]):
+            if title_score >= 0.85 and songs_jaccard >= 0.5:
+                uf.union(i, j)
+                continue
+
+    # 3. Construir clusters
     grupos_final = {}
     for i in ids:
         root = uf.find(i)
         grupos_final.setdefault(root, []).append(i)
 
-    groups_with_rep = []
-    for root, miembros in grupos_final.items():
-        rep = max(miembros, key=lambda x: popularity_map.get(x, 0))
-        rep_pop = popularity_map.get(rep, 0)
-        groups_with_rep.append((root, miembros, rep, rep_pop))
-    groups_with_rep.sort(key=lambda x: x[3], reverse=True)
+    # 4. Guardar snapshot previo
+    snapshot = sb.table("album_clusters").select("*").execute().data
+    with open("album_clusters_snapshot.json", "w", encoding="utf-8") as f:
+        import json
+        json.dump(snapshot, f, ensure_ascii=False, indent=2)
 
+    # 5. Guardar clusters nuevos
     sb.table("album_clusters").delete().neq("grupo", -1).execute()
     grupo_num = 1
     batch = []
-    for root, miembros, rep, rep_pop in groups_with_rep:
+    for root, miembros in grupos_final.items():
+        rep = max(miembros, key=lambda x: popularity_map.get(x, 0))
+        rep_pop = popularity_map.get(rep, 0)
         for i in miembros:
             batch.append({"id_album": i, "grupo": grupo_num})
         grupo_num += 1
@@ -665,7 +539,9 @@ def son_albumes_ediciones_distintas(t1, t2):
         return True
     return False
 
+def tiene_sufijo_numerico(titulo):
+    # Busca LP2, Vol. 2, II, III, etc.
+    return bool(re.search(r'(vol\.?\s*\d+|lp\s*\d+|\bii+\b|\biii+\b|\biv+\b|\b2\b|\b3\b|\b4\b)', titulo.lower()))
+
 if __name__ == "__main__":
-    poblar_cancion_clusters()
-    # poblar_video_clusters()
-    # poblar_album_clusters()
+    poblar_album_clusters()

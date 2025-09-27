@@ -15,8 +15,6 @@ ADMIN_API_KEY = os.getenv("ADMIN_API_KEY")
 PAGE_SIZE = int(os.getenv("PAGE_SIZE", "1000"))
 
 CFG = {
-    "cancion": {"table": "cancion_embeddings", "id_field": "id_cancion", "emb_field": "embedding"},
-    "video": {"table": "video_embeddings", "id_field": "id_video", "emb_field": "embedding"},
     "album": {"table": "album_embeddings", "id_field": "id_album", "emb_field": "embedding"},
 }
 

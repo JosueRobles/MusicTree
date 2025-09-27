@@ -5,6 +5,7 @@ import supabase
 from sentence_transformers import SentenceTransformer
 import numpy as np
 import re
+import unicodedata
 
 # Carga variables de entorno
 load_dotenv()
@@ -37,72 +38,60 @@ def get_data(endpoint):
         page += 1
     return all_data
 
+def strip_accents(text):
+    return ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
+
 def normalizar_titulo_base(titulo: str) -> str:
     if not titulo:
         return ""
-    t = titulo.lower()
-    # eliminar términos comunes de versiones
-    t = re.sub(r'\b(remaster(ed)?|deluxe|edition|bonus|live|demo|super|anniversary|expanded|complete|'
-               r'version|mix|radio edit|remix|original|mono|stereo|explicit|clean|instrumental|'
-               r'karaoke|single|ep|lp|box set|disc \d+|cd\d+|vinyl|digital|special|reissue|commentary)\b',
-               '', t, flags=re.I)
-    # limpiar (feat. ...), with ...
-    t = re.sub(r'(\(feat.*?\)|feat\.?.*|with .*)', '', t, flags=re.I)
-    # quitar años y números sueltos
+    t = strip_accents(titulo.lower())
+    t = re.sub(r'\(.*?\)', ' ', t)
+    t = re.sub(
+        r'\b(remaster(ed)?|deluxe|edition|bonus|live|demo|super|anniversary|expanded|complete|'
+        r'version|mix|radio edit|remix|original|mono|stereo|explicit|clean|instrumental|'
+        r'karaoke|single|ep|lp|box set|disc \d+|cd\d+|vinyl|digital|special|reissue|commentary)\b',
+        '', t, flags=re.I)
+    t = re.sub(r'(\bfeat\.?.*|\bft\.?.*|\bwith .*)', '', t, flags=re.I)
     t = re.sub(r'\b\d{2,4}\b', '', t)
+    t = re.sub(r'[^\w\s\-]', '', t)
     return re.sub(r'\s+', ' ', t).strip()
-
-def get_canciones():
-    return get_data("canciones")
 
 def get_albumes():
     return get_data("albumes")
 
-def get_videos():
-    return get_data("videos")
+def get_album_artistas(album):
+    # Si tienes los nombres, úsalos; si no, busca por id
+    if "album_artistas" in album and album["album_artistas"]:
+        return [a.get("nombre_artista", "") for a in album["album_artistas"] if a.get("nombre_artista")]
+    return []
 
-# Funciones para generar embedding
-def embed_cancion(cancion):
-    titulo = normalizar_titulo_base(cancion.get('titulo', ''))
-    texto = f"{titulo} {cancion.get('albumes', {}).get('titulo', '')} " \
-            f"{' '.join(str(a['artista_id']) for a in cancion.get('cancion_artistas', []))} " \
-            f"{' '.join(str(g['genero_id']) for g in cancion.get('cancion_generos', []))} " \
-            f"{cancion.get('duracion_ms', '')}"
-    return model.encode(texto).tolist()
+def get_album_generos(album):
+    if "album_generos" in album and album["album_generos"]:
+        return [g.get("nombre", "") for g in album["album_generos"] if g.get("nombre")]
+    return []
+
+def get_album_canciones(id_album):
+    # Trae hasta 5 títulos de canciones normalizados
+    rows = sb.table("canciones").select("titulo").eq("album", id_album).order("orden", desc=False).limit(5).execute().data
+    return [normalizar_titulo_base(r["titulo"]) for r in rows if r.get("titulo")]
 
 def embed_album(album):
     titulo = normalizar_titulo_base(album.get('titulo', ''))
-    texto = f"{titulo} {album.get('tipo_album', '')} {album.get('anio', '')} " \
-            f"{' '.join(str(a['artista_id']) for a in album.get('album_artistas', []))} " \
-            f"{' '.join(str(g['genero_id']) for g in album.get('album_generos', []))}"
-    return model.encode(texto).tolist()
+    tipo = album.get('tipo_album', '')
+    anio = str(album.get('anio', ''))
+    artistas = ', '.join(get_album_artistas(album))
+    generos = ', '.join(get_album_generos(album))
+    num_tracks = str(album.get('numero_canciones', ''))
+    canciones = get_album_canciones(album['id_album']) if album.get('id_album') else []
+    canciones_str = '; '.join(canciones)
+    texto = f"{titulo}. Tipo: {tipo}. Año: {anio}. Artistas: {artistas}. Géneros: {generos}. Canciones: {canciones_str}. Número de canciones: {num_tracks}."
+    return texto, model.encode(texto).tolist()
 
-def embed_video(video):
-    titulo = normalizar_titulo_base(video.get('titulo', ''))
-    texto = f"{titulo} {video.get('anio', '')} {video.get('duracion', '')} " \
-            f"{' '.join(str(a['artista_id']) for a in video.get('video_artistas', []))} " \
-            f"{' '.join(str(g['genero_id']) for g in video.get('video_generos', []))}"
-    return model.encode(texto).tolist()
-    
-# Funciones para guardar embeddings
-def save_embedding_cancion(id_cancion, emb):
-    sb.table('cancion_embeddings').upsert({
-        'id_cancion': id_cancion,
-        'embedding': emb,
-        'cluster_pendiente': True
-    }).execute()
-
-def save_embedding_album(id_album, emb):
+def save_embedding_album(id_album, emb, texto):
     sb.table('album_embeddings').upsert({
         'id_album': id_album,
         'embedding': emb,
-        'cluster_pendiente': True
-    }).execute()
-
-def save_embedding_video(id_video, emb):
-    sb.table('video_embeddings').upsert({
-        'id_video': id_video,
-        'embedding': emb,
+        'texto_embedding': texto,
         'cluster_pendiente': True
     }).execute()
 
@@ -111,23 +100,10 @@ def ya_tiene_embedding(tabla, id_field, id_val):
     return bool(res.data and res.data[0].get("embedding"))
 
 # --- Ejecutar ---
-print("Generando embeddings de canciones...")
-for c in get_canciones():
-    if isinstance(c, dict) and "id_cancion" in c:
-        if not ya_tiene_embedding("cancion_embeddings", "id_cancion", c["id_cancion"]):
-            save_embedding_cancion(c['id_cancion'], embed_cancion(c))
-print("Embeddings de canciones completados.")
-
 print("Generando embeddings de álbumes...")
 for a in get_albumes():
     if isinstance(a, dict) and "id_album" in a:
         if not ya_tiene_embedding("album_embeddings", "id_album", a["id_album"]):
-            save_embedding_album(a['id_album'], embed_album(a))
+            texto, emb = embed_album(a)
+            save_embedding_album(a['id_album'], emb, texto)
 print("Embeddings de álbumes completados.")
-
-print("Generando embeddings de videos...")
-for v in get_videos():
-    if isinstance(v, dict) and "id_video" in v:
-        if not ya_tiene_embedding("video_embeddings", "id_video", v["id_video"]):
-            save_embedding_video(v['id_video'], embed_video(v))
-print("Embeddings de videos completados.")

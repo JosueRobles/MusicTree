@@ -138,53 +138,18 @@ const sugerirCancionesNuevasAlbum = async (req, res) => {
   // Si no hay valoradas, que sea []
   const valoradasIds = (valoradas || []).map(v => v.cancion);
 
-  // 3. Expandir por clusters
-  let idsClusters = [];
-  if (valoradasIds.length > 0) {
-    // 3.1 Traer grupos de las canciones valoradas
-    const { data: gruposData, error: errorGrupos } = await supabase
-      .from('cancion_clusters')
-      .select('grupo')
-      .in('id_cancion', valoradasIds);
-
-    if (errorGrupos) {
-      console.error("Error consultando grupos:", errorGrupos);
-      return res.status(500).json({ error: "Error obteniendo clusters" });
-    }
-
-    const grupos = (gruposData || []).map(g => g.grupo);
-
-    // 3.2 Traer todos los miembros de esos grupos
-    if (grupos.length > 0) {
-      const { data: clusters, error: errorClusters } = await supabase
-        .from('cancion_clusters')
-        .select('id_cancion')
-        .in('grupo', grupos);
-
-      if (errorClusters) {
-        console.error("Error consultando miembros de clusters:", errorClusters);
-        return res.status(500).json({ error: "Error obteniendo miembros de clusters" });
-      }
-
-      idsClusters = (clusters || []).map(c => c.id_cancion);
-    }
-  }
-  // 4. Unión: valoradas directas + sus similares
-  const todasValoradas = new Set([...valoradasIds, ...idsClusters]);
-
-  // 5. Filtrar canciones del álbum que no están en ese set
-  const nuevas = cancionesAlbum.filter(c => !todasValoradas.has(c.id_cancion));
-
+  // Solo filtra canciones del álbum que el usuario NO ha valorado
+  const nuevas = cancionesAlbum.filter(c => !valoradasIds.includes(c.id_cancion));
   res.json({ nuevas });
 };
 
 const sugerirAlbumSimilar = async (req, res) => {
   const { usuario_id, id_album } = req.query;
 
-  // 1. Canciones del álbum actual
+  // 1. Canciones del álbum actual (trae también duración)
   const { data: cancionesAlbum, error: errorAlbum } = await supabase
     .from('canciones')
-    .select('id_cancion, titulo')
+    .select('id_cancion, titulo, duracion_ms')
     .eq('album', id_album);
 
   if (errorAlbum) {
@@ -205,42 +170,13 @@ const sugerirAlbumSimilar = async (req, res) => {
 
   const valoradasIds = (valoradasCancion || []).map(v => v.cancion);
 
-  // 3. Expandir por clusters
-  let idsClusters = [];
-  if (valoradasIds.length > 0) {
-    // 3.1 Traer grupos de las canciones valoradas
-    const { data: gruposData } = await supabase
-      .from('cancion_clusters')
-      .select('grupo')
-      .in('id_cancion', valoradasIds);
-
-    const grupos = (gruposData || []).map(g => g.grupo);
-
-    // 3.2 Traer todos los miembros de esos grupos
-    if (grupos.length > 0) {
-      const { data: clusters } = await supabase
-        .from('cancion_clusters')
-        .select('id_cancion')
-        .in('grupo', grupos);
-
-      idsClusters = (clusters || []).map(c => c.id_cancion);
-    }
-  }
-
-  // 4. Unión: valoradas directas + sus similares
-  const todasValoradas = new Set([...valoradasIds, ...idsClusters]);
-
-  // 5. Filtrar canciones del álbum que no están en ese set
-  const nuevas = cancionesAlbum.filter(c => !todasValoradas.has(c.id_cancion));
-  if (!nuevas.length) return res.json({ mensaje: null, nuevas: [] });
-
-  // 6. Obtener cluster del álbum y todos los miembros del grupo
+  // 3. Obtener cluster del álbum y todos los miembros del grupo
   const { data: clusterData } = await supabase
     .from('album_clusters')
     .select('grupo')
     .eq('id_album', id_album)
     .single();
-  if (!clusterData) return res.json({ mensaje: null, nuevas });
+  if (!clusterData) return res.json({ mensaje: null, nuevas: [], valoradas_en_otros_albumes: [] });
 
   const grupo = clusterData.grupo;
 
@@ -250,6 +186,26 @@ const sugerirAlbumSimilar = async (req, res) => {
     .eq('grupo', grupo);
   const idsGrupo = miembrosGrupo.map(a => a.id_album);
 
+  // 4. Buscar canciones de otros álbumes del grupo (excluyendo el actual)
+  const { data: cancionesOtrosAlbumes } = await supabase
+    .from('canciones')
+    .select('id_cancion, album, titulo, duracion_ms')
+    .in('album', idsGrupo.filter(id => id !== Number(id_album)));
+
+  // 5. Matching avanzado: para cada canción del álbum actual, busca si hay una valorada similar en otros álbumes del grupo
+  const valoradasEnOtrosAlbumes = [];
+  for (const cActual of cancionesAlbum) {
+    for (const cOtro of cancionesOtrosAlbumes || []) {
+      if (valoradasIds.includes(cOtro.id_cancion) && esCancionSimilar(cActual, cOtro)) {
+        valoradasEnOtrosAlbumes.push(cActual.id_cancion);
+        break;
+      }
+    }
+  }
+
+  // 6. Filtrar canciones del álbum actual que no están valoradas por el usuario
+  const nuevas = cancionesAlbum.filter(c => !valoradasIds.includes(c.id_cancion) && !valoradasEnOtrosAlbumes.includes(c.id_cancion));
+
   // 7. Revisar cuál álbum del grupo ya valoró el usuario
   const { data: valoradasAlbum } = await supabase
     .from('valoraciones_albumes')
@@ -257,14 +213,20 @@ const sugerirAlbumSimilar = async (req, res) => {
     .eq('usuario', usuario_id);
   const valoradasAlbumIds = valoradasAlbum.map(v => v.album);
 
-  const album_valorado_id = idsGrupo.find(id => valoradasAlbumIds.includes(id));
+  const album_valorado_id = idsGrupo
+    .filter(id => id !== Number(id_album))
+    .find(id => valoradasAlbumIds.includes(id));
 
   // 8. Mensaje final
   const mensaje = album_valorado_id
     ? `Este álbum es muy similar a otro (${album_valorado_id}). Solo faltan ${nuevas.length} canciones nuevas por valorar.`
     : null;
 
-  res.json({ mensaje, nuevas });
+  res.json({
+    mensaje,
+    nuevas,
+    valoradas_en_otros_albumes: valoradasEnOtrosAlbumes // <-- para el frontend
+  });
 };
 
 const obtenerAlbumClusters = async (req, res) => {
@@ -291,5 +253,41 @@ const obtenerAlbumesClusters = async (req, res) => {
   if (error) return res.status(500).json({ error: error.message });
   res.json(data);
 };
+
+/**
+ * Normaliza el título de una canción para comparar versiones.
+ */
+function normalizarTituloCancion(titulo) {
+  return (titulo || "")
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // quita acentos
+    .replace(/\(.*?\)/g, " ")
+    .replace(/\b(remaster(ed)?|deluxe|edition|bonus|live|demo|super|anniversary|expanded|complete|version|mix|radio edit|remix|original|mono|stereo|explicit|clean|instrumental|karaoke|single|ep|lp|box set|disc \d+|cd\d+|vinyl|digital|special|reissue|commentary)\b/gi, "")
+    .replace(/(\bfeat\.?.*|\bft\.?.*|\bwith .*)/gi, "")
+    .replace(/\b\d{2,4}\b/g, "")
+    .replace(/[^\w\s\-]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/**
+ * Devuelve true si los títulos son muy similares y la duración es parecida.
+ */
+function esCancionSimilar(c1, c2) {
+  const t1 = normalizarTituloCancion(c1.titulo);
+  const t2 = normalizarTituloCancion(c2.titulo);
+  const dur1 = c1.duracion_ms || 0;
+  const dur2 = c2.duracion_ms || 0;
+  // Similitud de título: Jaccard simple + substring
+  const tokens1 = new Set(t1.split(" "));
+  const tokens2 = new Set(t2.split(" "));
+  const inter = [...tokens1].filter(x => tokens2.has(x)).length;
+  const union = new Set([...tokens1, ...tokens2]).size;
+  const jaccard = union ? inter / union : 0;
+  const substring = t1 && t2 && (t1.includes(t2) || t2.includes(t1));
+  // Duración: tolerancia 7 segundos
+  const durOk = Math.abs(dur1 - dur2) < 7000;
+  return (jaccard > 0.7 || substring) && durOk;
+}
 
 module.exports = { obtenerAlbumesClusters, obtenerAlbumClusters, crearAlbum, obtenerAlbumes, obtenerAlbumPorId, actualizarAlbum, eliminarAlbum, sugerirCancionesNuevasAlbum, sugerirAlbumSimilar };

@@ -138,32 +138,6 @@ router.get('/pendientes-valoracion/:usuarioId', async (req, res) => {
     pendientes = Object.values(porGrupo);
   }
 
-  if (tipo === "cancion") {
-    const { data: clusters } = await supabase.from('cancion_clusters').select('id_cancion, grupo');
-    const clusterMap = Object.fromEntries(clusters.map(a => [a.id_cancion, a.grupo]));
-    const porGrupo = {};
-    pendientes.filter(p => p.tipo_entidad === "cancion").forEach(item => {
-      const grupo = clusterMap[item.referencia_id] || item.referencia_id;
-      if (!porGrupo[grupo] || (item.referencia_info.popularidad > porGrupo[grupo].referencia_info.popularidad)) {
-        porGrupo[grupo] = item;
-      }
-    });
-    pendientes = Object.values(porGrupo);
-  }
-
-  if (tipo === "video") {
-    const { data: clusters } = await supabase.from('video_clusters').select('id_video, grupo');
-    const clusterMap = Object.fromEntries(clusters.map(a => [a.id_video, a.grupo]));
-    const porGrupo = {};
-    pendientes.filter(p => p.tipo_entidad === "video").forEach(item => {
-      const grupo = clusterMap[item.referencia_id] || item.referencia_id;
-      if (!porGrupo[grupo] || (item.referencia_info.popularidad > porGrupo[grupo].referencia_info.popularidad)) {
-        porGrupo[grupo] = item;
-      }
-    });
-    pendientes = Object.values(porGrupo);
-  }
-
   // ========================
   // Filtrar por tipo y paginar
   // ========================

@@ -62,27 +62,19 @@ const ParaTiFeed = ({ usuario }) => {
         const response = await axios.get(`${API_URL}/catalogos/pendientes-valoracion/${usuario.id_usuario}`);
         const pendientes = response.data;
 
-        // Trae clusters y popularidad para cada tipo
-        const [cancionClusters, albumClusters, videoClusters] = await Promise.all([
-          axios.get(`${API_URL}/canciones/cancion_clusters`),
-          axios.get(`${API_URL}/albumes/album_clusters`),
-          axios.get(`${API_URL}/videos/video_clusters`)
-        ]);
-        const cancionClusterMap = Object.fromEntries(cancionClusters.data.map(c => [c.id_cancion, c.grupo]));
+        // Solo clusters de álbumes
+        const albumClusters = await axios.get(`${API_URL}/albumes/album_clusters`);
         const albumClusterMap = Object.fromEntries(albumClusters.data.map(a => [a.id_album, a.grupo]));
-        const videoClusterMap = Object.fromEntries(videoClusters.data.map(v => [v.id_video, v.grupo]));
 
         // Popularidad
-        const cancionPopMap = Object.fromEntries(pendientes.filter(p => p.tipo === "cancion").map(c => [c.id, c.popularidad || 0]));
         const albumPopMap = Object.fromEntries(pendientes.filter(p => p.tipo === "album").map(a => [a.id, a.popularidad || 0]));
-        const videoPopMap = Object.fromEntries(pendientes.filter(p => p.tipo === "video").map(v => [v.id, v.popularidad || 0]));
 
-        // Agrupa y limita
+        // Agrupa y limita solo álbumes, el resto solo filtra por tipo
         const pendientesAgrupados = {
           artista: pendientes.filter(p => p.tipo === "artista").slice(0, 10),
           album: agruparPorCluster(pendientes.filter(p => p.tipo === "album"), "album", albumClusterMap, albumPopMap),
-          cancion: agruparPorCluster(pendientes.filter(p => p.tipo === "cancion"), "cancion", cancionClusterMap, cancionPopMap),
-          video: agruparPorCluster(pendientes.filter(p => p.tipo === "video"), "video", videoClusterMap, videoPopMap),
+          cancion: pendientes.filter(p => p.tipo === "cancion").slice(0, 10),
+          video: pendientes.filter(p => p.tipo === "video").slice(0, 10),
         };
         setPendientesAgrupados(pendientesAgrupados);
       } catch (error) {
@@ -385,7 +377,8 @@ const ParaTiFeed = ({ usuario }) => {
 ParaTiFeed.propTypes = {
   usuario: PropTypes.shape({
     id_usuario: PropTypes.number.isRequired,
-  }).isRequired,
+    // Otras propiedades del usuario
+  }),
 };
 
 export default ParaTiFeed;

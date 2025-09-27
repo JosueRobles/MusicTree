@@ -181,6 +181,8 @@ const StarRating = ({
     // Busca si hay una valoración en el mismo grupo (pero diferente id)
     const fetchValoracionSimilar = async () => {
       if (!usuario || !entidadTipo || !entidadId) return;
+      // Solo aplica para álbumes
+      if (entidadTipo !== "album") return;
       try {
         // Consulta el grupo del actual
         const { data: clusterActual } = await axios.get(`${API_URL}/ml/cluster/${entidadTipo}/${entidadId}`);
@@ -200,32 +202,11 @@ const StarRating = ({
           // Trae info de la versión valorada
           let info = { id: similar[entidadTipo], titulo: '', album: null, similitud: null };
           // Trae info de la entidad valorada
-          const pluralMap = {
-            cancion: 'canciones',
-            album: 'albumes',
-            video: 'videos',
-            artista: 'artistas'
-          };
-          const endpoint = pluralMap[entidadTipo] || `${entidadTipo}s`;
+          const endpoint = 'albumes';
           const { data: infoEntidad } = await axios.get(`${API_URL}/${endpoint}/${similar[entidadTipo]}`);
-
           info.titulo = infoEntidad.titulo || '';
-          if (entidadTipo === "cancion" && infoEntidad.album) {
-            info.album = { titulo: infoEntidad.album.titulo, anio: infoEntidad.album.anio };
-          }
-          // Si es álbum, también asigna año y título desde el álbum
-          if (entidadTipo === "album") {
-            info.anio = infoEntidad.anio || infoEntidad.album?.anio || null;
-            info.titulo = infoEntidad.titulo || infoEntidad.album?.titulo || '';
-          }
-          // Busca similitud
-          if (entidadTipo === "cancion") {
-            const { data: duplicados } = await axios.get(`${API_URL}/canciones/sugerencias-duplicado`, {
-              params: { usuario_id: usuario.id_usuario, id_cancion: entidadId }
-            });
-            const dup = duplicados.duplicados?.find(d => d.id === similar[entidadTipo]);
-            info.similitud = dup?.similaridad ?? null;
-          }
+          info.anio = infoEntidad.anio || infoEntidad.album?.anio || null;
+          // No hay similitud para álbumes por ahora
           setSimilarInfo(info);
           setEditable(false); // Bloquea valoración hasta que el usuario confirme
         }
@@ -627,13 +608,12 @@ const StarRating = ({
               {`Esta ${entidadTipo === "cancion" ? "canción" : entidadTipo === "album" ? "álbum" : "video"} parece una versión duplicada de otra que ya valoraste:`}
             </strong>
             <div>
-              <Link to={entityPath} className="text-blue-700 underline font-semibold">
-                {similarInfo.titulo}
-                {/* Para canciones, muestra álbum y año */}
-                {entidadTipo === "cancion" && similarInfo.album && ` (${similarInfo.album.titulo}, ${similarInfo.album.anio})`}
-                {/* Para álbumes y videos, muestra año si existe */}
-                {entidadTipo !== "cancion" && similarInfo.anio && ` (${similarInfo.anio})`}
-              </Link>
+              {similarInfo && (
+                <Link to={entityPath} className="text-blue-700 underline font-semibold">
+                  {similarInfo.titulo}
+                  {similarInfo.anio && ` (${similarInfo.anio})`}
+                </Link>
+              )}
               {/* Muestra % de similitud si existe */}
               {similarInfo.similitud && (
                 <span className="ml-2 text-gray-700">

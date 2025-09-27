@@ -11,19 +11,10 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 sb = supabase.create_client(SUPABASE_URL, SUPABASE_KEY)
 
-# --- Config --- 🔄 Cambia aquí entre cancion | album | video
-TIPO = "cancion"
+# --- Config --- Solo "album"
+TIPO = "album"
 
 TABLES = {
-    "cancion": {
-        "emb": "cancion_embeddings",
-        "clus": "cancion_clusters",
-        "main": "canciones",
-        "id_field": "id_cancion",
-        "rels_art": "cancion_artistas",
-        "rels_gen": "cancion_generos",
-        "id_rel": "cancion_id"
-    },
     "album": {
         "emb": "album_embeddings",
         "clus": "album_clusters",
@@ -32,15 +23,6 @@ TABLES = {
         "rels_art": "album_artistas",
         "rels_gen": "album_generos",
         "id_rel": "album_id"
-    },
-    "video": {
-        "emb": "video_embeddings",
-        "clus": "video_clusters",
-        "main": "videos_musicales",
-        "id_field": "id_video",
-        "rels_art": "video_artistas",
-        "rels_gen": "video_generos",
-        "id_rel": "video_id"
     }
 }
 
