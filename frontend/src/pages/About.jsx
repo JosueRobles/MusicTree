@@ -23,7 +23,6 @@ const About = () => {
     <div className="pt-16 p-4" style={{ background: "#111", color: "#fff", minHeight: "100vh" }}>
       <h2 className="text-4xl font-bold my-4 flex items-center gap-4">
         Acerca de MusicTree
-        <img src="/src/assets/logo.png" alt="MusicTree logo" style={{ width: 48, height: 48, borderRadius: 12 }} />
       </h2>
       <p className="mb-4" style={{ fontSize: "1.2rem" }}>
         <b>MusicTree</b> nació de una simple idea: <br />

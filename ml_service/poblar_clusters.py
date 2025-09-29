@@ -8,6 +8,7 @@ import time
 import faiss
 import numpy as np
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import pandas as pd
 
 load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -29,33 +30,21 @@ def normalizar_titulo_base(titulo: str) -> str:
     if not titulo:
         return ""
     t = titulo.lower()
-
-    # eliminar todo lo que esté entre paréntesis primero
     t = re.sub(r'\(.*?\)', ' ', t)
-
-    # lista extensa de tokens de versiones/remixes/ediciones
+    # Palabras clave ampliadas
     t = re.sub(
         r'\b(remaster(ed)?|deluxe|edition|bonus|live|demo|super|anniversary|expanded|complete|version|mix|'
         r'radio|radio edit|remix|original|mono|stereo|explicit|clean|instrumental|karaoke|single|ep|lp|box set|'
         r'disc\s*\d+|cd\s*\d+|vinyl|digital|special|reissue|commentary|edit|album version|single version|'
         r'club mix|extended|intro|outro|interlude|a cappella|minus mix|immortal version|'
-        r'home demo|stripped mix|rejuvenated|directors cut|immortal|25th anniversary|2003 edit|2012 remaster)\b',
-        '',
-        t, flags=re.I
+        r'home demo|stripped mix|rejuvenated|directors cut|immortal|25th anniversary|2003 edit|2012 remaster|'
+        r'taylor\'?s version|complete edition|acoustic|from the vault|package|alternate|track by track)\b',
+        '', t, flags=re.I
     )
-
-    # remover "feat", "ft.", "with" y lo que venga después
     t = re.sub(r'\b(feat\.?|ft\.?|with)\b.*', '', t, flags=re.I)
-
-    # quitar años y números sueltos
     t = re.sub(r'\b\d{2,4}\b', '', t)
-
-    # eliminar caracteres extraños, dejar letras, numeros, espacios y guiones
     t = re.sub(r'[^a-z0-9\s\-]', ' ', t)
-
-    # compactar espacios y guiones duplicados
     t = re.sub(r'[\s\-]+', ' ', t).strip()
-
     return t
 
 def titulo_ratio(t1, t2):
@@ -281,18 +270,18 @@ SONG_WEIGHTS = {
     "duration": 0.15,
     "embedding": 0.05,
 }
-SONG_THRESHOLD = 0.60  # un poco más estricto
+SONG_THRESHOLD = 0.50  # un poco más estricto
 
 VIDEO_WEIGHTS = SONG_WEIGHTS.copy()
 VIDEO_THRESHOLD = 0.60
 
 ALBUM_WEIGHTS = {
-    "title": 0.50,   # baja un poco para compensar
-    "artist": 0.35,  # sube el peso
+    "title": 0.30,   # baja un poco para compensar
+    "artist": 0.45,  # sube el peso
     "genre": 0.08,
-    "embedding": 0.07,
+    "embedding": 0.17,
 }
-ALBUM_THRESHOLD = 0.60  # puedes ajustar tras pruebas
+ALBUM_THRESHOLD = 0.35  # puedes ajustar tras pruebas
 
 
 def compute_album_match_score(m1, a1, g1, m2, a2, g2, sim_obj=None):
@@ -315,7 +304,7 @@ def compute_album_match_score(m1, a1, g1, m2, a2, g2, sim_obj=None):
         ALBUM_WEIGHTS["genre"] * genre_score +
         ALBUM_WEIGHTS["embedding"] * emb_score
     )
-    # regla: si hay artist en comun y titulo muy parecido, subir confidence
+    # regla: si hay artist in comun y titulo muy parecido, subir confidence
     if artist_score > 0 and title_score >= 0.75:
         score = max(score, 0.7)
     return score
@@ -373,7 +362,7 @@ def jaccard(set1, set2):
     union = len(set1 | set2)
     return inter / union if union > 0 else 0.0
 
-def mutual_knn(ids, embs, k=10, emb_threshold=0.60):
+def mutual_knn(ids, embs, k=10, emb_threshold=0.40):
     index = faiss.IndexFlatIP(embs.shape[1])
     index.add(embs)
     D, I = index.search(embs, k+1)
@@ -393,6 +382,8 @@ def mutual_knn(ids, embs, k=10, emb_threshold=0.60):
 
 def poblar_album_clusters():
     print("Procesando clusters de álbumes (mutual-kNN + combined_score)...")
+    canciones_rows = sb.table("canciones").select("id_cancion, album, titulo, duracion_ms").execute().data
+    canciones_df = pd.DataFrame(canciones_rows)
     all_rows = []
     offset = 0
     page_size = 1000
@@ -422,81 +413,70 @@ def poblar_album_clusters():
     popularity_map = {k: (v.get("popularidad_album") or 0) for k, v in meta_map.items()}
 
     uf = UnionFind(ids)
-    combined_threshold = 0.60
+    combined_threshold = 0.40
 
+    REMIX_TOKENS = ["remix", "edit", "bundle", "mix", "radio edit", "version"]
     for i_idx, j_idx in pairs:
         i, j = ids[i_idx], ids[j_idx]
         m1, m2 = meta_map.get(i, {}), meta_map.get(j, {})
         a1, a2 = artistas_map.get(i, set()), artistas_map.get(j, set())
         g1, g2 = generos_map.get(i, set()), generos_map.get(j, set())
         can1, can2 = canciones_map.get(i, set()), canciones_map.get(j, set())
-        t1, t2 = m1.get("titulo", ""), m2.get("titulo", "")
-        tipo1, tipo2 = m1.get("tipo_album", ""), m2.get("tipo_album", "")
-        num_tracks1 = m1.get("numero_canciones", 0) or 0
-        num_tracks2 = m2.get("numero_canciones", 0) or 0
-        year1 = m1.get("anio")
-        year2 = m2.get("anio")
-
-        # --- Scores ---
-        title_score = titulo_ratio(t1, t2)
+        t1_raw, t2_raw = m1.get("titulo", ""), m2.get("titulo", "")
+        t1, t2 = normalizar_titulo_base(t1_raw), normalizar_titulo_base(t2_raw)
         artist_score = artistas_overlap_score(a1, a2)
         genre_score = generos_overlap_score(g1, g2)
-        songs_jaccard = jaccard(can1, can2)
+        # Siempre compara títulos normalizados
+        title_score = titulo_ratio(t1, t2)
+        # Overlap de canciones
+        songs_overlap = canciones_overlap(i, j, canciones_df)
 
         # Filtro obligatorio: artistas
         if artist_score < 0.7:
             continue
 
-        # Filtro por año
-        if year1 and year2:
-            diff = abs(int(year1) - int(year2))
-            if diff > 3 and title_score < 0.85:
-                continue
-            if diff > 1 and title_score < 0.7:
-                continue
-
-        # No unir singles/EPs cortos con álbumes completos
-        if (num_tracks1 <= 3 or num_tracks2 <= 3) and abs(num_tracks1 - num_tracks2) > 1:
+        # Regla: tokens especiales (deluxe, edition, anniversary, remaster, etc.)
+        if (tiene_token_especial(t1_raw) or tiene_token_especial(t2_raw)) and t1 == t2:
+            uf.union(i, j)
             continue
 
-        # Evitar secuelas numéricas (LP2, Vol. 2, II, III, etc.)
-        if tiene_sufijo_numerico(t1) or tiene_sufijo_numerico(t2):
-            if songs_jaccard < 0.5:
-                continue
-
-        # Soundtracks y compilations: solo agrupar con reediciones propias
-        is_soundtrack = "soundtrack" in (tipo1 or "").lower() or "soundtrack" in (tipo2 or "").lower()
-        is_compilation = (
-            "compilation" in (tipo1 or "").lower()
-            or "compilation" in (tipo2 or "").lower()
-            or "greatest" in t1.lower()
-            or "greatest" in t2.lower()
-        )
-        if (is_soundtrack or is_compilation) and title_score < 0.85:
+        # Regla: Taylor's Version
+        if (es_taylors_version(t1_raw) or es_taylors_version(t2_raw)) and t1 == t2:
+            uf.union(i, j)
             continue
 
-        # --- Reglas de unión (como antes) ---
+        # Regla: singles/remixes/edits/bundles
+        if t1 == t2 and any(tok in t1_raw.lower() or tok in t2_raw.lower() for tok in REMIX_TOKENS):
+            uf.union(i, j)
+            continue
+
+        # Regla: overlap de canciones
+        if songs_overlap >= 0.7:
+            uf.union(i, j)
+            continue
+
+        # Regla general: títulos muy parecidos y artistas iguales
         if title_score >= 0.9 and artist_score >= 0.7:
             uf.union(i, j)
             continue
-        if songs_jaccard >= 0.6:
+
+        # Regla general: overlap parcial y artistas iguales
+        if songs_overlap >= 0.5 and artist_score >= 0.7:
             uf.union(i, j)
             continue
-        songs_weight = 0.25 * (0.4 if is_compilation else 1.0)
+
+        # Regla general: combinación de scores
+        songs_weight = 0.6
         combined_score = (
-            0.35 * title_score +
-            0.35 * artist_score +
-            songs_weight * songs_jaccard +
+            0.30 * title_score +
+            0.30 * artist_score +
+            songs_weight * songs_overlap +
             0.05 * genre_score +
-            0.10  # emb_score, ya filtrado
+            0.10
         )
-        if combined_score >= combined_threshold:
+        if combined_score >= 0.35:
             uf.union(i, j)
             continue
-        if any(tok in t1.lower() or tok in t2.lower() for tok in ["remix", "live", "acoustic"]):
-            if title_score >= 0.85 and songs_jaccard >= 0.5:
-                uf.union(i, j)
-                continue
 
     # 3. Construir clusters
     grupos_final = {}
@@ -542,6 +522,46 @@ def son_albumes_ediciones_distintas(t1, t2):
 def tiene_sufijo_numerico(titulo):
     # Busca LP2, Vol. 2, II, III, etc.
     return bool(re.search(r'(vol\.?\s*\d+|lp\s*\d+|\bii+\b|\biii+\b|\biv+\b|\b2\b|\b3\b|\b4\b)', titulo.lower()))
+
+SPECIAL_TOKENS = [
+    "deluxe", "edition", "anniversary", "remaster", "version", "expanded",
+    "international", "japan version", "super", "complete", "alternate", "bonus", "reissue"
+]
+
+def tiene_token_especial(titulo):
+    t = normalizar_titulo_base(titulo)
+    return any(tok in t for tok in SPECIAL_TOKENS)
+
+def canciones_jaccard(album1, album2, canciones_df):
+    # Matching por título normalizado y duración (tolerancia 10s), ratio ≥ 0.8
+    songs1 = canciones_df[canciones_df['album'] == album1]
+    songs2 = canciones_df[canciones_df['album'] == album2]
+    set1 = set()
+    for _, row1 in songs1.iterrows():
+        t1 = normalizar_titulo_base(row1['titulo'])
+        d1 = row1.get('duracion_ms', 0)
+        for _, row2 in songs2.iterrows():
+            t2 = normalizar_titulo_base(row2['titulo'])
+            d2 = row2.get('duracion_ms', 0)
+            ratio = titulo_ratio(t1, t2)
+            if (ratio > 0.8 or t1 in t2 or t2 in t1) and abs((d1 or 0) - (d2 or 0)) < 10000:
+                set1.add(t1)
+                break
+    set2 = set(normalizar_titulo_base(t) for t in songs2['titulo'])
+    return len(set1 & set2) / len(set1 | set2) if set1 | set2 else 0.0
+
+def canciones_overlap(album1, album2, canciones_df):
+    songs1 = canciones_df[canciones_df['album'] == album1]
+    songs2 = canciones_df[canciones_df['album'] == album2]
+    set1 = set(normalizar_titulo_base(t) for t in songs1['titulo'])
+    set2 = set(normalizar_titulo_base(t) for t in songs2['titulo'])
+    inter = len(set1 & set2)
+    denom = min(len(set1), len(set2)) or 1
+    return inter / denom
+
+def es_taylors_version(titulo):
+    t = normalizar_titulo_base(titulo)
+    return "taylors version" in t or "taylor's version" in t
 
 if __name__ == "__main__":
     poblar_album_clusters()

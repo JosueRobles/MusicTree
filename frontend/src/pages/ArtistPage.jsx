@@ -64,6 +64,7 @@ const ArtistPage = ({ usuario }) => {
   const [albumClusters, setAlbumClusters] = useState({});
   const [votoEnviado, setVotoEnviado] = useState(false);
   const [valoradosClusters, setValoradosClusters] = useState({ album: new Set() });
+  const [progresoCanciones, setProgresoCanciones] = useState(null);
 
   useEffect(() => {
     const fetchArtistData = async () => {
@@ -222,6 +223,14 @@ const ArtistPage = ({ usuario }) => {
   });
 }, [valorados, albumClusters]);
 
+useEffect(() => {
+  if (usuario && id) {
+    axios.get(`${API_URL}/catalogos/progreso-canciones`, {
+      params: { usuario_id: usuario.id_usuario, artista_id: id }
+    }).then(res => setProgresoCanciones(res.data));
+  }
+}, [usuario, id]);
+
   const handleRatingChange = async (newRating) => {
     setRating(newRating);
     if (usuario) {
@@ -344,13 +353,52 @@ const handleAddToList = async () => {
     }
   };
 
-    function getEstadoEntidad(tipo, id) {
+    function normalizarTituloCancion(titulo) {
+  return (titulo || "")
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/\(.*?\)/g, " ")
+    .replace(/\b(remaster(ed)?|deluxe|edition|bonus|live|demo|super|anniversary|expanded|complete|version|mix|radio edit|remix|original|mono|stereo|explicit|clean|instrumental|karaoke|single|ep|lp|box set|disc \d+|cd\d+|vinyl|digital|special|reissue|commentary)\b/gi, "")
+    .replace(/(\bfeat\.?.*|\bft\.?.*|\bwith .*)/gi, "")
+    .replace(/\b\d{2,4}\b/g, "")
+    .replace(/[^\w\s\-]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+function esCancionSimilar(c1, c2) {
+  const t1 = normalizarTituloCancion(c1.titulo);
+  const t2 = normalizarTituloCancion(c2.titulo);
+  const dur1 = c1.duracion_ms || 0;
+  const dur2 = c2.duracion_ms || 0;
+  const tokens1 = new Set(t1.split(" "));
+  const tokens2 = new Set(t2.split(" "));
+  const inter = [...tokens1].filter(x => tokens2.has(x)).length;
+  const union = new Set([...tokens1, ...tokens2]).size;
+  const jaccard = union ? inter / union : 0;
+  const substring = t1 && t2 && (t1.includes(t2) || t2.includes(t1));
+  const durOk = Math.abs(dur1 - dur2) < 7000;
+  return (jaccard > 0.7 || substring) && durOk;
+}
+
+  // Modifica getEstadoEntidad para canciones:
+  function getEstadoEntidad(tipo, id) {
     if (tipo === 'album') {
-      // Si valoraste este álbum directamente
       if (valorados.includes(`album-${id}`)) return 'valorada';
-      // Si valoraste algún otro álbum del mismo grupo
       const grupo = albumClusters[id];
       if (grupo && Array.from(valoradosClusters.album).includes(grupo)) return 'similar';
+      return '';
+    }
+    if (tipo === 'cancion') {
+      if (valorados.includes(`cancion-${id}`)) return 'valorada';
+      // Busca si hay una canción valorada similar
+      const song = songs.find(s => s.id_cancion === id);
+      if (!song) return '';
+      for (const v of valorados) {
+        if (!v.startsWith('cancion-')) continue;
+        const vId = parseInt(v.split('-')[1]);
+        const vSong = songs.find(s => s.id_cancion === vId);
+        if (vSong && esCancionSimilar(song, vSong)) return 'similar';
+      }
       return '';
     }
     return '';

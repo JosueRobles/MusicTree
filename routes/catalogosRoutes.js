@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getCatalogosByUsuario, seguirArtistaCatalogo, getArtistasSeguidos, dejarDeSeguirArtista } = require('../controllers/catalogosController');
+const { getCatalogosByUsuario, seguirArtistaCatalogo, getArtistasSeguidos, dejarDeSeguirArtista, getProgresoCancionesArtista } = require('../controllers/catalogosController');
 const { registrarActividad } = require('../controllers/utils/actividadUtils');
 const supabase = require('../supabaseClient'); // o '../db' según tu estructura
 
@@ -230,5 +230,7 @@ router.get('/votos-usuario/:usuario_id', async (req, res) => {
   if (error) return res.status(500).json({ error: 'Error al obtener votos.' });
   res.json(data);
 });
+
+router.get('/progreso-canciones', getProgresoCancionesArtista);
 
 module.exports = router;

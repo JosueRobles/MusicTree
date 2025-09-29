@@ -290,4 +290,4 @@ function esCancionSimilar(c1, c2) {
   return (jaccard > 0.7 || substring) && durOk;
 }
 
-module.exports = { obtenerAlbumesClusters, obtenerAlbumClusters, crearAlbum, obtenerAlbumes, obtenerAlbumPorId, actualizarAlbum, eliminarAlbum, sugerirCancionesNuevasAlbum, sugerirAlbumSimilar };
+module.exports = { obtenerAlbumesClusters, obtenerAlbumClusters, crearAlbum, obtenerAlbumes, obtenerAlbumPorId, actualizarAlbum, eliminarAlbum, sugerirCancionesNuevasAlbum, sugerirAlbumSimilar, esCancionSimilar };

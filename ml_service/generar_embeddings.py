@@ -71,8 +71,8 @@ def get_album_generos(album):
     return []
 
 def get_album_canciones(id_album):
-    # Trae hasta 5 títulos de canciones normalizados
-    rows = sb.table("canciones").select("titulo").eq("album", id_album).order("orden", desc=False).limit(5).execute().data
+    # Trae títulos y artistas de cada track, ordenados
+    rows = sb.table("canciones").select("titulo, orden").eq("album", id_album).order("orden", desc=False).execute().data
     return [normalizar_titulo_base(r["titulo"]) for r in rows if r.get("titulo")]
 
 def embed_album(album):

@@ -1,5 +1,6 @@
 const supabase = require('../supabaseClient');
 const { registrarActividad } = require('./utils/actividadUtils');
+const { esCancionSimilar } = require('./albumController');
 
 const getCatalogosByUsuario = async (req, res) => {
   const { usuarioId } = req.params;
@@ -106,4 +107,57 @@ const dejarDeSeguirArtista = async (req, res) => {
   }
 };
 
-module.exports = { getCatalogosByUsuario, seguirArtistaCatalogo, getArtistasSeguidos, dejarDeSeguirArtista };
+// NUEVO: Progreso de canciones de un artista considerando similaridad
+const getProgresoCancionesArtista = async (req, res) => {
+  const { usuario_id, artista_id } = req.query;
+  if (!usuario_id || !artista_id) return res.status(400).json({ error: "Faltan parámetros" });
+
+  // 1. Todas las canciones del artista
+  const { data: canciones } = await supabase
+    .from('cancion_artistas')
+    .select('cancion_id, canciones(titulo, duracion_ms)')
+    .eq('artista_id', artista_id);
+
+  // 2. Canciones valoradas por el usuario
+  const { data: valoradas } = await supabase
+    .from('valoraciones_canciones')
+    .select('cancion')
+    .eq('usuario', usuario_id);
+
+  const valoradasIds = new Set((valoradas || []).map(v => v.cancion));
+  const cancionesFull = (canciones || []).map(c => ({
+    id_cancion: c.cancion_id,
+    titulo: c.canciones?.titulo || "",
+    duracion_ms: c.canciones?.duracion_ms || 0
+  }));
+
+  // 3. Marca como valorada si es igual o similar a una valorada
+  let valoradasOEquivalentes = new Set();
+  for (const song of cancionesFull) {
+    if (valoradasIds.has(song.id_cancion)) {
+      valoradasOEquivalentes.add(song.id_cancion);
+      continue;
+    }
+    // Busca si hay una valorada similar
+    for (const vId of valoradasIds) {
+      const vSong = cancionesFull.find(s => s.id_cancion === vId);
+      if (vSong && esCancionSimilar(song, vSong)) {
+        valoradasOEquivalentes.add(song.id_cancion);
+        break;
+      }
+    }
+  }
+
+  const total = cancionesFull.length;
+  const valoradasCount = valoradasOEquivalentes.size;
+  const porcentaje = total ? Math.round((valoradasCount / total) * 100) : 0;
+
+  res.json({
+    total,
+    valoradas: valoradasCount,
+    porcentaje,
+    ids_valoradas: Array.from(valoradasOEquivalentes)
+  });
+};
+
+module.exports = { getCatalogosByUsuario, seguirArtistaCatalogo, getArtistasSeguidos, dejarDeSeguirArtista, getProgresoCancionesArtista };

@@ -671,27 +671,6 @@ const StarRating = ({
           )}
         </div>
       )}
-      {mostrarGuardarAuto && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded shadow-lg text-center">
-            <p className="mb-4 font-semibold">
-              ¿Deseas guardar esta calificación automática en base a tus valoraciones previas?
-            </p>
-            <button
-              onClick={handleGuardarValoracionAuto}
-              className="bg-green-500 text-white px-4 py-2 rounded mr-2"
-            >
-              Sí, guardar
-            </button>
-            <button
-              onClick={() => setMostrarGuardarAuto(false)}
-              className="bg-gray-300 px-4 py-2 rounded"
-            >
-              No
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

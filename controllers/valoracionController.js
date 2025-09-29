@@ -1157,7 +1157,7 @@ async function upsertValoracionAutomatica(usuario, tableName, referenciaId, enti
     // Cuenta entidades
     const { data: albumes } = await supabase.from('album_artistas').select('album_id').eq('artista_id', entidad_id);
     const { data: canciones } = await supabase.from('cancion_artistas').select('cancion_id').eq('artista_id', entidad_id);
-    const { data: videos } = await supabase.from('video_artistas').select('video_id').eq('artista_id', entidad_id);
+    const { data: videos } = await supabase .from('video_artistas').select('video_id').eq('artista_id', entidad_id);
     const total = (albumes?.length || 0) + (canciones?.length || 0) + (videos?.length || 0);
     if (total < 10) return; // No cumple mínimo
   }
@@ -1257,23 +1257,19 @@ async function upsertValoracionAutomatica(usuario, tableName, referenciaId, enti
 
 // NUEVO: Filtrar IDs únicos por grupo (canción, álbum, video)
 async function filtrarUnicosPorGrupo(entidad, ids) {
-  // entidad: 'cancion', 'album', 'video'
-  // ids: array de ids de la entidad
   if (!ids.length) return [];
+  // Si ya no hay clusters de canciones, solo devuelve los ids únicos
+  if (entidad === 'cancion') return [...new Set(ids)];
+  // Para álbum y video, puedes mantener la lógica de clusters si existen
   let tablaCluster = '';
   let idField = '';
-  if (entidad === 'cancion') { tablaCluster = 'cancion_clusters'; idField = 'id_cancion'; }
-  else if (entidad === 'album') { tablaCluster = 'album_clusters'; idField = 'id_album'; }
+  if (entidad === 'album') { tablaCluster = 'album_clusters'; idField = 'id_album'; }
   else if (entidad === 'video') { tablaCluster = 'video_clusters'; idField = 'id_video'; }
-  else return ids;
-
-  // Trae los grupos de cada id
+  else return [...new Set(ids)];
   const { data: clusters } = await supabase
     .from(tablaCluster)
     .select(`${idField}, grupo`)
     .in(idField, ids);
-
-  // Agrupa por grupo y toma solo un id por grupo
   const grupoMap = {};
   for (const c of clusters || []) {
     if (!grupoMap[c.grupo]) grupoMap[c.grupo] = c[idField];
