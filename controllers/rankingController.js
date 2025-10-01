@@ -140,7 +140,9 @@ const obtenerRankingPersonal = async (req, res) => {
           .select('promedio, album, calificacion')
           .eq('album', item.entidad_id);
         const valoraciones = val || [];
-        const promedio = valoraciones.length > 0 ? valoraciones[0].promedio : item.valoracion;
+        const promedio = valoraciones.length > 0
+          ? (valoraciones[0].promedio ?? valoraciones[0].calificacion ?? item.valoracion)
+          : item.valoracion;
         const cincoEstrellas = valoraciones.filter(v => v.calificacion === 5).length;
         const porcentaje_5_estrellas = valoraciones.length > 0 ? (cincoEstrellas / valoraciones.length) * 100 : null;
         detalles = {

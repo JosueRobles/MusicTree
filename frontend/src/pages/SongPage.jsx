@@ -108,6 +108,35 @@ const SongPage = ({ usuario }) => {
   }).then(res => setListasDestacadas(res.data));
 }, [id]);
 
+const handleAddToList = async () => {
+  if (selectedLista) {
+    try {
+      await axios.post(`${API_URL}/listas-personalizadas/anadir`, {
+        userId: usuario.id_usuario,
+        listaId: selectedLista,
+        entidad_id: parseInt(id, 10),
+        entidad_tipo: 'cancion',
+      });
+      alert('Cancion añadida a la lista');
+    } catch (error) {
+      if (
+        error.response &&
+        error.response.status === 400 &&
+        error.response.data &&
+        error.response.data.error &&
+        error.response.data.error.includes('ya existe')
+      ) {
+        alert('Esta cancion ya está en la lista seleccionada.');
+      } else {
+        alert('Error al añadir la cancion a la lista.');
+      }
+      console.error('Error adding song to list:', error);
+    }
+  } else {
+    alert('Seleccione una lista o cree una nueva');
+  }
+};
+
   useEffect(() => {
   if (usuario) {
     axios.get(`${API_URL}/valoraciones/historial`, {

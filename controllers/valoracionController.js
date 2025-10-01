@@ -1,7 +1,7 @@
 const supabase = require("../db");
 const { registrarTendencia } = require("./tendenciaController");
 const { registrarActividad } = require("./utils/actividadUtils");
-const { sugerirSimilares } = require('./mlController');
+const { sugerirSimilaresCancion } = require('./mlController');
 
 const obtenerPromedio = async (req, res) => {
   const { entidad_tipo, entidad_id } = req.query;
@@ -516,11 +516,10 @@ const crearValoracion = async (req, res) => {
         .eq('id_valoracion', valoracionExistente.id_valoracion)
         .select()
         .single();
-
       if (error) throw error;
       valoracionId = updatedData.id_valoracion;
     } else {
-      // Crear nueva valoración
+      // Inserta
       const { data: newData, error } = await supabase
         .from(tableName)
         .insert([{
@@ -532,7 +531,6 @@ const crearValoracion = async (req, res) => {
         }])
         .select()
         .single();
-
       if (error) throw error;
       valoracionId = newData.id_valoracion;
     }
@@ -564,7 +562,7 @@ const crearValoracion = async (req, res) => {
         artistasIds = (cancionArtistas || []).map(a => a.artista_id);
       } else if (entidad_tipo === 'video') {
         // Busca artistas del video
-        const { data: videoArtistas } = await supabase.from('video_artistas').select('artista_id').eq('video_id', entidad_id);
+        const { data: videoArtistas } = await supabase .from('video_artistas').select('artista_id').eq('video_id', entidad_id);
         artistasIds = (videoArtistas || []).map(a => a.artista_id);
       }
 
@@ -598,7 +596,7 @@ const crearValoracion = async (req, res) => {
     // NUEVO: Sugerir canciones duplicadas/similares
     if (entidad_tipo === 'cancion') {
       // Sugerir canciones duplicadas/similares
-      const similares = await sugerirSimilares({ params: { entidad: 'cancion', id: entidad_id } }, { json: () => {} });
+      const similares = await sugerirSimilaresCancion(entidad_id);
       const duplicados = (similares && similares.similares) ? similares.similares : [];
 
       // Obtener artista principal de la canción
@@ -649,7 +647,7 @@ const crearValoracion = async (req, res) => {
         .from('ranking_elementos')
         .select('posicion')
         .eq('ranking_id', usuario)
-        .eq('tipo_entidad', referenciaId === "album" ? "album" : "artista")
+        .eq('tipo_entidad', entidad_tipo)
         .order('posicion', { ascending: false })
         .limit(1);
       const nuevaPos = (maxPos && maxPos[0]?.posicion ? maxPos[0].posicion + 1 : 1);
@@ -658,7 +656,7 @@ const crearValoracion = async (req, res) => {
         .insert([{
           ranking_id: usuario,
           entidad_id,
-          tipo_entidad: referenciaId === "album" ? "album" : "artista",
+          tipo_entidad: entidad_tipo, // <-- aquí
           valoracion: calificacion,
           posicion: nuevaPos
         }]);
@@ -1024,7 +1022,7 @@ const obtenerValoracionAgregada = async (req, res) => {
     if (prefs.redondeo === "abajo") resultado = Math.floor(resultado * 2) / 2;
 
     // Guarda o actualiza la valoración automática en la tabla
-    await upsertValoracionAutomatica(usuario, tableName, referenciaId, entidad_id, resultado);
+    await upsertValoracionAutomatica(usuario, tableName, referenciaId, entidad_id, resultado, entidad_tipo);
 
     return res.json({ calificacion: resultado });
   }
@@ -1140,7 +1138,7 @@ const obtenerValoracionAgregada = async (req, res) => {
     if (prefs.redondeo === "abajo") resultado = Math.floor(resultado * 2) / 2;
 
     // Guarda o actualiza la valoración automática en la tabla
-    await upsertValoracionAutomatica(usuario, tableName, referenciaId, entidad_id, resultado);
+    await upsertValoracionAutomatica(usuario, tableName, referenciaId, entidad_id, resultado, entidad_tipo);
 
     return res.json({ calificacion: resultado });
   }
@@ -1149,14 +1147,14 @@ const obtenerValoracionAgregada = async (req, res) => {
 };
 
 // Nueva función utilitaria para insertar o actualizar la valoración automática
-async function upsertValoracionAutomatica(usuario, tableName, referenciaId, entidad_id, calificacion) {
+async function upsertValoracionAutomatica(usuario, tableName, referenciaId, entidad_id, calificacion, entidad_tipo) {
   // Verifica existencia y cantidad de entidades
   if (referenciaId === "artista") {
     const { data: artista } = await supabase.from('artistas').select('id_artista').eq('id_artista', entidad_id).single();
     if (!artista) return; // No existe
     // Cuenta entidades
     const { data: albumes } = await supabase.from('album_artistas').select('album_id').eq('artista_id', entidad_id);
-    const { data: canciones } = await supabase.from('cancion_artistas').select('cancion_id').eq('artista_id', entidad_id);
+    const { data: canciones } = await supabase .from('cancion_artistas').select('cancion_id').eq('artista_id', entidad_id);
     const { data: videos } = await supabase .from('video_artistas').select('video_id').eq('artista_id', entidad_id);
     const total = (albumes?.length || 0) + (canciones?.length || 0) + (videos?.length || 0);
     if (total < 10) return; // No cumple mínimo
@@ -1208,16 +1206,17 @@ async function upsertValoracionAutomatica(usuario, tableName, referenciaId, enti
     .select('*')
     .eq('ranking_id', usuario)
     .eq('entidad_id', entidad_id)
-    .eq('tipo_entidad', referenciaId === "album" ? "album" : "artista")
+    .eq('tipo_entidad', entidad_tipo)
     .single();
 
   if (!rankingExistente) {
+    // Inserta solo si no existe
     // Busca la última posición actual
     const { data: maxPos } = await supabase
       .from('ranking_elementos')
       .select('posicion')
       .eq('ranking_id', usuario)
-      .eq('tipo_entidad', referenciaId === "album" ? "album" : "artista")
+      .eq('tipo_entidad', entidad_tipo)
       .order('posicion', { ascending: false })
       .limit(1);
     const nuevaPos = (maxPos && maxPos[0]?.posicion ? maxPos[0].posicion + 1 : 1);
@@ -1226,16 +1225,19 @@ async function upsertValoracionAutomatica(usuario, tableName, referenciaId, enti
       .insert([{
         ranking_id: usuario,
         entidad_id,
-        tipo_entidad: referenciaId === "album" ? "album" : "artista",
+        tipo_entidad: entidad_tipo, // <-- aquí
         valoracion: calificacion,
         posicion: nuevaPos
       }]);
+      await recalcularRankingPersonal(usuario, entidad_tipo);
   } else {
+    // Actualiza solo si la valoración cambió
     await supabase
       .from('ranking_elementos')
       .update({ valoracion: calificacion })
       .eq('id', rankingExistente.id);
   }
+  await recalcularRankingPersonal(usuario, entidad_tipo);
 
   // === NUEVO: Registrar tendencia y actividad ===
   // 1. Tendencia

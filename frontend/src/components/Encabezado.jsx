@@ -48,7 +48,6 @@ const Encabezado = ({ usuario, onLogout }) => {
             minWidth: "15%",
             maxWidth: '10%',
             display: 'flex', // <-- Asegura flex para centrar
-            alignItems: 'center' // <-- Centrado vertical
           }}>
             <BusquedaEncabezado />
           </div>

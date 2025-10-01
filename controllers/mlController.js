@@ -57,9 +57,42 @@ const getClusterMiembros = async (req, res) => {
   res.json([...new Set(data.map(d => d.id_album))]);
 };
 
+const sugerirSimilares = async (req, res) => {
+  const { id_album } = req.params;
+  const { data, error } = await supabase
+    .from('albumes_similares')
+    .select(`
+      album_id_similar: id_album,
+      titulo,
+      anio,
+      foto_album,
+      numero_canciones,
+      tipo_album,
+      popularidad_album,
+      categoria,
+      album_artistas(artista_id),
+      album_generos(genero_id, subgeneros)
+    `)
+    .eq('id_album', id_album);
+
+  if (error) return res.status(500).json({ error: error.message });
+  res.json(data);
+};
+
+const sugerirSimilaresCancion = async (id_cancion) => {
+  const { data, error } = await supabase
+    .from('canciones_similares')
+    .select('id_cancion2')
+    .eq('id_cancion1', id_cancion);
+  if (error) throw error;
+  return data;
+};
+
 module.exports = {
   exportAlbumesForML,
   guardarFeedbackML,
   getClusterGrupo,
-  getClusterMiembros
+  getClusterMiembros,
+  sugerirSimilares,
+  sugerirSimilaresCancion,
 };

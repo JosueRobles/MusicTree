@@ -139,8 +139,7 @@ const ModifyPersonalRanking = ({ usuario, soloLectura = false }) => {
   });
 
   const rankingFiltrado = (rankings[tipoActivo] || [])
-    .filter(item => filtroEstrella === "all" || (item.valoracion ?? 0) === Number(filtroEstrella))
-    .slice(0, customTop ? Math.max(5, Math.min(1000, Number(customTop))) : limiteTop);
+    .filter(item => item.nombre && !item.nombre.startsWith("ID "));
 
   return (
     <div className="section mt-8">
@@ -270,13 +269,6 @@ const ModifyPersonalRanking = ({ usuario, soloLectura = false }) => {
                               <img src={item.foto || '/default-artist.png'} alt={item.nombre} style={{ width: 40, height: 40, borderRadius: "50%", objectFit: "cover", marginRight: 12 }} />
                               <span style={{ fontWeight: "bold" }}>{item.nombre || `ID ${item.entidad_id}`}</span>
                             </Link>
-                            {tipoActivo === "album" && (
-                              <span style={{ marginLeft: 8, color: "#aaa", fontSize: "0.95rem" }}>
-                                {item.artistas?.length ? `Artista(s): ${item.artistas.join(", ")}` : ""}
-                                {item.numero_canciones ? ` | Canciones: ${item.numero_canciones}` : ""}
-                                {item.porcentaje_5_estrellas ? ` | % 5★: ${item.porcentaje_5_estrellas}` : ""}
-                              </span>
-                            )}
                             <span style={{ marginLeft: "auto", color: "#ffd700" }}>
                               {item.valoracion ? `${item.valoracion} ⭐` : ""}
                             </span>
@@ -386,6 +378,30 @@ const ModifyPersonalRanking = ({ usuario, soloLectura = false }) => {
                         ))}
                       </div>
                     </>
+                  )}
+                </>
+              )}
+              {tipoActivo === "album" && (
+                <>
+                  <div>Valoración: <b style={{ color: "#ffd700" }}>{detalleAbierto.valoracion} ★</b></div>
+                  <div>Artista(s): <b>{detalleAbierto.artistas?.join(", ")}</b></div>
+                  <div>Canciones: <b>{detalleAbierto.numero_canciones}</b></div>
+                  {detalleAbierto.anio && (
+                    <div>Año: <b>{detalleAbierto.anio}</b></div>
+                  )}
+                  {detalleStats && (
+                    <>
+                      <div>% Canciones valoradas: <b style={{ color: "#16a34a" }}>{detalleStats.porcentaje}%</b></div>
+                      <div>
+                        Segmentación canciones:
+                        {Object.entries(detalleStats.segmentacion).map(([cal, count]) => (
+                          <div key={cal}>{cal}★: {count} ({((count/detalleStats.valorados)*100).toFixed(0)}%)</div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  {detalleAbierto.porcentaje_5_estrellas && (
+                    <div>% 5★: <b>{detalleAbierto.porcentaje_5_estrellas}%</b></div>
                   )}
                 </>
               )}

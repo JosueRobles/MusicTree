@@ -401,6 +401,10 @@ function esCancionSimilar(c1, c2) {
       }
       return '';
     }
+    if (tipo === 'video') {
+      if (valorados.includes(`video-${id}`)) return 'valorada';
+      return '';
+    }
     return '';
   }
 
