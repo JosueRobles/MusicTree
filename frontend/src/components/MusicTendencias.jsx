@@ -53,7 +53,7 @@ const MusicTendencias = ({ limit, itemsPerPage }) => {
   };
 
   return (
-    <div className="tendencias-container">
+    <div className="music-tendencias-container">
       <h2>Tendencias Mensuales</h2>
       {error && <p className="error-message">{error}</p>}
       {Object.keys(categorias).map((tipo) => {
@@ -77,8 +77,8 @@ const MusicTendencias = ({ limit, itemsPerPage }) => {
               }}
               infinite={true}
               autoPlay={false}
-              containerClass="carousel-container"
-              itemClass="carousel-item"
+              containerClass="music-carousel-container"
+              itemClass="music-carousel-item"
               arrows
               showDots={paginas.length > 1}
             >
@@ -93,12 +93,12 @@ const MusicTendencias = ({ limit, itemsPerPage }) => {
                   margin: "0 auto"
                 }}>
                   {pagina.map((item, index) => (
-                    <div key={item.id || item.entidad_id || index} className="tendencia-card">
+                    <div key={item.id || item.entidad_id || index} className="music-tendencia-card">
                       <Link to={getLink(tipo, item.id || item.entidad_id)}>
                         <img
                           src={item.imagen || "/placeholder.png"}
                           alt={item.nombre}
-                          className="tendencia-imagen"
+                          className="music-tendencia-imagen"
                         />
                         <h4 className="text-center mt-1 text-sm">{item.nombre}</h4>
                         <p className="text-center mt-1 text-xs">

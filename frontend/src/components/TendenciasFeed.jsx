@@ -32,6 +32,8 @@ const TendenciasFeed = () => {
     video: "Videos Musicales",
   };
 
+  const maxPages = 3;
+
   const getLink = (tipo, id, valoraciones, promedio_valoracion) => {
     switch (tipo) {
       case "artista":
@@ -54,7 +56,7 @@ const TendenciasFeed = () => {
       {Object.keys(categorias).map((tipo) => {
         const tendenciasFiltradas = tendencias
           .filter((item) => item.entidad_tipo === tipo)
-          .slice(0, 5); // Solo 5 elementos
+          .slice(0, 5 * maxPages);
 
         return (
           <div key={tipo}>
