@@ -4,6 +4,7 @@ import axios from 'axios';
 import PropTypes from 'prop-types';
 import StarRating from '../components/StarRating';
 import ValoracionComentario from '../components/ValoracionComentario';
+import CreateList from '../components/CreateList';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -65,6 +66,7 @@ const ArtistPage = ({ usuario }) => {
   const [votoEnviado, setVotoEnviado] = useState(false);
   const [valoradosClusters, setValoradosClusters] = useState({ album: new Set() });
   const [progresoCanciones, setProgresoCanciones] = useState(null);
+  const [showCreateListModal, setShowCreateListModal] = useState(false);
 
   useEffect(() => {
     const fetchArtistData = async () => {
@@ -73,7 +75,10 @@ const ArtistPage = ({ usuario }) => {
         setArtist(artistResponse.data.artista);
 
         const albumsResponse = await axios.get(`${API_URL}/relaciones/artistas/${id}/albumes`);
-        setAlbums(Array.isArray(albumsResponse.data) ? albumsResponse.data : []);
+        // Ordena de forma estable por id para evitar re-renders que cambien el orden visual
+        const albData = Array.isArray(albumsResponse.data) ? albumsResponse.data : [];
+        albData.sort((a, b) => (a.id_album || 0) - (b.id_album || 0));
+        setAlbums(albData);
 
         const songsResponse = await axios.get(`${API_URL}/relaciones/artistas/${id}/canciones`);
         setSongs(Array.isArray(songsResponse.data.canciones) ? songsResponse.data.canciones : []);
@@ -526,24 +531,42 @@ function esCancionSimilar(c1, c2) {
             </button>
           )}
           {usuario && (
-            <div className="mt-4">
-              {listas.filter(lista => Array.isArray(lista.entidades) && lista.entidades.some(entidad => entidad.id === id)).length > 0 ? (
-                <p>Esta entidad ya está en una de tus listas.</p>
-              ) : listas.length > 0 ? (
-                <>
-                  <select value={selectedLista} onChange={(e) => setSelectedLista(e.target.value)}>
-                    <option value="">Selecciona una lista</option>
-                    {listas.map(lista => (
-                      <option key={lista.id_lista} value={lista.id_lista}>{lista.nombre_lista}</option>
-                    ))}
-                  </select>
-                  <button onClick={handleAddToList}>Añadir a Lista</button>
-                </>
-              ) : (
-                <button onClick={() => navigate('/lists')}>Crear una nueva lista</button>
-              )}
-            </div>
-          )}
+    <div className="mt-4">
+      {listas.filter(
+        lista => Array.isArray(lista.entidades) && lista.entidades.some(entidad => String(entidad.id) === String(id))
+      ).length > 0 ? (
+        <p>Esta entidad ya está en una de tus listas.</p>
+      ) : listas.length > 0 ? (
+        <>
+          <select value={selectedLista} onChange={(e) => setSelectedLista(e.target.value)}>
+            <option value="">Selecciona una lista</option>
+            {listas.map(lista => (
+              <option key={lista.id_lista} value={lista.id_lista}>{lista.nombre_lista}</option>
+            ))}
+          </select>
+          <button onClick={handleAddToList}>Añadir a Lista</button>
+          <button style={{ marginLeft: 8 }} onClick={() => setShowCreateListModal(true)}>Crear nueva lista</button>
+        </>
+      ) : (
+        <button onClick={() => setShowCreateListModal(true)}>Crear una nueva lista</button>
+      )}
+
+      {/* modal CreateList con tipo preseleccionado */}
+      {showCreateListModal && (
+        <CreateList
+          usuario={usuario}
+          defaultTipo="artista"
+          onCreated={(newList) => {
+            // actualizar listas locales y seleccionar lista nueva automáticamente
+            setListas(prev => [newList, ...prev]);
+            setSelectedLista(newList.id_lista);
+            setShowCreateListModal(false);
+          }}
+          onClose={() => setShowCreateListModal(false)}
+        />
+      )}
+    </div>
+  )}
           {/* Álbumes */}
 <h3 className="text-2xl font-bold mt-8">Álbumes</h3>
 {Object.entries(albumesPorTipo).map(([tipo, lista]) => (

@@ -62,10 +62,6 @@
   .md\:flex { display: none !important; }
 }
 
-.tendencias-container {
-  text-align: center;
-}
-
 .carrusel {
   display: flex;
   overflow-x: auto;
@@ -131,29 +127,6 @@
   object-fit: cover !important;
 }
 
-.tendencia-card {
-  background: #065F46;
-  border-radius: 10px;
-  padding: 10px;
-  width: 200px; /* fijo para que se alineen mejor */
-  text-align: center;
-  color: white;
-  box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.2);
-  transition: transform 0.2s;
-}
-
-.tendencia-card:hover {
-  transform: scale(1.05);
-}
-
-.tendencia-imagen {
-  width: 100%;
-  height: 200px;
-  object-fit: cover;
-  border-radius: 8px;
-  background: #222;
-}
-
 .tendencia-card img[alt*="artista"],
 .tendencia-card img[alt*="Artista"],
 .tendencia-card img[alt*="video"],
@@ -161,65 +134,12 @@
   object-fit: contain !important;
 }
 
-.carousel-container {
-  padding: 16px 0;
-  justify-content: center;
-}
-
-.carousel-item {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  flex-wrap: nowrap;
-  overflow-x: auto;
-  max-width: 600px;
-  margin: 0 auto;
-}
-
-.music-carousel-item {
-  display: flex;
-  justify-content: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-/* Estilos para MusicTendencias: versión compacta */
-.music-tendencia-card {
-  background: #034733;
-  border-radius: 6px;
-  padding: 4px;
-  min-width: 120px;
-  max-width: 140px;
-  text-align: center;
-  color: white;
-  box-shadow: 1px 1px 5px rgba(0, 0, 0, 0.2);
-  font-size: 0.75rem;
-  margin: 0 8px;
-}
-
 .music-tendencia-imagen {
   width: 100%;
-  height: 120px;
+  height: 100px;
   object-fit: cover;
   border-radius: 6px;
   background: #222;
-}
-
-.music-tendencia-card img[alt*="artista"],
-.music-tendencia-card img[alt*="Artista"],
-.music-tendencia-card img[alt*="video"],
-.music-tendencia-card img[alt*="Video"] {
-  object-fit: contain !important;
-}
-
-.music-carousel-container {
-  padding: 9px 0;
-  justify-content: center;
-}
-
-.music-carousel-item {
-  display: flex;
-  justify-content: center;
 }
 
 .placeholder-imagen {
@@ -808,4 +728,247 @@
   color: #ffffff;
   box-shadow: 0 2px 12px #ffffff55;
   margin-top: 8px;
+}
+
+/* ---------- Carrusel / Tendencias ---------- */
+/* Aumentar contenedor para que caben 5 tarjetas sin recorte y evitar filas */
+.carousel-container {
+  padding: 12px 6px;
+  width: 100%;
+  max-width: 1200px; /* suficiente para 5 tarjetas */
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+/* Tamaño de tarjeta ajustado para 5 por página en ancho estándar */
+.tendencia-card {
+  width: 170px;
+  min-width: 150px;
+  padding: 8px;
+  margin: 0 6px;
+}
+.tendencia-imagen {
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+}
+
+/* Para pantallas pequeñas, mantener comportamiento responsivo */
+@media (max-width: 1024px) {
+  .carousel-container { max-width: 900px; }
+  .tendencia-card { width: 150px; min-width: 130px; }
+}
+
+/* ------------------------------------------------------- */
+/* === Carrusel: asegurar 5 por página, evitar solapamientos === */
+
+/* El contenedor del carousel debe ser lo suficientemente ancho */
+.music-carousel-container, .carousel-container {
+  padding: 12px 6px;
+  width: 100%;
+  max-width: 1100px; /* suficiente para 5 tarjetas de ~170px */
+  margin: 0 auto;
+  box-sizing: border-box;
+  overflow: visible !important;
+}
+
+/* Cada "slide" (página) es una fila NO envuelta; centramos cuando hay menos elementos */
+.carousel-item, .music-carousel-item {
+  display:flex !important;
+  /* justify-content será override inline según número de items (center/ flex-start) */
+  gap: 14px;
+  flex-wrap: nowrap !important;
+  overflow: visible !important;
+  width: 100%;
+  padding: 8px 6px;
+  box-sizing: border-box;
+  min-height: 1px;
+}
+
+/* Forzar que las tarjetas no se reduzcan inesperadamente y manejar z-index al hover */
+.tendencia-card {
+  flex: 0 0 auto !important;
+  min-width: 150px !important;
+  width: 170px !important;
+  margin: 0 6px !important;
+  box-sizing: border-box;
+  z-index: 1;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+
+.music-tendencia-card {
+  flex: 0 0 auto !important;
+  min-width: 70px !important;
+  width: 80px !important;
+  margin: 0 6px !important;
+  box-sizing: border-box;
+  z-index: 1;
+  transition: transform .18s ease, box-shadow .18s ease;
+}
+
+.tendencia-card:hover, .music-tendencia-card:hover {
+  transform: translateY(-6px) scale(1.03);
+  z-index: 12;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.45);
+}
+
+/* Asegurarse de que react-multi-carousel no oculte elementos internamente */
+.react-multi-carousel-list,
+.react-multi-carousel-track,
+.react-multi-carousel-item {
+  overflow: visible !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+/* Espacio entre secciones para evitar solapamiento vertical */
+.tendencias-container > div {
+  margin-bottom: 28px;
+}
+
+/* ============================
+   Header: centrado y apariencia
+   ============================ */
+.site-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1200;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr; /* centro fijo, lados flexibles */
+  align-items: center;
+  gap: 12px;
+  background: linear-gradient(180deg, #094c3a 0%, #064e3b 100%);
+  color: #fff;
+  padding: 10px 18px;
+  height: 92px;
+  box-sizing: border-box;
+  border-bottom: 2px solid rgba(0,0,0,0.18);
+}
+
+/* left nav: mantiene elementos centrados verticalmente */
+.header-left { display:flex; align-items:center; padding-left:8px; }
+.header-left .header-nav { display:flex; gap:12px; align-items:center; overflow-x:auto; white-space:nowrap; }
+
+/* nav links: blanco, verticalmente centrados y accesibles */
+.encabezado-nav-link {
+  color: #ffffff !important;
+  text-decoration: none;
+  font-weight: 600;
+  padding: 6px 10px;
+  display: inline-flex;
+  align-items: center;
+  height: 40px;
+  border-radius: 8px;
+}
+.encabezado-nav-link:hover { background: rgba(255,255,255,0.03); }
+
+/* center: forzar centro real en grid */
+.header-center { justify-self: center; display:flex; justify-content:center; align-items:center; pointer-events: auto; }
+.header-center-inner { display:flex; align-items:center; gap:18px; }
+
+/* círculo del logo: contenido centrado dentro del header */
+.header-logo-circle {
+  width: 78px;
+  height: 78px;
+  border-radius: 50%;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background: rgba(7,82,57,0.12);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.40);
+  border: 3px solid rgba(255,255,255,0.04);
+  z-index: 801;
+}
+.header-logo {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+  display:block;
+  margin: 0 auto;
+}
+
+/* búsqueda inline: tamaño controlado y centrado verticalmente */
+.header-search-inline { width: 320px; max-width: 46vw; }
+.header-search-inline .search-input,
+.header-search-inline input {
+  width: 100% !important;
+  height: 40px !important;
+  padding: 8px 12px !important;
+  border-radius: 10px !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  background: rgba(255,255,255,0.03) !important;
+  color: #fff !important;
+  box-sizing: border-box;
+}
+
+/* right: acciones y botones alineados verticalmente */
+.header-right { display:flex; justify-content:flex-end; align-items:center; padding-right:10px; }
+.header-right-inner { display:flex; align-items:center; gap:12px; }
+
+/* notificaciones */
+.encabezado-notif { color: #fff; display:inline-flex; align-items:center; gap:6px; padding:6px; border-radius:8px; }
+.notif-emoji { font-size:18px; }
+.notif-count {
+  background: #16a34a;
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.75rem;
+  padding: 2px 6px;
+  border-radius: 999px;
+  margin-left: -4px;
+}
+
+/* grupo de botones */
+.header-btn-group { display:flex; gap:8px; align-items:center; }
+
+/* botones: links y botones normales comparten estilo consistente */
+.encabezado-btn {
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  height: 40px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  font-weight: 700;
+  color: #fff !important;
+  text-decoration: none !important;
+  border: none;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+}
+
+/* colores fuertes y legibles */
+.encabezado-btn.primary { background: #16a34a !important; }
+.encabezado-btn.secondary { background: #0ea5a4 !important; }
+.encabezado-btn.danger { background: #ef4444 !important; }
+
+/* asegurar que <button> use las mismas reglas (el reset del navegador puede sobreescribir) */
+button.encabezado-btn { border: none; outline: none; }
+
+/* hamburguer (mobile) */
+.header-burger { background: transparent; border: none; color: #fff; font-size: 20px; padding: 6px; }
+
+/* pequeñas mejoras de accesibilidad y focus */
+.encabezado-btn:focus, .encabezado-nav-link:focus, .header-burger:focus { outline: 2px solid rgba(255,255,255,0.12); outline-offset: 2px; }
+
+/* ===== Evitar solapamiento con header fijo ===== */
+.content { padding-top: 116px; } /* deja espacio para header */
+
+/* ===== Ajustes responsivos ===== */
+@media (max-width: 900px) {
+  .header-search-inline { width: 240px; max-width: 56vw; }
+  .encabezado-nav-link { padding: 6px 8px; font-size: 0.95rem; }
+  .header-logo-circle { width: 68px; height: 68px; }
+  .header-logo { width:44px; height:44px; }
+}
+
+@media (max-width: 520px) {
+  .header-search-inline { display:none; }
+  .site-header { grid-template-columns: 1fr auto; height: 84px; padding: 10px 12px; }
+  .header-right { padding-right: 6px; }
+  .header-left { display:none; } /* simplificar en mobile; puedes mostrar botón de menú si quieres */
 }

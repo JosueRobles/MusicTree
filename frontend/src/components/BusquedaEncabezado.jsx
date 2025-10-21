@@ -103,10 +103,10 @@ const BusquedaEncabezado = () => {
 
   return (
     <>
-      <div className="relative w-64" ref={inputRef}>
+      <div className="relative header-search-input" ref={inputRef}>
         <input
           type="text"
-          className="border rounded px-4 py-2 w-full"
+          className="border rounded px-4 py-2 w-full search-input"
           placeholder="Buscar..."
           value={input}
           onChange={handleInputChange}

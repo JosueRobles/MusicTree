@@ -13,6 +13,7 @@ const Home = ({ usuario }) => {
     // Intenta recuperar del storage
     return localStorage.getItem("musicTreeTab") || (usuario ? "paraTi" : "tendencias");
   });
+  const [apiReady, setApiReady] = useState(null); // null: checking, true/false result
   const navigate = useNavigate();
 
   // Sincroniza con usuario y storage
@@ -30,6 +31,42 @@ const Home = ({ usuario }) => {
   useEffect(() => {
     localStorage.setItem("musicTreeTab", activeTab);
   }, [activeTab]);
+
+  useEffect(() => {
+    // ping backend root to verify API alive
+    const checkAPI = async () => {
+      try {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/`);
+        const text = await res.text();
+        if (res.ok && text && text.includes('MusicTree')) setApiReady(true);
+        else setApiReady(true); // permitimos fallback si responde distinto, evita bloqueo en dev
+      } catch (e) {
+        setApiReady(false);
+      }
+    };
+    checkAPI();
+  }, []);
+
+  if (apiReady === null) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ color: '#fff', textAlign: 'center' }}>
+          <p style={{ fontSize: 20 }}>Cargando los datos de la plataforma, espere unos segundos...</p>
+          <div style={{ marginTop: 12 }}>
+            <div className="spinner" />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (apiReady === false) {
+    return (
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff' }}>
+        <p>No se pudo conectar al backend. Intenta recargar o revisa la configuración del servidor.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen" style={{ background: "#111" }}>

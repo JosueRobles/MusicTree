@@ -36,6 +36,7 @@ const StarRating = ({
   const [feedbackComentario, setFeedbackComentario] = useState("");
   const [feedbackLoading, setFeedbackLoading] = useState(false);
   const [feedbackSuccess, setFeedbackSuccess] = useState(false);
+  const [hasLists, setHasLists] = useState(true);
 
   const familiaridadNiveles = [
     { key: "primera_vez", label: "Primera vez que escucho", img: "/familiaridad/primera_vez.png" },
@@ -669,6 +670,11 @@ const StarRating = ({
               </div>
             </div>
           )}
+        </div>
+      )}
+      {!hasLists && usuario && (
+        <div style={{ marginTop: 10, textAlign: 'center' }}>
+          <p style={{ color: '#fbbf24' }}>¿No tienes listas? <a href="/lists" style={{ color: '#60a5fa', textDecoration: 'underline' }}>Crea una nueva lista</a> para organizar tus valoraciones.</p>
         </div>
       )}
     </div>

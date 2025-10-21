@@ -5,6 +5,7 @@ import PropTypes from 'prop-types';
 import StarRating from '../components/StarRating';
 import ValoracionComentario from '../components/ValoracionComentario';
 import React from 'react';
+import CreateList from '../components/CreateList';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -27,6 +28,7 @@ const VideoPage = ({ usuario }) => {
   const [genres, setGenres] = useState([]);
   const [listasDestacadas, setListasDestacadas] = useState([]);
   const [showHistorial, setShowHistorial] = useState(false);
+  const [showCreateListModal, setShowCreateListModal] = useState(false);
 
   useEffect(() => {
     const fetchVideoData = async () => {
@@ -243,26 +245,42 @@ const handleAddToList = async () => {
         ))
       )}
       {usuario && (
-        <div className="mt-4">
-          {listas.filter(
-            lista => Array.isArray(lista.entidades) && lista.entidades.some(entidad => String(entidad.id) === String(id))
-          ).length > 0 ? (
-            <p>Esta entidad ya está en una de tus listas.</p>
-          ) : listas.length > 0 ? (
-            <>
-              <select value={selectedLista} onChange={(e) => setSelectedLista(e.target.value)}>
-                <option value="">Selecciona una lista</option>
-                {listas.map(lista => (
-                  <option key={lista.id_lista} value={lista.id_lista}>{lista.nombre_lista}</option>
-                ))}
-              </select>
-              <button onClick={handleAddToList}>Añadir a Lista</button>
-            </>
-          ) : (
-            <button onClick={() => navigate('/lists')}>Crear una nueva lista</button>
-          )}
-        </div>
+    <div className="mt-4">
+      {listas.filter(
+        lista => Array.isArray(lista.entidades) && lista.entidades.some(entidad => String(entidad.id) === String(id))
+      ).length > 0 ? (
+        <p>Esta entidad ya está en una de tus listas.</p>
+      ) : listas.length > 0 ? (
+        <>
+          <select value={selectedLista} onChange={(e) => setSelectedLista(e.target.value)}>
+            <option value="">Selecciona una lista</option>
+            {listas.map(lista => (
+              <option key={lista.id_lista} value={lista.id_lista}>{lista.nombre_lista}</option>
+            ))}
+          </select>
+          <button onClick={handleAddToList}>Añadir a Lista</button>
+          <button style={{ marginLeft: 8 }} onClick={() => setShowCreateListModal(true)}>Crear nueva lista</button>
+        </>
+      ) : (
+        <button onClick={() => setShowCreateListModal(true)}>Crear una nueva lista</button>
       )}
+
+      {/* modal CreateList con tipo preseleccionado */}
+      {showCreateListModal && (
+        <CreateList
+          usuario={usuario}
+          defaultTipo="video"
+          onCreated={(newList) => {
+            // actualizar listas locales y seleccionar lista nueva automáticamente
+            setListas(prev => [newList, ...prev]);
+            setSelectedLista(newList.id_lista);
+            setShowCreateListModal(false);
+          }}
+          onClose={() => setShowCreateListModal(false)}
+        />
+      )}
+    </div>
+  )}
       <h3 className="text-2xl font-bold mt-8">Géneros</h3>
                 <ul className="text-center">
                   {genres.map((genre) => (

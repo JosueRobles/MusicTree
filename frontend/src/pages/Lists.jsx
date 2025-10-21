@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { UsuarioContext } from '../context/UsuarioContext';
 import { useNavigate } from 'react-router-dom';
+import CreateList from '../components/CreateList'; // <-- ya importado
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -257,51 +258,23 @@ const Lists = () => {
       </p>
       {usuario ? (
         <>
-          <div>
-            <input
-              type="text"
-              placeholder="Nombre de la lista"
-              value={nombreLista}
-              onChange={(e) => setNombreLista(e.target.value)}
-            />
-            <select value={tipoLista} onChange={(e) => setTipoLista(e.target.value)}>
-              <option value="">Selecciona el tipo de lista</option>
-              <option value="artista">Artista</option>
-              <option value="album">Álbum</option>
-              <option value="cancion">Canción</option>
-              <option value="video">Video</option>
-            </select>
-            <textarea
-              placeholder="Descripción"
-              value={descripcion}
-              onChange={(e) => setDescripcion(e.target.value)}
-            />
-            <div>
-              <input
-                type="file"
-                accept="image/*"
-                onChange={e => setImagen(e.target.files[0])}
-              />
-            </div>
-            <select value={privacidad} onChange={(e) => setPrivacidad(e.target.value)}>
-              <option value="publica">Pública</option>
-              <option value="privada">Privada</option>
-            </select>
-            <button onClick={crearLista}>Crear Lista</button>
-          </div>
-          <div>
+          {/* CreateList ahora muestra botón y modal internamente */}
+          <CreateList usuario={usuario} onCreated={(newList) => setListas(prev => [newList, ...prev])} />
+
+          <div style={{ marginTop: 18 }}>
             {listas.length > 0 ? (
-              <div>
+              <div style={{ display: 'flex', gap: '1rem', overflowX: 'auto', padding: '8px 0' }}>
                 {listas.map(lista => (
-                  <ListCard
-                    key={lista.id_lista}
-                    lista={lista}
-                    onClick={() => navigate(`/list/${lista.id_lista}`)}
-                  />
+                  <div key={lista.id_lista} style={{ minWidth: 250 }}>
+                    <ListCard
+                      lista={lista}
+                      onClick={() => navigate(`/list/${lista.id_lista}`)}
+                    />
+                  </div>
                 ))}
               </div>
             ) : (
-              <p>No tienes listas creadas. Puedes crear una nueva lista arriba.</p>
+              <p>No tienes listas creadas. Puedes crear una nueva lista con el botón de arriba.</p>
             )}
           </div>
           <h2>Listas Guardadas</h2>
