@@ -119,9 +119,11 @@ def similares():
                 0.05 * genre_score +
                 0.25 * sim_emb
             )
-            # penalizar fuertemente cuando no hay evidencia de artista (evita unir por emb/título sólo)
+            # Prefiltro estricto: si artist_score muy bajo bloquear fuertemente salvo excepción ultra-fuerte
             if artist_score < 0.25:
-                combined_score = combined_score * 0.4
+                # excepción ultra-fuerte (título casi idéntico + embedding muy alto + songs overlap decente)
+                if not (title_score >= 0.9 and sim_emb >= 0.95 and songs_jaccard >= 0.6):
+                    combined_score = combined_score * 0.25
             resultados.append({
                  'id': item['id_album'],
                  'embedding_similarity': float(sim_emb),

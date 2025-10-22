@@ -335,6 +335,13 @@ def poblar_album_clusters():
     canciones_map = bulk_fetch_album_canciones(ids)
     popularity_map = {k: (v.get("popularidad_album") or 0) for k, v in meta_map.items()}
 
+    # Detectar álbumes "low_trust": no tienen artistas en album_artistas o tienen muy pocas canciones
+    low_trust_map = {}
+    for aid in ids:
+        no_artistas = (not artistas_map.get(aid))
+        pocos_tracks = (meta_map.get(aid, {}).get("numero_canciones") or 0) < 4
+        low_trust_map[aid] = (no_artistas or pocos_tracks)
+    
     uf = UnionFind(ids)
     decisions_log = []
 
@@ -518,6 +525,15 @@ def poblar_album_clusters():
                 w["genre"] * genre_score
             )
             confidence = combined_score * 0.7 + artist_score * 0.3
+
+            # Ajustar umbral si alguno de los álbumes es low_trust (más conservador)
+            adj_threshold = cfg["combined_threshold"]
+            if low_trust_map.get(ida, False) or low_trust_map.get(idb, False):
+                adj_threshold = min(0.95, adj_threshold + 0.12)  # +0.12 para ser conservador en low_trust
+            # Umbral mínimo absoluto para considerar unión por arista
+            EDGE_MIN = 0.50
+            final_threshold = max(adj_threshold, EDGE_MIN)
+
             # overrides
             if songs_overlap >= 0.7:
                 decision = "union"; rule_triggered = "songs_overlap_high"; reason = "Alto solapamiento de canciones"
@@ -529,8 +545,8 @@ def poblar_album_clusters():
                 decision = "no-union"; rule_triggered = "artist_below_hard_min"; reason = "Artistas no coinciden lo suficiente"
             elif strong_emb_exception:
                 decision = "union"; rule_triggered = "strong_embedding_exception"; reason = "Alta similitud de embedding suple falta de metadata"
-            elif combined_score >= cfg["combined_threshold"]:
-                decision = "union"; rule_triggered = "combined_threshold"; reason = "Combined score supera umbral"
+            elif combined_score >= final_threshold:
+                decision = "union"; rule_triggered = "combined_threshold"; reason = f"Combined score supera umbral (final_threshold={final_threshold:.2f})"
             else:
                 lower = cfg["combined_threshold"] - 0.05
                 if lower <= combined_score < cfg["combined_threshold"] + 0.05:
