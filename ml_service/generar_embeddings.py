@@ -84,7 +84,8 @@ def embed_album(album):
     num_tracks = str(album.get('numero_canciones', ''))
     canciones = get_album_canciones(album['id_album']) if album.get('id_album') else []
     canciones_str = '; '.join(canciones)
-    texto = f"{titulo}. Tipo: {tipo}. Año: {anio}. Artistas: {artistas}. Géneros: {generos}. Canciones: {canciones_str}. Número de canciones: {num_tracks}."
+    popularidad = str(album.get('popularidad_album') or '')
+    texto = f"{titulo}. Tipo: {tipo}. Año: {anio}. Artistas: {artistas}. Géneros: {generos}. Popularidad: {popularidad}. Canciones: {canciones_str}. Número de canciones: {num_tracks}."
     return texto, model.encode(texto).tolist()
 
 def save_embedding_album(id_album, emb, texto):

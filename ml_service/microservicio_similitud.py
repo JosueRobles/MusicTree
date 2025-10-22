@@ -4,6 +4,7 @@ from flask import Flask, request, jsonify
 import numpy as np
 import supabase
 from difflib import SequenceMatcher
+import re
 
 load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
@@ -23,8 +24,24 @@ def jaccard(set1, set2):
     return inter / union if union > 0 else 0.0
 
 def normalizar_titulo_base(titulo: str) -> str:
-    # Implementar la normalización del título
-    return titulo.lower().strip()
+    if not titulo:
+        return ""
+    t = titulo.lower()
+    t = re.sub(r'\(.*?\)', ' ', t)
+    t = re.sub(
+        r'\b(remaster(ed)?|deluxe|edition|bonus|live|demo|super|anniversary|expanded|complete|version|mix|'
+        r'radio|radio edit|remix|original|mono|stereo|explicit|clean|instrumental|karaoke|single|ep|lp|box set|'
+        r'disc\s*\d+|cd\s*\d+|vinyl|digital|special|reissue|commentary|edit|album version|single version|'
+        r'club mix|extended|intro|outro|interlude|a cappella|minus mix|immortal version|'
+        r'home demo|stripped mix|rejuvenated|directors cut|immortal|25th anniversary|2003 edit|2012 remaster|'
+        r'taylor\'?s version|complete edition|acoustic|from the vault|package|alternate|track by track)\b',
+        '', t, flags=re.I
+    )
+    t = re.sub(r'\b(feat\.?|ft\.?|with)\b.*', '', t, flags=re.I)
+    t = re.sub(r'\b\d{2,4}\b', '', t)
+    t = re.sub(r'[^a-z0-9\s\-]', ' ', t)
+    t = re.sub(r'[\s\-]+', ' ', t).strip()
+    return t
 
 def fuzzy_title_score(t1, t2):
     n1, n2 = normalizar_titulo_base(t1), normalizar_titulo_base(t2)
@@ -57,7 +74,8 @@ def similares():
         embedding = data['embedding']
         id_album = data['id']
         emb_db = sb.table('album_embeddings').select('id_album, embedding').execute().data
-        meta_db = sb.table('albumes').select('id_album, titulo, anio, tipo_album').execute().data
+        # incluir categoría (no existe columna artista_id en albumes en tu esquema)
+        meta_db = sb.table('albumes').select('id_album, titulo, anio, tipo_album, categoria').execute().data
         artistas_db = sb.table('album_artistas').select('album_id, artista_id').execute().data
         generos_db = sb.table('album_generos').select('album_id, genero_id').execute().data
         canciones_db = sb.table('canciones').select('id_cancion, album, titulo').execute().data
@@ -89,26 +107,31 @@ def similares():
             can1 = album_canciones.get(id_album, set())
             can2 = album_canciones.get(item['id_album'], set())
             title_score = fuzzy_title_score(t1, t2)
-            artist_score = artist_overlap(a1, a2)
+            # artist_score se calcula solo desde album_artistas; no hay columna artista_id en albumes
+            artist_score = artist_overlap(a1, a2) if a1 and a2 else 0.0
             genre_score = genre_overlap(g1, g2)
             songs_jaccard = jaccard(can1, can2)
+            # dar más peso al embedding para capturar variantes sin metadata
             combined_score = (
-                0.35 * title_score +
-                0.25 * artist_score +
-                0.25 * songs_jaccard +
+                0.30 * title_score +
+                0.20 * artist_score +
+                0.20 * songs_jaccard +
                 0.05 * genre_score +
-                0.10 * sim_emb
+                0.25 * sim_emb
             )
+            # penalizar fuertemente cuando no hay evidencia de artista (evita unir por emb/título sólo)
+            if artist_score < 0.25:
+                combined_score = combined_score * 0.4
             resultados.append({
-                'id': item['id_album'],
-                'embedding_similarity': float(sim_emb),
-                'title_score': float(title_score),
-                'artist_score': float(artist_score),
-                'songs_jaccard': float(songs_jaccard),
-                'genre_score': float(genre_score),
-                'combined_score': float(combined_score),
-                'explanation': f"title:{title_score:.2f}, artist:{artist_score:.2f}, songs:{songs_jaccard:.2f}, genre:{genre_score:.2f}, emb:{sim_emb:.2f}"
-            })
+                 'id': item['id_album'],
+                 'embedding_similarity': float(sim_emb),
+                 'title_score': float(title_score),
+                 'artist_score': float(artist_score),
+                 'songs_jaccard': float(songs_jaccard),
+                 'genre_score': float(genre_score),
+                 'combined_score': float(combined_score),
+                 'explanation': f"title:{title_score:.2f}, artist:{artist_score:.2f}, songs:{songs_jaccard:.2f}, genre:{genre_score:.2f}, emb:{sim_emb:.2f}"
+             })
         resultados.sort(key=lambda x: -x['combined_score'])
         return jsonify(resultados)
     except Exception as e:
