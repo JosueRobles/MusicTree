@@ -1010,3 +1010,23 @@ button.encabezado-btn { border: none; outline: none; }
   width: 100%;
   justify-content: center;
 }
+
+/* Mobile optimizations para Members / Generos / ValoracionComentarioEntidad */
+@media (max-width: 768px) {
+  .members-mobile-list { padding: 6px; }
+  .member-card { padding: 10px; }
+  .member-card img { width: 56px; height: 56px; }
+
+  /* Generos: hacer tarjetas más compactas en móviles */
+  .generos-carousel { padding: 8px 6px; }
+  .generos-carousel a { min-width: 160px; width: 160px; }
+
+  /* Valoraciones: apilar y ajustar tamaños */
+  .valoracion-facebook {
+    flex-direction: row !important;
+    align-items: flex-start !important;
+  }
+  .valoracion-facebook-rect { flex: 1 1 auto; }
+  .valoracion-facebook-col { display: flex; gap: 8px; margin-left: 8px; }
+  .valoracion-facebook-cuadro { width: 72px; height: 72px; }
+}

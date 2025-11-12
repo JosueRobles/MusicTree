@@ -55,7 +55,8 @@ const Generos = () => {
         alignItems: "center",
         justifyContent: "center",
         gap: "10px",
-        marginBottom: "2rem"
+        marginBottom: "2rem",
+        width: '100%'
       }}>
         {/* Flecha izquierda */}
         <button
@@ -74,10 +75,16 @@ const Generos = () => {
           &#8592;
         </button>
         {/* Carrusel de géneros */}
-        <div style={{
-          display: "flex",
-          gap: "20px",
-        }}>
+        <div
+          role="list"
+          aria-label="Géneros"
+          style={{
+            display: "flex",
+            gap: "20px",
+            overflowX: 'auto',
+            padding: '8px 4px',
+            WebkitOverflowScrolling: 'touch'
+          }}>
           {generosPagina.map(genero => (
             <Link
               key={genero.id_genero}
@@ -97,13 +104,17 @@ const Generos = () => {
                 justifyContent: "flex-start",
                 padding: "1rem"
               }}
+              role="listitem"
             >
               <img
                 src={imagenesPorGenero[genero.id_genero] || "/default-image.png"}
                 alt={genero.nombre}
+                loading="lazy"
+                width="260"
+                height="140"
                 style={{
                   width: "100%",
-                  height: "100%",
+                  height: 140,
                   objectFit: "cover",
                   borderRadius: "8px",
                   marginBottom: "1rem"
