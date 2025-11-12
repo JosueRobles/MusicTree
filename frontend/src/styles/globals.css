@@ -1030,3 +1030,65 @@ button.encabezado-btn { border: none; outline: none; }
   .valoracion-facebook-col { display: flex; gap: 8px; margin-left: 8px; }
   .valoracion-facebook-cuadro { width: 72px; height: 72px; }
 }
+
+.tendencias-items-wrapper {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.tendencias-items-container {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  max-width: 100%;
+}
+
+.tendencia-card {
+  flex: 0 0 auto;
+  /* Mantener tamaño consistente */
+}
+
+.pendientes-lista-ajustada {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.pendiente-card-large {
+  flex: 0 0 calc(20% - 10px);  /* 5 elementos por línea */
+  min-width: 140px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  background: #181818;
+  border-radius: 8px;
+  padding: 8px 4px;
+  height: auto;
+}
+
+.pendiente-card-large img {
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+  border-radius: 6px;
+  margin-bottom: 6px;
+}
+
+@media (max-width: 1200px) {
+  .pendiente-card-large {
+    flex: 0 0 calc(25% - 10px);  /* 4 elementos en tablets */
+  }
+}
+
+@media (max-width: 768px) {
+  .pendiente-card-large {
+    flex: 0 0 calc(33.333% - 10px);  /* 3 elementos en móvil */
+  }
+}

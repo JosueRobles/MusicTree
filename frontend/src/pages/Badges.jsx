@@ -11,10 +11,9 @@ const Badges = ({ usuario }) => {
   const [newBadge, setNewBadge] = useState(null);
   const [error, setError] = useState(null);
   
-  // Estados para los filtros
-  const [filtroEstado, setFiltroEstado] = useState('todas'); // 'todas', 'obtenidas', 'pendientes'
-  const [filtroCantidad, setFiltroCantidad] = useState(''); // '1', '5', '10', '50', '100', '500', '1000'
-  const [ordenFecha, setOrdenFecha] = useState('recientes'); // 'recientes', 'antiguas'
+  const [filtroEstado, setFiltroEstado] = useState('todas');
+  const [filtroCantidad, setFiltroCantidad] = useState('');
+  const [ordenFecha, setOrdenFecha] = useState('ninguno');  // Cambiar a 'ninguno'
 
   useEffect(() => {
     const fetchInsignias = async () => {
@@ -206,9 +205,9 @@ const Badges = ({ usuario }) => {
                 onChange={(e) => setOrdenFecha(e.target.value)}
                 style={{ padding: '6px 12px', borderRadius: 4, border: '1px solid #ccc' }}
               >
+                <option value="ninguno">Sin ordenar</option>
                 <option value="recientes">Más recientes primero</option>
                 <option value="antiguas">Más antiguas primero</option>
-                <option value="ninguno">Sin ordenar</option>
               </select>
             </div>
           </div>

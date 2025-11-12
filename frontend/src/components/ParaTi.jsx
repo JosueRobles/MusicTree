@@ -292,9 +292,9 @@ const ParaTiFeed = ({ usuario }) => {
         {pendientesAgrupados.artista.length > 0 && (
           <div className="pendientes-grupo">
             <div className="pendientes-titulo">Artistas</div>
-            <div className="pendientes-lista">
+            <div className="pendientes-lista-ajustada">
               {pendientesAgrupados.artista.map(item => (
-                <div key={`artista-${item.id}`} className="pendiente-card">
+                <div key={`artista-${item.id}`} className="pendiente-card-large">
                   <Link to={`/artist/${item.id}`}>
                     <img src={item.foto || '/default.png'} alt={item.titulo} />
                     <div>{item.titulo}</div>

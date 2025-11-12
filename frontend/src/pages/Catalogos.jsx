@@ -184,11 +184,51 @@ const Catalogos = () => {
           <h2>Artistas más pedidos para catálogo completo</h2>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1.5rem' }}>
             {masPedidos.map(a => (
-              <div key={a.artista_id} style={{
-                border: '1px solid #004600ff', borderRadius: 8, padding: '1rem', minWidth: 220, background: '#064E3B'
-              }}>
-                <img src={a.foto_artista || '/default_artist.png'} alt={a.nombre_artista} style={{ width: 60, height: 60, borderRadius: 8, objectFit: 'cover' }} />
-                <div style={{ fontWeight: 600 }}>{a.nombre_artista}</div>
+              <div
+                key={a.artista_id}
+                onClick={() => navigate(`/artist/${a.artista_id}`)}
+                style={{
+                  border: '1px solid #004600ff',
+                  borderRadius: 8,
+                  padding: '1rem',
+                  minWidth: 220,
+                  background: '#064E3B',
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s, box-shadow 0.2s',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'scale(1.05)';
+                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(22, 163, 74, 0.3)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
+              >
+                <img
+                  src={a.foto_artista || '/default_artist.png'}
+                  alt={a.nombre_artista}
+                  style={{
+                    width: 60,
+                    height: 60,
+                    borderRadius: 8,
+                    objectFit: 'cover',
+                    cursor: 'pointer'
+                  }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/artist/${a.artista_id}`);
+                  }}
+                />
+                <div
+                  style={{ fontWeight: 600, marginTop: 8, cursor: 'pointer' }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    navigate(`/artist/${a.artista_id}`);
+                  }}
+                >
+                  {a.nombre_artista}
+                </div>
                 <div>Votos: {a.votos}</div>
                 <button
                   disabled={votados.includes(a.artista_id)}

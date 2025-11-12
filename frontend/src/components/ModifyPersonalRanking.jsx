@@ -301,17 +301,62 @@ const ModifyPersonalRanking = ({ usuario, soloLectura = false }) => {
           {guardando ? "Guardando..." : "Guardar cambios"}
         </button>
       )}
+      {/* Modal de detalle */}
       {detalleAbierto && (
-        <div style={{
-          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
-          background: "rgba(0,0,0,0.7)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center"
-        }}>
-          <div style={{
-            background: "#18181b", borderRadius: 16, padding: 28, minWidth: 280, maxWidth: 340, color: "#fff", position: "relative"
-          }}>
-            <button onClick={() => setDetalleAbierto(null)} style={{
-              position: "absolute", top: 10, right: 10, background: "none", border: "none", color: "#fff", fontSize: 22, cursor: "pointer"
-            }}>×</button>
+        <div
+          className="fixed inset-0 bg-black bg-opacity-50 z-40"
+          onClick={() => {
+            setDetalleAbierto(null);
+            setDetalleStats(null);
+          }}
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 40
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: '#1a1a1a',
+              borderRadius: 12,
+              padding: '24px',
+              maxWidth: '600px',
+              width: '90%',
+              maxHeight: '80vh',
+              overflowY: 'auto',
+              position: 'relative'
+            }}
+          >
+            {/* Botón X visible */}
+            <button
+              onClick={() => {
+                setDetalleAbierto(null);
+                setDetalleStats(null);
+              }}
+              style={{
+                position: 'absolute',
+                top: '12px',
+                right: '12px',
+                background: 'none',
+                border: 'none',
+                fontSize: '24px',
+                cursor: 'pointer',
+                color: '#888',
+                zIndex: 50
+              }}
+            >
+              ✕
+            </button>
+
+            {/* Contenido del detalle */}
             <h3 style={{ color: "#16a34a", fontWeight: "bold", marginBottom: 8 }}>{detalleAbierto.nombre}</h3>
             <img
               src={detalleAbierto.foto || "/default-profile.png"}
