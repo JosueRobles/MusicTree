@@ -972,3 +972,41 @@ button.encabezado-btn { border: none; outline: none; }
   .header-right { padding-right: 6px; }
   .header-left { display:none; } /* simplificar en mobile; puedes mostrar botón de menú si quieres */
 }
+
+/* Estilos del menú móvil desplegable */
+.mobile-menu {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  top: 96px; /* debajo del header (ajustar si cambia la altura) */
+  z-index: 1400;
+  background: linear-gradient(180deg, #064e3b, #052e2a);
+  padding: 14px;
+  border-radius: 12px;
+  box-shadow: 0 12px 36px rgba(0,0,0,0.6);
+  max-height: calc(100vh - 120px);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid rgba(255,255,255,0.04);
+}
+
+/* Asegurar que el menú no aparezca en escritorio */
+@media (min-width: 521px) {
+  .mobile-menu { display: none !important; }
+}
+
+/* Ajustes de los enlaces dentro del menú móvil */
+.mobile-menu .encabezado-nav-link {
+  color: #dfffe6;
+  padding: 10px 8px;
+  border-radius: 8px;
+}
+.mobile-menu .encabezado-nav-link:hover {
+  background: rgba(255,255,255,0.03);
+}
+
+/* Botones en mobile */
+.mobile-menu .encabezado-btn {
+  width: 100%;
+  justify-content: center;
+}
