@@ -1,0 +1,14 @@
+{
+  "ExpandedNodes": [
+    "",
+    "\\controllers",
+    "\\frontend",
+    "\\frontend\\src",
+    "\\frontend\\src\\components",
+    "\\frontend\\src\\pages",
+    "\\frontend\\src\\styles",
+    "\\routes"
+  ],
+  "SelectedNode": "\\frontend\\src\\components\\Encabezado.jsx",
+  "PreviewInSolutionExplorer": false
+}

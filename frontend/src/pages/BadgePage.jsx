@@ -25,9 +25,11 @@ const BadgePage = ({ usuario }) => {
     const fetchProgreso = async () => {
       if (usuario) {
         try {
-          const res = await axios.get(`${API_URL}/insignias/progreso/${usuario.id_usuario}`);
-          const prog = res.data.find(i => String(i.insignia_id) === String(id));
-          setProgreso(prog);
+          // endpoint más rápido: insignias_usuario + insignias
+          const res = await axios.get(`${API_URL}/insignias/usuario/${usuario.id_usuario}`);
+          // buscar si la insignia está en la lista del usuario
+          const prog = (res.data || []).find(i => String(i.insignia_id) === String(id));
+          setProgreso(prog || null);
         } catch (error) {
           setProgreso(null);
         }

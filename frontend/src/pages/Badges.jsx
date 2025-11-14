@@ -30,19 +30,11 @@ const Badges = ({ usuario }) => {
     const fetchInsigniasUsuario = async () => {
       if (usuario) {
         try {
-          // Cambia aquí para usar el endpoint de progreso
-          const response = await axios.get(`${API_URL}/insignias/progreso/${usuario.id_usuario}`);
-
-          // Verificar la estructura de la respuesta y adaptarse a ella
-          if (response.data && response.data.progreso) {
-            // Si la respuesta tiene formato { progreso: [...] }
-            setInsigniasUsuario(Array.isArray(response.data.progreso) ? response.data.progreso : []);
-          } else {
-            // Si la respuesta es directamente un array
-            setInsigniasUsuario(Array.isArray(response.data) ? response.data : []);
-          }
+          // Cambiado: endpoint más directo y rápido que devuelve insignias_usuario con join
+          const response = await axios.get(`${API_URL}/insignias/usuario/${usuario.id_usuario}`);
+          setInsigniasUsuario(Array.isArray(response.data) ? response.data : []);
         } catch (error) {
-          console.error("Error al obtener progreso de insignias:", error);
+          console.error("Error al obtener insignias del usuario:", error);
           setInsigniasUsuario([]);
         }
       }

@@ -290,86 +290,120 @@ const ParaTiFeed = ({ usuario }) => {
 
         {/* Artistas (solo agrupados) */}
         {pendientesAgrupados.artista.length > 0 && (
-          <div className="pendientes-grupo">
-            <div className="pendientes-titulo">Artistas</div>
-            <div className="pendientes-lista-ajustada">
-              {pendientesAgrupados.artista.map(item => (
-                <div key={`artista-${item.id}`} className="pendiente-card-large">
-                  <Link to={`/artist/${item.id}`}>
-                    <img src={item.foto || '/default.png'} alt={item.titulo} />
-                    <div>{item.titulo}</div>
-                    <div className="pendiente-tipo">Artista</div>
-                  </Link>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+  <div className="pendientes-grupo">
+    <div className="pendientes-titulo">Artistas</div>
+
+    <div className="pendientes-lista-ajustada-grid">
+      {pendientesAgrupados.artista.map(item => (
+        <div 
+          key={`artista-${item.id}`} 
+          className="pendiente-card-large-grid"
+        >
+          <Link to={`/artist/${item.id}`}>
+            <img src={item.foto || '/default.png'} alt={item.titulo} />
+            <div className="pendiente-card-titulo">{item.titulo}</div>
+            <div className="pendiente-tipo">Artista</div>
+          </Link>
+        </div>
+      ))}
+    </div>
+  </div>
+)}
 
         {/* Álbumes */}
         {(pendientesAgrupados.album.length > 0 || albumesPendientes.length > 0) && (
-          <div className="pendientes-grupo">
-            <div className="pendientes-titulo">Álbumes</div>
-            {/* Álbumes */}
-            <div className="pendientes-lista">
-              {[...pendientesAgrupados.album, ...albumesPendientes].map(item => (
-                <div key={`album-${item.referencia_id}`} className="pendiente-card">
-                  <Link to={`/album/${item.referencia_id}`}>
-                    <img src={item.referencia_info?.foto_album || '/default.png'} alt={item.referencia_info?.titulo} />
-                    <div>{item.referencia_info?.titulo}</div>
-                    <div className="pendiente-tipo">Álbum</div>
-                  </Link>
-                </div>
-              ))}
+  <div className="pendientes-grupo">
+    <div className="pendientes-titulo">Álbumes</div>
+
+    <div className="pendientes-lista-ajustada-grid">
+      {[...pendientesAgrupados.album, ...albumesPendientes].map(item => (
+        <div 
+          key={`album-${item.referencia_id}`} 
+          className="pendiente-card-large-grid"
+        >
+          <Link to={`/album/${item.referencia_id}`}>
+            <img 
+              src={item.referencia_info?.foto_album || '/default.png'} 
+              alt={item.referencia_info?.titulo} 
+            />
+            <div className="pendiente-card-titulo">
+              {item.referencia_info?.titulo}
             </div>
-            <button onClick={fetchMasAlbumes} className="btn-ver-mas mt-2">
-              Ver más álbumes pendientes
-            </button>
-          </div>
-        )}
+            <div className="pendiente-tipo">Álbum</div>
+          </Link>
+        </div>
+      ))}
+    </div>
+
+    <button onClick={fetchMasAlbumes} className="btn-ver-mas mt-2">
+      Ver más álbumes pendientes
+    </button>
+  </div>
+)}
 
         {/* Canciones */}
         {(pendientesAgrupados.cancion.length > 0 || cancionesPendientes.length > 0) && (
-          <div className="pendientes-grupo">
-            <div className="pendientes-titulo">Canciones</div>
-            <div className="pendientes-lista">
-              {[...pendientesAgrupados.cancion, ...cancionesPendientes].map(item => (
-                <div key={`cancion-${item.referencia_id}`} className="pendiente-card">
-                  <Link to={`/song/${item.referencia_id}`}>
-                    <img src={item.referencia_info?.foto || '/default-song.png'} alt={item.referencia_info?.titulo} />
-                    <div>{item.referencia_info?.titulo}</div>
-                    <div className="pendiente-tipo">Canción</div>
-                  </Link>
-                </div>
-              ))}
+  <div className="pendientes-grupo">
+    <div className="pendientes-titulo">Canciones</div>
+
+    <div className="pendientes-lista-ajustada-grid">
+      {[...pendientesAgrupados.cancion, ...cancionesPendientes].map(item => (
+        <div 
+          key={`cancion-${item.referencia_id}`} 
+          className="pendiente-card-large-grid"
+        >
+          <Link to={`/song/${item.referencia_id}`}>
+            <img 
+              src={item.referencia_info?.foto || '/default-song.png'} 
+              alt={item.referencia_info?.titulo} 
+            />
+            <div className="pendiente-card-titulo">
+              {item.referencia_info?.titulo}
             </div>
-            <button onClick={fetchMasCanciones} className="btn-ver-mas mt-2">
-              Ver más canciones pendientes
-            </button>
-          </div>
-        )}
+            <div className="pendiente-tipo">Canción</div>
+          </Link>
+        </div>
+      ))}
+    </div>
+
+    <button onClick={fetchMasCanciones} className="btn-ver-mas mt-2">
+      Ver más canciones pendientes
+    </button>
+  </div>
+)}
+
 
         {/* Videos */}
         {(pendientesAgrupados.video.length > 0 || videosPendientes.length > 0) && (
-          <div className="pendientes-grupo">
-            <div className="pendientes-titulo">Videos Musicales</div>
-            <div className="pendientes-lista">
-              {[...pendientesAgrupados.video, ...videosPendientes].map(item => (
-                <div key={`video-${item.referencia_id}`} className="pendiente-card">
-                  <Link to={`/video/${item.referencia_id}`}>
-                    <img src={item.referencia_info?.miniatura || '/default.png'} alt={item.referencia_info?.titulo} />
-                    <div>{item.referencia_info?.titulo}</div>
-                    <div className="pendiente-tipo">Video Musical</div>
-                  </Link>
-                </div>
-              ))}
+  <div className="pendientes-grupo">
+    <div className="pendientes-titulo">Videos Musicales</div>
+
+    <div className="pendientes-lista-ajustada-grid">
+      {[...pendientesAgrupados.video, ...videosPendientes].map(item => (
+        <div 
+          key={`video-${item.referencia_id}`} 
+          className="pendiente-card-large-grid"
+        >
+          <Link to={`/video/${item.referencia_id}`}>
+            <img 
+              src={item.referencia_info?.miniatura || '/default.png'} 
+              alt={item.referencia_info?.titulo} 
+            />
+            <div className="pendiente-card-titulo">
+              {item.referencia_info?.titulo}
             </div>
-            <button onClick={fetchMasVideos} className="btn-ver-mas mt-2">
-              Ver más videos pendientes
-            </button>
-          </div>
-        )}
-      </div>
+            <div className="pendiente-tipo">Video Musical</div>
+          </Link>
+        </div>
+      ))}
+    </div>
+
+    <button onClick={fetchMasVideos} className="btn-ver-mas mt-2">
+      Ver más videos pendientes
+    </button>
+  </div>
+)}
+              </div>
     </div>
   );
 };

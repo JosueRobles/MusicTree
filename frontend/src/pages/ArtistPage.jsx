@@ -69,94 +69,48 @@ const ArtistPage = ({ usuario }) => {
   const [showCreateListModal, setShowCreateListModal] = useState(false);
 
   useEffect(() => {
-    const fetchArtistData = async () => {
-      try {
-        const artistResponse = await axios.get(`${API_URL}/artistas/${id}`);
-        setArtist(artistResponse.data.artista);
+  // Fetch artist core data (depends ONLY on id)
+  const controller = new AbortController();
+  const fetchArtistData = async () => {
+    try {
+      setLoading(true);
+      const artistResponse = await axios.get(`${API_URL}/artistas/${id}`, { signal: controller.signal });
+      setArtist(artistResponse.data.artista);
 
-        const albumsResponse = await axios.get(`${API_URL}/relaciones/artistas/${id}/albumes`);
-        // Ordena de forma estable por id para evitar re-renders que cambien el orden visual
-        const albData = Array.isArray(albumsResponse.data) ? albumsResponse.data : [];
-        albData.sort((a, b) => (a.id_album || 0) - (b.id_album || 0));
-        setAlbums(albData);
+      const albumsResponse = await axios.get(`${API_URL}/relaciones/artistas/${id}/albumes`, { signal: controller.signal });
+      const albData = Array.isArray(albumsResponse.data) ? albumsResponse.data : [];
+      albData.sort((a, b) => (a.id_album || 0) - (b.id_album || 0));
+      setAlbums(albData);
 
-        const songsResponse = await axios.get(`${API_URL}/relaciones/artistas/${id}/canciones`);
-        setSongs(Array.isArray(songsResponse.data.canciones) ? songsResponse.data.canciones : []);
+      const songsResponse = await axios.get(`${API_URL}/relaciones/artistas/${id}/canciones`, { signal: controller.signal });
+      setSongs(Array.isArray(songsResponse.data.canciones) ? songsResponse.data.canciones : []);
 
-        const videosResponse = await axios.get(`${API_URL}/relaciones/artistas/${id}/videos`);
-        setVideos(Array.isArray(videosResponse.data) ? videosResponse.data : []);
+      const videosResponse = await axios.get(`${API_URL}/relaciones/artistas/${id}/videos`, { signal: controller.signal });
+      setVideos(Array.isArray(videosResponse.data) ? videosResponse.data : []);
 
-        const genresResponse = await axios.get(`${API_URL}/relaciones/artistas/${id}/generos`);
-        setGenres(Array.isArray(genresResponse.data) ? genresResponse.data : []);
+      const genresResponse = await axios.get(`${API_URL}/relaciones/artistas/${id}/generos`, { signal: controller.signal });
+      setGenres(Array.isArray(genresResponse.data) ? genresResponse.data : []);
 
-        const avgRatingResponse = await axios.get(`${API_URL}/valoraciones/promedio`, {
-            params: {
-              entidad_tipo: 'artista',
-              entidad_id: parseInt(id, 10),
-            },
-          });
-          setAverageRating(avgRatingResponse.data.promedio || null);
-          
-        if (usuario) {
-          const valoracionResponse = await axios.get(`${API_URL}/valoraciones`, {
-            params: {
-              usuario: usuario.id_usuario,
-              entidad_tipo: 'artista',
-              entidad_id: parseInt(id, 10),
-            },
-          });
-          setRating(valoracionResponse.data.calificacion || 0);
-          setComentario(valoracionResponse.data.comentario || '');
-          setEmocion(valoracionResponse.data.emocion || '');
+      const avgRatingResponse = await axios.get(`${API_URL}/valoraciones/promedio`, {
+        params: { entidad_tipo: 'artista', entidad_id: parseInt(id, 10) },
+        signal: controller.signal
+      });
+      setAverageRating(avgRatingResponse.data.promedio || null);
 
-          const listasResponse = await axios.get(`${API_URL}/listas-personalizadas/colaborativas-o-propias/${usuario.id_usuario}`);
-          const listasFiltradas = listasResponse.data.filter(
-            lista =>
-              lista.tipo_lista === 'artista' &&
-              (
-                lista.usuario_id === usuario.id_usuario ||
-                (lista.privacidad === 'colaborativa' && ['agregar', 'admin', 'eliminar'].includes(lista.rol_colaborador))
-              )
-          );
-          setListas(listasFiltradas);
-
-          const existsResponse = await axios.post(`${API_URL}/listas-personalizadas/verificar`, {
-            userId: usuario.id_usuario,
-            entidad_id: parseInt(id, 10),
-            entidad_tipo: 'artista',
-          });
-          setAlreadyInList(existsResponse.data.exists);
-        }
-
-        // Fetch valoraciones de todos los usuarios
-        const valoracionesResponse = await axios.get(`${API_URL}/valoraciones/globales`, {
-          params: {
-            entidad_tipo: 'artista',
-            entidad_id: parseInt(id, 10),
-          },
-        });
-        setValoracionesUsuarios(Array.isArray(valoracionesResponse.data) ? valoracionesResponse.data : []);
-      } catch (error) {
-        console.error('Error fetching artist data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-      const fetchCatalogo = async () => {
-      if (!usuario) return;
-      try {
-        const response = await axios.get(`${API_URL}/catalogos/usuario/${usuario.id_usuario}`);
-        const found = response.data.find(c => c.id_artista === parseInt(id, 10));
-        setCatalogo(found || null);
-      } catch (e) {}
-    };
-    fetchCatalogo();
-    fetchArtistData();
-    if (usuario) {
-    axios.get(`${API_URL}/catalogos/artistas-seguidos/${usuario.id_usuario}`)
-      .then(res => setSiguiendo(res.data.some(a => a.id_artista === parseInt(id, 10))));
-  }
-  }, [catalogo, id, usuario]);
+      const valoracionesResponse = await axios.get(`${API_URL}/valoraciones/globales`, {
+        params: { entidad_tipo: 'artista', entidad_id: parseInt(id, 10) },
+        signal: controller.signal
+      });
+      setValoracionesUsuarios(Array.isArray(valoracionesResponse.data) ? valoracionesResponse.data : []);
+    } catch (error) {
+      if (!axios.isCancel(error)) console.error('Error fetching artist data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+  fetchArtistData();
+  return () => controller.abort();
+}, [id]); // <- solo id
 
   useEffect(() => {
   axios.get(`${API_URL}/listas-personalizadas/destacadas-por-entidad`, {
