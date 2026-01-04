@@ -1,0 +1,13 @@
+node_modules
+node_modules
+node_modules
+.env
+frontend/.env
+uploads/
+ml_service/venv
+ml_service/__pycache__
+embedding-service/__pycache__
+embedding-service/venv
+embedding-service/.env
+.env
+ml_service/album_cluster_decisions.jsonl

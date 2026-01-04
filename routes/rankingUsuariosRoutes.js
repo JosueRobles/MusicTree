@@ -1,0 +1,273 @@
+const express = require('express');
+const router = express.Router();
+const supabase = require('../db');
+const path = require('path');
+const multer = require('multer');
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 4 * 1024 * 1024 }, // 4MB
+});
+const { uploadToSupabase } = require('../controllers/utils/supabaseUpload');
+
+// Obtener todos los usuarios
+router.get('/', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('usuarios')
+      .select('id_usuario, username, nombre, foto_perfil');
+
+    if (error) throw error;
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Obtener ranking combinado de miembros por seguidores y actividad
+router.get('/ranking-combinado', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('usuarios')
+      .select(`
+        id_usuario, 
+        username, 
+        nombre, 
+        foto_perfil, 
+        seguidores:seguidores!seguidores_usuario_seguido_fkey(*), 
+        actividad_usuario (id_actividad)
+      `);
+
+    if (error) throw error;
+
+    const result = data.map(user => ({
+      id_usuario: user.id_usuario,
+      username: user.username,
+      nombre: user.nombre,
+      foto_perfil: user.foto_perfil,
+      seguidores_count: (user.seguidores || []).length,
+      actividad_count: (user.actividad_usuario || []).length,
+      ranking: (user.seguidores || []).length + (user.actividad_usuario || []).length
+    })).sort((a, b) => b.ranking - a.ranking);
+
+    res.json(result);
+  } catch (error) {
+    console.error('Error fetching combined ranking:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Obtener ranking de miembros por actividad (solo actividad)
+router.get('/ranking-actividad', async (req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('usuarios')
+      .select(`
+        id_usuario, 
+        username, 
+        nombre, 
+        foto_perfil, 
+        actividad_usuario (id_actividad)
+      `);
+
+    if (error) throw error;
+
+    const result = data.map(user => ({
+      id_usuario: user.id_usuario,
+      username: user.username,
+      nombre: user.nombre,
+      foto_perfil: user.foto_perfil,
+      actividad: user.actividad_usuario.length
+    })).sort((a, b) => b.actividad - a.actividad);
+
+    res.json(result);
+  } catch (error) {
+    console.error('Error fetching activity ranking:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Endpoint para seguir a un usuario
+router.post('/seguir', async (req, res) => {
+  const { usuario_seguidor, usuario_seguido } = req.body;
+
+  if (usuario_seguidor === usuario_seguido) {
+    return res.status(400).json({ error: 'No puedes seguirte a ti mismo.' });
+  }
+
+  try {
+    const { data: existingFollow, error: fetchError } = await supabase
+      .from('seguidores')
+      .select('*')
+      .eq('usuario_seguidor', usuario_seguidor)
+      .eq('usuario_seguido', usuario_seguido)
+      .single();
+
+    if (fetchError && fetchError.code !== 'PGRST116') throw fetchError;
+
+    if (existingFollow) {
+      return res.status(400).json({ error: 'Ya sigues a este usuario.' });
+    }
+
+    const { error: followError } = await supabase
+      .from('seguidores')
+      .insert([{ usuario_seguidor, usuario_seguido }]);
+
+    if (followError) throw followError;
+
+    const { registrarActividad } = require('../controllers/utils/actividadUtils');
+    await registrarActividad(usuario_seguidor, 'seguimiento', 'usuario', usuario_seguido);
+
+    // Después de registrar la actividad
+    await supabase.from('notificaciones').insert([{
+      usuario_id: usuario_seguido,
+      tipo_notificacion: 'seguimiento', // <-- este es el tipo correcto
+      entidad_tipo: 'usuario',
+      entidad_id: usuario_seguidor, // <-- el que sigue
+      mensaje: '', // el mensaje se genera en el backend
+      visto: false
+    }]);
+
+    res.status(201).json({ message: 'Usuario seguido exitosamente' });
+  } catch (error) {
+    console.error('Error following user:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Endpoint para dejar de seguir a un usuario
+router.post('/unfollow', async (req, res) => {
+  const { usuario_seguidor, usuario_seguido } = req.body;
+
+  try {
+    const { error } = await supabase
+      .from('seguidores')
+      .delete()
+      .eq('usuario_seguidor', usuario_seguidor)
+      .eq('usuario_seguido', usuario_seguido);
+
+    if (error) throw error;
+
+    res.status(200).json({ message: 'Usuario dejado de seguir exitosamente' });
+  } catch (error) {
+    console.error('Error unfollowing user:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Obtener seguidores de un usuario
+router.get('/:id/seguidores', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { data, error } = await supabase
+      .from('seguidores')
+      .select('usuario_seguidor (id_usuario, nombre, username, foto_perfil)')
+      .eq('usuario_seguido', id);
+
+    if (error) throw error;
+
+    res.json(data.map((item) => item.usuario_seguidor));
+  } catch (error) {
+    console.error('Error fetching followers:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Obtener actividad de un usuario
+router.get('/:id/actividad', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { data, error } = await supabase
+      .from('actividad_usuario')
+      .select('id_actividad')
+      .eq('usuario', id);
+
+    if (error) throw error;
+
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching activity:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Obtener usuarios/artistas seguidos
+router.get('/:id/siguiendo', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { data, error } = await supabase
+      .from('seguidores')
+      .select('usuario_seguido (id_usuario, nombre, username, foto_perfil)')
+      .eq('usuario_seguidor', id);
+
+    if (error) throw error;
+
+    res.json(data.map((item) => item.usuario_seguido));
+  } catch (error) {
+    console.error('Error fetching following:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Obtener información de un usuario por ID
+router.get('/:id', async (req, res) => {
+  const { id } = req.params;
+  try {
+    const { data, error } = await supabase
+      .from('usuarios')
+      .select('id_usuario, username, nombre, foto_perfil')
+      .eq('id_usuario', id)
+      .single();
+
+    if (error) throw error;
+
+    res.json(data);
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+// Actualizar perfil de usuario
+router.put('/:id', upload.single('foto_perfil'), async (req, res) => {
+  const { id } = req.params;
+  const { nombre } = req.body;
+  let foto_perfil = null;
+
+  try {
+    const { data: currentUser, error: fetchError } = await supabase
+      .from('usuarios')
+      .select('nombre, foto_perfil')
+      .eq('id_usuario', id)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    // Subir imagen a Supabase si viene archivo
+    if (req.file) {
+      if (req.file.size > 4 * 1024 * 1024) {
+        return res.status(400).json({ error: 'La imagen no debe superar los 4MB.' });
+      }
+      foto_perfil = await uploadToSupabase(req.file.buffer, req.file.originalname, req.file.mimetype);
+    }
+
+    const updates = {
+      nombre: nombre || currentUser.nombre,
+      foto_perfil: foto_perfil || currentUser.foto_perfil,
+    };
+
+    const { error } = await supabase
+      .from('usuarios')
+      .update(updates)
+      .eq('id_usuario', id);
+
+    if (error) throw error;
+
+    res.status(200).json({ message: 'Perfil actualizado exitosamente', foto_perfil: updates.foto_perfil });
+  } catch (error) {
+    console.error('Error updating profile:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+module.exports = router;
