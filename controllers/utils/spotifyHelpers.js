@@ -146,7 +146,7 @@ async function importFullArtistCatalog(spotifyId, id_artista = null) {
 }
 
 const updateMissingFromArtistCatalog = async (spotifyId, id_artista) => {
-  console.log(`🔍 Actualizando catálogo faltante del artista: ${spotifyId}`);
+  console.log(`🔍 Iniciando actualización de catálogo del artista: ${spotifyId}`);
 
   const spotifyApi = getSpotifyApi();
   await initializeToken();
@@ -158,6 +158,7 @@ const updateMissingFromArtistCatalog = async (spotifyId, id_artista) => {
     .eq('id_artista_principal', id_artista);
 
   const existingAlbumIds = new Set((existingAlbums || []).map(a => a.spotify_id));
+  console.log(`📊 Álbumes existentes encontrados: ${existingAlbumIds.size}`);
 
   const newArtistIds = new Set();
   const newAlbumIds = new Set();
@@ -167,19 +168,30 @@ const updateMissingFromArtistCatalog = async (spotifyId, id_artista) => {
     spotifyApi.getArtistAlbums(spotifyId, { limit: 50 })
   );
   const albumItems = albums.body.items || [];
+  console.log(`🎵 Total de álbumes en Spotify: ${albumItems.length}`);
 
   const checkpointKey = `artist_catalog_${id_artista}`;
   const checkpoint = await getCheckpoint(checkpointKey);
   const startAlbum = checkpoint && typeof checkpoint.albumIndex === 'number' ? checkpoint.albumIndex : 0;
   const startTrackForAlbum = checkpoint && typeof checkpoint.trackIndex === 'number' ? checkpoint.trackIndex : null;
 
+  if (checkpoint) {
+    console.log(`🔄 Reanudando desde álbum ${startAlbum}, track ${startTrackForAlbum || 0}`);
+  }
+
   for (let a = startAlbum; a < albumItems.length; a++) {
     const album = albumItems[a];
-    if (existingAlbumIds.has(album.id)) continue;
+    if (existingAlbumIds.has(album.id)) {
+      console.log(`⏭️ Álbum existente, saltando: ${album.name}`);
+      continue;
+    }
+
+    console.log(`\n📀 Procesando álbum [${a + 1}/${albumItems.length}]: ${album.name}`);
 
     const albumData = await insertOrUpdateAlbum(album, 'catalogo');
     const albumId = albumData.id_album;
     newAlbumIds.add(albumId);
+    console.log(`  ✓ Álbum insertado/actualizado (ID: ${albumId})`);
 
     for (const artist of album.artists) {
       const relatedArtistId = await insertOrUpdateArtist({
@@ -190,16 +202,19 @@ const updateMissingFromArtistCatalog = async (spotifyId, id_artista) => {
       });
       newArtistIds.add(relatedArtistId);
       await linkAlbumWithArtist(albumId, relatedArtistId);
+      console.log(`    ✓ Artista: ${artist.name} (ID: ${relatedArtistId})`);
     }
 
     const tracksData = await safeSpotifyCall(() =>
       spotifyApi.getAlbumTracks(album.id)
     );
     const tracks = tracksData.body.items || [];
+    console.log(`  🎶 Canciones en álbum: ${tracks.length}`);
 
     let tStart = 0;
     if (a === startAlbum && startTrackForAlbum !== null) {
       tStart = startTrackForAlbum + 1;
+      console.log(`  🔄 Reanudando tracks desde índice ${tStart}`);
     }
 
     for (let t = tStart; t < tracks.length; t++) {
@@ -226,23 +241,44 @@ const updateMissingFromArtistCatalog = async (spotifyId, id_artista) => {
       try {
         await setCheckpoint(checkpointKey, { albumIndex: a, trackIndex: t, albumSpotifyId: album.id, spotifyTrackId: track.id, updated_at: Date.now() });
       } catch (e) {
-        console.warn('No se pudo escribir checkpoint para artista', id_artista, e.message || e);
+        console.warn('⚠️ Error escribiendo checkpoint para artista', id_artista, e.message || e);
       }
     }
   }
 
-  // Actualizaciones en lote
-  await updateArtistsPopularityAndPhotosByIds([...newArtistIds]);
-  await updateAlbumsPopularityByIds([...newAlbumIds]);
-  await updateTracksPopularityByIds([...newTrackIds]);
-  await updateArtistGenresByIds([...newArtistIds]);
-  await updateAlbumGenresByIds([...newAlbumIds]);
-  await updateSongGenresByIds([...newTrackIds]);
+  // 🎯 Batch updates con logs detallados
+  console.log(`\n🎯 Iniciando actualizaciones por lotes...`);
+  console.log(`   📊 Artistas a actualizar: ${newArtistIds.size}, Álbumes: ${newAlbumIds.size}, Canciones: ${newTrackIds.size}`);
 
-  console.log(`✅ Elementos faltantes agregados para artista: ${spotifyId}`);
+  console.log(`🔄 Actualizando popularidad y fotos de artistas...`);
+  await updateArtistsPopularityAndPhotosByIds([...newArtistIds]);
+  console.log(`✅ Popularidad/fotos de artistas actualizada`);
+
+  console.log(`🔄 Actualizando popularidad de álbumes...`);
+  await updateAlbumsPopularityByIds([...newAlbumIds]);
+  console.log(`✅ Popularidad de álbumes actualizada`);
+
+  console.log(`🔄 Actualizando popularidad de canciones...`);
+  await updateTracksPopularityByIds([...newTrackIds]);
+  console.log(`✅ Popularidad de canciones actualizada`);
+
+  console.log(`🔄 Buscando géneros de artistas...`);
+  await updateArtistGenresByIds([...newArtistIds]);
+  console.log(`✅ Géneros de artistas procesados`);
+
+  console.log(`🔄 Buscando géneros de álbumes...`);
+  await updateAlbumGenresByIds([...newAlbumIds]);
+  console.log(`✅ Géneros de álbumes procesados`);
+
+  console.log(`🔄 Buscando géneros de canciones...`);
+  await updateSongGenresByIds([...newTrackIds]);
+  console.log(`✅ Géneros de canciones procesados`);
+
+  console.log(`\n✅ Catálogo del artista completado: ${spotifyId}`);
   
   // Cleanup checkpoint
   try { await clearCheckpoint(checkpointKey); } catch (e) {}
+
   // Al final, retorna los IDs modificados
   return {
     artistIds: [...newArtistIds],

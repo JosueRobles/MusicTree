@@ -410,10 +410,48 @@ const actualizarOrdenRankingPersonal = async (req, res) => {
   // nuevoOrden: [{ id, posicion }, ...]
   try {
     for (const { id, posicion } of nuevoOrden) {
-      await supabase
-        .from('ranking_elementos')
-        .update({ posicion })
-        .eq('id', id);
+      // Si el id comienza con "new-", es un nuevo elemento
+      if (id.toString().startsWith('new-')) {
+        // Extraer el entidad_id del formato "new-{entidad_id}"
+        const entidad_id = parseInt(id.toString().replace('new-', ''));
+        
+        console.log('Insertando nuevo elemento:', { entidad_id, tipo_entidad, usuario, posicion });
+        
+        // Insertar nuevo elemento
+        const { data: existingElement, error: checkError } = await supabase
+          .from('ranking_elementos')
+          .select('id')
+          .eq('ranking_id', usuario)
+          .eq('tipo_entidad', tipo_entidad)
+          .eq('entidad_id', entidad_id)
+          .single();
+        
+        if (!checkError && existingElement) {
+          // El elemento ya existe, solo actualizar posición
+          await supabase
+            .from('ranking_elementos')
+            .update({ posicion })
+            .eq('id', existingElement.id);
+        } else {
+          // Es realmente nuevo, insertar
+          await supabase
+            .from('ranking_elementos')
+            .insert([{
+              ranking_id: usuario,
+              tipo_entidad,
+              entidad_id,
+              posicion,
+            }]);
+        }
+      } else {
+        // Es un elemento existente, solo actualizar posición
+        console.log('Actualizando posición de elemento existente:', id, 'a posición:', posicion);
+        
+        await supabase
+          .from('ranking_elementos')
+          .update({ posicion })
+          .eq('id', id);
+      }
     }
     res.status(200).json({ mensaje: "Orden actualizado correctamente" });
   } catch (error) {

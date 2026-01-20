@@ -219,6 +219,10 @@ const updateCollectionFromPlaylistController = async (req, res) => {
     res.status(200).send("Colección actualizada correctamente desde la playlist.");
   } catch (err) {
     console.error("Error al actualizar la colección:", err);
+    if (err && (err.code === 'RATE_LIMIT_LONG' || err.message === 'RATE_LIMIT_LONG')) {
+      // checkpoint should already exist; inform client that process is paused
+      return res.status(202).json({ message: 'Proceso pausado por rate-limit', retry_after: err.retryAfter || null });
+    }
     res.status(500).send("Error al actualizar la colección.");
   }
 };
@@ -257,6 +261,9 @@ const updateValidatedArtistCatalogController = async (req, res) => {
     res.status(200).send("Catálogo de artista validado actualizado correctamente.");
   } catch (err) {
     console.error("Error al actualizar catálogo de artista validado:", err.body?.error?.message || err.message || err);
+    if (err && (err.code === 'RATE_LIMIT_LONG' || err.message === 'RATE_LIMIT_LONG')) {
+      return res.status(202).json({ message: 'Proceso pausado por rate-limit', retry_after: err.retryAfter || null });
+    }
     res.status(500).send("Error al actualizar catálogo de artista validado.");
   }
 };

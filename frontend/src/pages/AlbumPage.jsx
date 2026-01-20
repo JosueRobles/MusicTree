@@ -297,6 +297,8 @@ const AlbumPage = ({ usuario }) => {
                 entidadTipo="album"
                 entidadId={parseInt(id, 10)}
                 usuario={usuario}
+                elementoNombre={album?.titulo}
+                elementoFoto={album?.foto_album}
               />
               {historial.length > 0 && (
                 <div className="my-2">

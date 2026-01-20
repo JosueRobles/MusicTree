@@ -22,6 +22,10 @@ const updateYoutubeCatalogController = async (req, res) => {
     res.status(200).send('Catálogo de YouTube actualizado correctamente.');
   } catch (err) {
     console.error(err);
+    if (err && err.code === 'RATE_LIMIT_LONG') {
+      const retryAfter = err.retryAfter || null;
+      return res.status(202).json({ message: 'Proceso pausado por rate-limit', retry_after: retryAfter });
+    }
     res.status(500).send('Error al actualizar catálogo de YouTube.');
   }
 };
@@ -42,6 +46,10 @@ const updateCollectionFromYoutubePlaylistController = async (req, res) => {
     res.status(200).send('Colección actualizada desde playlist de YouTube.');
   } catch (err) {
     console.error(err);
+    if (err && err.code === 'RATE_LIMIT_LONG') {
+      const retryAfter = err.retryAfter || null;
+      return res.status(202).json({ message: 'Proceso pausado por rate-limit', retry_after: retryAfter });
+    }
     res.status(500).send('Error al actualizar colección desde playlist de YouTube.');
   }
 };

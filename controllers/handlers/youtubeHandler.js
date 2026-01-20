@@ -992,6 +992,8 @@ module.exports = {
 
   // 2. Actualizar catálogo de un artista ya validado
   updateYoutubeCatalog: async (artistId) => {
+  console.log(`📹 Iniciando actualización de catálogo YouTube para artista ID: ${artistId}`);
+
   const { data: artist } = await supabase
     .from('artistas')
     .select('id_artista, nombre_artista, channel_id_youtube')
@@ -999,8 +1001,14 @@ module.exports = {
     .single();
   if (!artist || !artist.channel_id_youtube) throw new Error('Artista o channel_id_youtube no encontrado');
 
+  console.log(`👤 Artista: ${artist.nombre_artista}, Channel: ${artist.channel_id_youtube}`);
+
   const videos = await fetchYoutubeChannelVideos(artist.channel_id_youtube);
+  console.log(`📊 Videos encontrados en canal: ${videos.length}`);
+
   const batchId = Date.now().toString();
+
+  console.log(`\n🎬 Procesando videos...`);
 
   let videosProcesados = await Promise.all(
     videos.map(async v => {
@@ -1018,25 +1026,44 @@ module.exports = {
   );
 
   videosProcesados = videosProcesados.filter(v => v); // elimina nulos
+  console.log(`✓ Videos procesados: ${videosProcesados.length}`);
 
-  for (const video of videosProcesados) {
-    await supabase.from('staging_videos_youtube').upsert(video, { onConflict: ['video_id', 'extraccion_batch_id'] });
-    // checkpoint per video
-    try {
-      const key = `youtube_channel_${artist.id_artista}_catalog`;
-      await setCheckpoint(key, { videoId: video.video_id, updated_at: Date.now() });
-    } catch (e) {}
+  const checkpointKey = `youtube_channel_${artist.id_artista}_catalog`;
+  const checkpoint = await getCheckpoint(checkpointKey);
+  let startIndex = 0;
+  if (checkpoint && typeof checkpoint.index === 'number') {
+    startIndex = checkpoint.index + 1;
+    console.log(`🔄 Reanudando desde índice ${startIndex}`);
   }
 
+  for (let idx = startIndex; idx < videosProcesados.length; idx++) {
+    const video = videosProcesados[idx];
+    console.log(`  [${idx + 1}/${videosProcesados.length}] Guardando: ${video.titulo_limpio}`);
+    
+    await supabase.from('staging_videos_youtube').upsert(video, { onConflict: ['video_id', 'extraccion_batch_id'] });
+    
+    // checkpoint per video
+    try {
+      await setCheckpoint(checkpointKey, { index: idx, videoId: video.video_id, updated_at: Date.now() });
+      console.log(`    💾 Checkpoint guardado`);
+    } catch (e) {
+      console.warn('⚠️ Error escribiendo checkpoint youtube catalog', e.message || e);
+    }
+  }
+
+  console.log(`\n🔍 Buscando videos musicales en batch ${batchId}...`);
   const { data: musicales } = await supabase
     .from('staging_videos_youtube')
     .select('*')
     .eq('extraccion_batch_id', batchId)
     .eq('is_musical', true);
 
-  for (const video of musicales) {
+  console.log(`🎵 Videos marcados como musicales: ${(musicales || []).length}`);
+
+  for (const video of musicales || []) {
     if (!video.titulo_limpio || !video.video_id) continue;
 
+    console.log(`  ✓ Insertando video musical: ${video.titulo_limpio}`);
     const id_video = await insertVideoMusical(video);
     await relateVideoArtists(id_video, [artist.id_artista]);
 
@@ -1050,10 +1077,13 @@ module.exports = {
     await relateVideoGenres(id_video, video.titulo_limpio, [artist.id_artista]);
   }
 
+  console.log(`\n✅ Catálogo completado. Limpiando checkpoint...`);
   // cleanup checkpoint
-  try { await clearCheckpoint(`youtube_channel_${artist.id_artista}_catalog`); } catch (e) {}
+  try { await clearCheckpoint(checkpointKey); } catch (e) {}
+  console.log(`✅ Checkpoint limpiado.`);
 
   await updateArtistPopularity(artist.id_artista, null);
+  console.log(`✅ Popularidad de artista actualizada.`);
 },
 
   // 3. Crear/actualizar colección desde playlist de YouTube
@@ -1149,17 +1179,21 @@ await crearArtistasFaltantesEnBD(artistasFaltantes);
 
   // 4. Actualizar colección existente desde playlist de YouTube
   updateCollectionFromYoutubePlaylist: async (playlistId, coleccionId) => {
+  console.log(`📹 Iniciando actualización de colección YouTube: playlistId=${playlistId}, coleccionId=${coleccionId}`);
+
   // 1. Extraer videos crudos de la playlist
   const videosCrudos = await fetchYoutubePlaylistVideos(playlistId);
+  console.log(`📊 Videos encontrados en playlist: ${videosCrudos.length}`);
 
   // 2. Obtener artistas de la BD
   const { data: artistasBD, error: artistasError } = await supabase
     .from('artistas')
     .select('id_artista, nombre_artista');
   if (artistasError) {
-    console.error('Error obteniendo artistas de la BD:', artistasError);
+    console.error('❌ Error obteniendo artistas de la BD:', artistasError);
     return;
   }
+  console.log(`👥 Artistas en BD: ${(artistasBD || []).length}`);
 
   // 3. Obtener videos ya existentes en la colección
   const { data: elementos } = await supabase
@@ -1168,18 +1202,29 @@ await crearArtistasFaltantesEnBD(artistasFaltantes);
     .eq('coleccion_id', coleccionId)
     .eq('entidad_tipo', 'video');
   const existentes = new Set((elementos || []).map(e => e.entidad_id));
+  console.log(`🔍 Videos existentes en colección: ${existentes.size}`);
 
   const batchId = Date.now().toString();
 
   const checkpointKey = `youtube_playlist_${playlistId}_collection_${coleccionId}`;
   const checkpoint = await getCheckpoint(checkpointKey);
   let startIndex = 0;
-  if (checkpoint && typeof checkpoint.index === 'number') startIndex = checkpoint.index + 1;
+  if (checkpoint && typeof checkpoint.index === 'number') {
+    startIndex = checkpoint.index + 1;
+    console.log(`🔄 Reanudando desde índice ${startIndex}`);
+  }
+
+  console.log(`\n🎬 Procesando videos (${startIndex} - ${videosCrudos.length})...`);
 
   for (let i = startIndex; i < videosCrudos.length; i++) {
     const v = videosCrudos[i];
+    console.log(`\n[${i + 1}/${videosCrudos.length}] Procesando video: ${v.title || 'sin título'}`);
+
     const videoTemp = await procesarVideoCrudo(v, null, null, null, artistasBD);
-    if (!videoTemp || !videoTemp.video_id) continue;
+    if (!videoTemp || !videoTemp.video_id) {
+      console.log(`  ⚠️ Video descartado (no se pudo procesar)`);
+      continue;
+    }
 
     videoTemp.extraccion_batch_id = batchId;
     videoTemp.playlist_id = playlistId;
@@ -1196,8 +1241,10 @@ await crearArtistasFaltantesEnBD(artistasFaltantes);
 
     if (existente && existente.id_video) {
       id_video = existente.id_video;
+      console.log(`  🔁 Video existente (ID interno: ${id_video})`);
     } else {
       id_video = await insertVideoMusical(videoTemp);
+      console.log(`  ✓ Video insertado (ID interno: ${id_video})`);
     }
 
     // Actualizar popularidad SIEMPRE
@@ -1205,10 +1252,12 @@ await crearArtistasFaltantesEnBD(artistasFaltantes);
       .from('videos_musicales')
       .update({ popularidad: videoTemp.popularidad })
       .eq('id_video', id_video);
+    console.log(`  ✓ Popularidad actualizada`);
 
     // Si ya existe en la colección, marcar como no nueva extracción
     if (existentes.has(id_video)) {
       videoTemp.es_nueva_extraccion = false;
+      console.log(`  ⏭️ Ya estaba en colección (sin duplicar)`);
     } else {
       videoTemp.es_nueva_extraccion = true;
       // Insertar en colecciones_elementos
@@ -1217,10 +1266,12 @@ await crearArtistasFaltantesEnBD(artistasFaltantes);
         entidad_tipo: 'video',
         entidad_id: id_video
       }, { onConflict: ['coleccion_id', 'entidad_tipo', 'entidad_id'] });
+      console.log(`  ✓ Añadido a colección`);
 
       // Relacionar artistas
       if (videoTemp.artista_id) {
         await relateVideoArtists(id_video, [videoTemp.artista_id]);
+        console.log(`    ✓ Artista principal relacionado`);
       }
       for (let i = 1; i <= 5; i++) {
         const colabId = videoTemp[`artista_colaborador${i}_id`];
@@ -1230,6 +1281,7 @@ await crearArtistasFaltantesEnBD(artistasFaltantes);
       }
       // Relacionar géneros solo si es nuevo
       await relateVideoGenres(id_video, videoTemp.titulo_limpio, [videoTemp.artista_id]);
+      console.log(`    ✓ Géneros relacionados`);
     }
 
     // Actualizar en staging
@@ -1240,13 +1292,16 @@ await crearArtistasFaltantesEnBD(artistasFaltantes);
     // checkpoint
     try {
       await setCheckpoint(checkpointKey, { index: i, videoId: videoTemp.video_id, updated_at: Date.now() });
+      console.log(`  💾 Checkpoint guardado`);
     } catch (e) {
-      console.warn('No se pudo escribir checkpoint youtube playlist', playlistId, e.message || e);
+      console.warn('⚠️ Error escribiendo checkpoint youtube playlist', playlistId, e.message || e);
     }
   }
 
+  console.log(`\n✅ Procesamiento completado. Limpiando checkpoint...`);
   // clear checkpoint when done
   try { await clearCheckpoint(checkpointKey); } catch (e) {}
+  console.log(`✅ Checkpoint limpiado.`);
 },
 
   // 5. Finalizar importación de videos desde YouTube (nuevo)

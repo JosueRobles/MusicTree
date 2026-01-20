@@ -445,6 +445,8 @@ function esCancionSimilar(c1, c2) {
               entidadTipo="artista"
               entidadId={parseInt(id, 10)}
               usuario={usuario}
+              elementoNombre={artist?.nombre_artista}
+              elementoFoto={artist?.foto_artista}
             />
             {historial.length > 0 && (
           <div className="my-2">

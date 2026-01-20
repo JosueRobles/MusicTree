@@ -184,54 +184,23 @@ const updateCollectionFromPlaylist = async (coleccionId) => {
   const newAlbumIds = new Set();
   const newTrackIds = new Set();
 
-  // 1. Agregar nuevas canciones (resume desde checkpoint si existe)
+  console.log(`📍 Iniciando procesamiento de colección ${coleccionId}: ${tracks.length} canciones total. Resumiendo desde índice ${startIndex}.`);
+
   let count = startIndex + 1;
-  for (let i = startIndex; i < tracks.length; i++) {
-    const item = tracks[i];
-    const track = item.track;
-    if (!track || !track.id || existentes.has(track.id)) continue;
-
-    console.log(`🎶 [${count}/${tracks.length}] Añadiendo nueva canción: ${track.name}`);
-
-    // Solo procesa los nuevos
-    const albumData = await insertOrUpdateAlbum(track.album, 'coleccion');
-    const albumId = albumData.id_album;
-    newAlbumIds.add(albumId);
-
-    const artistIds = [];
-    for (const artist of track.artists) {
-      const artistId = await insertOrUpdateArtist(artist);
-      artistIds.push(artistId);
-      newArtistIds.add(artistId);
-    }
-
-    const trackId = await insertOrUpdateTrack(track, albumId, 'coleccion');
-    newTrackIds.add(trackId);
-
-    for (const artistId of artistIds) {
-      await supabase.from('cancion_artistas').upsert({
-        cancion_id: trackId,
-        artista_id: artistId,
-      }, { onConflict: ['cancion_id', 'artista_id'] });
-    }
-
-    // Añade SOLO la canción a la colección (no artistas/álbumes)
-    await addTrackToCollection(trackId, coleccionId);
-
-    // Actualiza checkpoint después de procesar esta canción
-    try {
-      await setCheckpoint(checkpointKey, { index: i, spotify_id: track.id, updated_at: Date.now() });
-    } catch (e) {
-      console.warn('No se pudo escribir checkpoint para coleccion', coleccionId, e.message || e);
-    }
-    count++;
-  }
 
     // Procesar todas las canciones en un único bucle (resume-friendly)
     for (let i = startIndex; i < tracks.length; i++) {
       const item = tracks[i];
       const track = item.track;
       if (!track || !track.id) continue;
+
+      // Guardar checkpoint inicial antes de llamadas externas pesadas
+      try {
+        await setCheckpoint(checkpointKey, { index: i, spotify_id: track.id, status: 'in-progress', started_at: Date.now() });
+        console.log(`💾 Checkpoint guardado: índice ${i}, Spotify ID: ${track.id}`);
+      } catch (e) {
+        console.warn('⚠️ No se pudo escribir checkpoint (inicio) para coleccion', coleccionId, e.message || e);
+      }
 
       try {
         if (!existentes.has(track.id)) {
@@ -240,16 +209,19 @@ const updateCollectionFromPlaylist = async (coleccionId) => {
           const albumData = await insertOrUpdateAlbum(track.album, 'coleccion');
           const albumId = albumData.id_album;
           newAlbumIds.add(albumId);
+          console.log(`  ✓ Álbum insertado/actualizado: ${albumData.titulo || 'N/A'} (ID: ${albumId})`);
 
           const artistIds = [];
           for (const artist of track.artists) {
             const artistId = await insertOrUpdateArtist(artist);
             artistIds.push(artistId);
             newArtistIds.add(artistId);
+            console.log(`    ✓ Artista: ${artist.name} (ID: ${artistId})`);
           }
 
           const trackId = await insertOrUpdateTrack(track, albumId, 'coleccion');
           newTrackIds.add(trackId);
+          console.log(`  ✓ Canción insertada: ID interno ${trackId}`);
 
           for (const artistId of artistIds) {
             await supabase.from('cancion_artistas').upsert({
@@ -260,6 +232,7 @@ const updateCollectionFromPlaylist = async (coleccionId) => {
 
           // Añade SOLO la canción a la colección (no artistas/álbumes)
           await addTrackToCollection(trackId, coleccionId);
+          console.log(`  ✓ Canción añadida a colección`);
         } else {
           console.log(`🔁 Actualizando canción existente: ${track.name}`);
 
@@ -270,7 +243,7 @@ const updateCollectionFromPlaylist = async (coleccionId) => {
             .eq('spotify_id', track.id)
             .maybeSingle();
           if (!existingSong || !existingSong.id_cancion) {
-            // nothing to update
+            console.log(`  ⚠️ No se encontró ID interno para esta canción`);
           } else {
             const trackId = existingSong.id_cancion;
             newTrackIds.add(trackId);
@@ -278,12 +251,14 @@ const updateCollectionFromPlaylist = async (coleccionId) => {
             const albumData = await insertOrUpdateAlbum(track.album, 'coleccion');
             const albumId = albumData.id_album;
             newAlbumIds.add(albumId);
+            console.log(`  ✓ Álbum actualizado: ${albumData.titulo || 'N/A'} (ID: ${albumId})`);
 
             const artistIds = [];
             for (const artist of track.artists) {
               const artistId = await insertOrUpdateArtist(artist);
               artistIds.push(artistId);
               newArtistIds.add(artistId);
+              console.log(`    ✓ Artista: ${artist.name} (ID: ${artistId})`);
             }
 
             for (const artistId of artistIds) {
@@ -292,17 +267,19 @@ const updateCollectionFromPlaylist = async (coleccionId) => {
                 artista_id: artistId,
               }, { onConflict: ['cancion_id', 'artista_id'] });
             }
+            console.log(`  ✓ Relaciones actualizadas`);
           }
         }
 
-        // Actualiza checkpoint después de procesar esta canción
+        // Actualiza checkpoint después de procesar esta canción (marca completado)
         try {
-          await setCheckpoint(checkpointKey, { index: i, spotify_id: track.id, updated_at: Date.now() });
+          await setCheckpoint(checkpointKey, { index: i, spotify_id: track.id, status: 'done', updated_at: Date.now() });
+          console.log(`  ✅ Track procesado y checkpoint actualizado`);
         } catch (e) {
-          console.warn('No se pudo escribir checkpoint para coleccion', coleccionId, e.message || e);
+          console.warn('⚠️ No se pudo escribir checkpoint (fin) para coleccion', coleccionId, e.message || e);
         }
       } catch (err) {
-        console.error('Error procesando track en index', i, 'spotify_id', track.id, err.message || err);
+        console.error(`❌ Error procesando track en index ${i}, spotify_id ${track.id}:`, err.message || err);
         // en caso de error, escribir checkpoint y re-throw para que el caller note el problema
         try { await setCheckpoint(checkpointKey, { index: i, spotify_id: track.id, error: String(err), updated_at: Date.now() }); } catch (e) {}
         throw err;
@@ -311,17 +288,39 @@ const updateCollectionFromPlaylist = async (coleccionId) => {
       count++;
     }
 
+  console.log(`\n📊 Bucle completado. Procesados ${count - startIndex} tracks. Iniciando batch updates...`);
+  console.log(`   Total artistasNuevos: ${newArtistIds.size}, álbumesNuevos: ${newAlbumIds.size}, cancionesNuevas: ${newTrackIds.size}`);
+
   // 3. Llamar a los updates por lotes solo para los nuevos o modificados
+  console.log(`🎯 Actualizando popularidad y fotos de artistas (${newArtistIds.size} artistas)...`);
   await updateArtistsPopularityAndPhotosByIds([...newArtistIds]);
+  console.log(`✅ Popularidad/fotos de artistas actualizada`);
+
+  console.log(`🎯 Actualizando popularidad de álbumes (${newAlbumIds.size} álbumes)...`);
   await updateAlbumsPopularityByIds([...newAlbumIds]);
+  console.log(`✅ Popularidad de álbumes actualizada`);
+
+  console.log(`🎯 Actualizando popularidad de canciones (${newTrackIds.size} canciones)...`);
   await updateTracksPopularityByIds([...newTrackIds]);
+  console.log(`✅ Popularidad de canciones actualizada`);
+
+  console.log(`🎯 Buscando géneros de artistas...`);
   await updateArtistGenresByIds([...newArtistIds]);
+  console.log(`✅ Géneros de artistas procesados`);
+
+  console.log(`🎯 Buscando géneros de álbumes...`);
   await updateAlbumGenresByIds([...newAlbumIds]);
+  console.log(`✅ Géneros de álbumes procesados`);
+
+  console.log(`🎯 Buscando géneros de canciones...`);
   await updateSongGenresByIds([...newTrackIds]);
+  console.log(`✅ Géneros de canciones procesados`);
   
   // Al final, retorna los IDs modificados
   // Limpia checkpoint si terminó correctamente
+  console.log(`\n🎉 Procesamiento completado exitosamente. Limpiando checkpoint...`);
   try { await clearCheckpoint(checkpointKey); } catch (e) {}
+  console.log(`✅ Checkpoint limpiado. Proceso finalizado.`);
   return {
     artistIds: [...newArtistIds],
     albumIds: [...newAlbumIds],

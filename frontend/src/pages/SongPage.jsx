@@ -434,6 +434,8 @@ useEffect(() => {
               entidadTipo="cancion"
               entidadId={parseInt(id, 10)}
               usuario={usuario}
+              elementoNombre={song?.titulo}
+              elementoFoto={song?.album_foto}
             />
 {historial.length > 0 && (
       <div className="my-2">

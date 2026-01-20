@@ -204,6 +204,8 @@ const handleAddToList = async () => {
           entidadTipo="video"
           entidadId={parseInt(id, 10)} // Convertir id a número
           usuario={usuario}
+          elementoNombre={video?.titulo}
+          elementoFoto={video?.miniatura}
         />
         {historial.length > 0 && (
       <div className="my-2">
