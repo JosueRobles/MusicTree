@@ -186,6 +186,49 @@ const searchSpotifyArtists = async (req, res) => {
 };
 
 // Crear artista en la BD a partir de spotify_id (body: { spotify_id, usuario_id? })
+const getPedidosUsuario = async (req, res) => {
+  const { usuario_id } = req.params;
+  try {
+    const { data: pedidos, error: pedidosError } = await supabase
+      .from('pedidos_catalogo')
+      .select('id, artista_id, fecha')
+      .eq('usuario_id', usuario_id)
+      .order('fecha', { ascending: true });
+
+    if (pedidosError) throw pedidosError;
+
+    const artistIds = [...new Set((pedidos || []).map(p => p.artista_id).filter(Boolean))];
+    let artistasMap = {};
+
+    if (artistIds.length) {
+      const { data: artistas, error: artistasError } = await supabase
+        .from('artistas')
+        .select('id_artista, nombre_artista, foto_artista')
+        .in('id_artista', artistIds);
+
+      if (artistasError) throw artistasError;
+
+      artistasMap = (artistas || []).reduce((acc, art) => {
+        acc[art.id_artista] = art;
+        return acc;
+      }, {});
+    }
+
+    const resultado = (pedidos || []).map(p => ({
+      id: p.id,
+      artista_id: p.artista_id,
+      fecha: p.fecha,
+      nombre_artista: artistasMap[p.artista_id]?.nombre_artista || null,
+      foto_artista: artistasMap[p.artista_id]?.foto_artista || null
+    }));
+
+    res.status(200).json(resultado);
+  } catch (err) {
+    console.error('Error al obtener pedidos de usuario:', err);
+    res.status(500).json({ error: 'Error al obtener pedidos de usuario.' });
+  }
+};
+
 const createArtistFromSpotify = async (req, res) => {
   const { spotify_id, usuario_id } = req.body;
   if (!spotify_id) return res.status(400).json({ error: 'Falta spotify_id' });
@@ -238,4 +281,4 @@ const createArtistFromSpotify = async (req, res) => {
   }
 };
 
-module.exports = { getCatalogosByUsuario, seguirArtistaCatalogo, getArtistasSeguidos, dejarDeSeguirArtista, getProgresoCancionesArtista, searchSpotifyArtists, createArtistFromSpotify };
+module.exports = { getCatalogosByUsuario, seguirArtistaCatalogo, getArtistasSeguidos, dejarDeSeguirArtista, getProgresoCancionesArtista, searchSpotifyArtists, createArtistFromSpotify, getPedidosUsuario };

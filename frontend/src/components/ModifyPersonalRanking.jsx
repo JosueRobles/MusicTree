@@ -1,4 +1,5 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
+import PropTypes from "prop-types";
 import axios from "axios";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { Link } from "react-router-dom";
@@ -25,36 +26,64 @@ const ModifyPersonalRanking = ({ usuario, soloLectura = false }) => {
   const [detalleStats, setDetalleStats] = useState(null);
   const [segmentacionCanciones, setSegmentacionCanciones] = useState(null);
   const [segmentacionVideos, setSegmentacionVideos] = useState(null);
-  const [albumArtistas, setAlbumArtistas] = useState([]);
+  const [contextoTipo, setContextoTipo] = useState('todo');
+  const [contextoId, setContextoId] = useState(null);
+  const [opcionesArtistas, setOpcionesArtistas] = useState([]);
+  const [opcionesColecciones, setOpcionesColecciones] = useState([]);
+  const [posicionGlobal, setPosicionGlobal] = useState(null);
 
   const opcionesTop = [10, 20, 25, 30, 50, 100, 1000];
 
   useEffect(() => {
-    const fetchRankings = async () => {
+    const fetchRankingActivo = async () => {
       setLoading(true);
-      const nuevos = {};
-      for (const tipo of tipos) {
-        const res = await axios.get(`${API_URL}/rankings/personal`, {
-          params: { usuario: usuario.id_usuario, tipo_entidad: tipo.key },
-        });
-        nuevos[tipo.key] = res.data.sort((a, b) => a.posicion - b.posicion);
-      }
-      setRankings(nuevos);
-      setLoading(false);
-    };
-    fetchRankings();
-  }, [usuario]);
+      try {
+        const params = {
+          usuario: usuario.id_usuario,
+          tipo_entidad: tipoActivo,
+        };
+        if (contextoTipo && contextoTipo !== 'todo' && contextoId) {
+          params.contexto_tipo = contextoTipo;
+          params.contexto_id = contextoId;
+        }
 
-  const onDragEnd = (result) => {
-    if (!result.destination) return;
-    const items = Array.from(rankings[tipoActivo]);
-    const [reordered] = items.splice(result.source.index, 1);
-    items.splice(result.destination.index, 0, reordered);
-    setRankings({
-      ...rankings,
-      [tipoActivo]: items.map((item, idx) => ({ ...item, posicion: idx + 1 })),
-    });
-  };
+        const res = await axios.get(`${API_URL}/rankings/personal`, {
+          params
+        });
+
+        const sorted = (res.data || []).sort((a, b) => a.posicion - b.posicion);
+        setRankings(prev => ({ ...prev, [tipoActivo]: sorted }));
+
+        const artistasMap = {};
+        const coleccionesMap = {};
+
+        sorted.forEach(item => {
+          if (Array.isArray(item.artista_ids) && Array.isArray(item.artistas)) {
+            item.artista_ids.forEach((id, index) => {
+              if (!id) return;
+              artistasMap[id] = artistasMap[id] || { id, nombre: item.artistas[index] || `Artista ${id}` };
+            });
+          }
+          if (Array.isArray(item.colecciones)) {
+            item.colecciones.forEach(col => {
+              if (!col?.id) return;
+              coleccionesMap[col.id] = coleccionesMap[col.id] || { id: col.id, nombre: col.nombre || `Colección ${col.id}` };
+            });
+          }
+        });
+
+        setOpcionesArtistas(Object.values(artistasMap));
+        setOpcionesColecciones(Object.values(coleccionesMap));
+      } catch {
+        setRankings(prev => ({ ...prev, [tipoActivo]: [] }));
+      } finally {
+        setLoading(false);
+      }
+    };
+    if (usuario) {
+      fetchRankingActivo();
+    }
+  }, [usuario, tipoActivo, contextoTipo, contextoId]);
 
   const handleGuardar = async () => {
     setGuardando(true);
@@ -76,7 +105,7 @@ const ModifyPersonalRanking = ({ usuario, soloLectura = false }) => {
     setDetalleStats(null);
     setSegmentacionCanciones(null);
     setSegmentacionVideos(null);
-    setAlbumArtistas([]);
+    setPosicionGlobal(null);
     // Segmentación principal
     const segRes = await axios.get(`${API_URL}/valoraciones/segmentacion-personal`, {
       params: {
@@ -86,6 +115,18 @@ const ModifyPersonalRanking = ({ usuario, soloLectura = false }) => {
       }
     });
     setDetalleStats(segRes.data);
+
+    try {
+      const posicionRes = await axios.get(`${API_URL}/rankings/posicion-global`, {
+        params: {
+          tipo_entidad: tipoActivo,
+          entidad_id: item.entidad_id,
+        }
+      });
+      setPosicionGlobal(posicionRes.data.posicion);
+    } catch {
+      setPosicionGlobal(null);
+    }
 
     // Si es artista, trae canciones y videos
     if (tipoActivo === "artista") {
@@ -118,8 +159,6 @@ const ModifyPersonalRanking = ({ usuario, soloLectura = false }) => {
     }
     // Si es álbum, trae artistas y segmentación de canciones
     if (tipoActivo === "album") {
-      const artistasRes = await axios.get(`${API_URL}/relaciones/albumes/${item.entidad_id}/artistas`);
-      setAlbumArtistas(artistasRes.data.map(a => a.nombre_artista));
       const segCancionesRes = await axios.get(`${API_URL}/valoraciones/segmentacion-personal`, {
         params: {
           usuario: usuario.id_usuario,
@@ -186,6 +225,40 @@ const ModifyPersonalRanking = ({ usuario, soloLectura = false }) => {
             />
           )}
         </div>
+        <div>
+          <label>Contexto: </label>
+          <select value={contextoTipo} onChange={e => {
+            const value = e.target.value;
+            setContextoTipo(value);
+            setContextoId(null);
+          }}>
+            <option value="todo">Todo</option>
+            <option value="artista">Artista / Catálogo</option>
+            <option value="coleccion">Colección</option>
+          </select>
+        </div>
+        {contextoTipo === 'artista' && (
+          <div>
+            <label>Artista / Catálogo: </label>
+            <select value={contextoId || ''} onChange={e => setContextoId(e.target.value ? Number(e.target.value) : null)}>
+              <option value="">Selecciona uno</option>
+              {opcionesArtistas.map(op => (
+                <option key={op.id} value={op.id}>{op.nombre}</option>
+              ))}
+            </select>
+          </div>
+        )}
+        {contextoTipo === 'coleccion' && (
+          <div>
+            <label>Colección: </label>
+            <select value={contextoId || ''} onChange={e => setContextoId(e.target.value ? Number(e.target.value) : null)}>
+              <option value="">Selecciona una</option>
+              {opcionesColecciones.map(op => (
+                <option key={op.id} value={op.id}>{op.nombre}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
       {loading ? (
         <div>Cargando...</div>
@@ -358,6 +431,11 @@ const ModifyPersonalRanking = ({ usuario, soloLectura = false }) => {
 
             {/* Contenido del detalle */}
             <h3 style={{ color: "#16a34a", fontWeight: "bold", marginBottom: 8 }}>{detalleAbierto.nombre}</h3>
+            {posicionGlobal !== null && (
+              <div style={{ marginBottom: 8, color: '#facc15', fontWeight: 600 }}>
+                Posición global: #{posicionGlobal}
+              </div>
+            )}
             <img
               src={detalleAbierto.foto || "/default-profile.png"}
               alt={detalleAbierto.nombre}
@@ -457,6 +535,14 @@ const ModifyPersonalRanking = ({ usuario, soloLectura = false }) => {
       )}
     </div>
   );
+};
+
+ModifyPersonalRanking.propTypes = {
+  usuario: PropTypes.shape({
+    id_usuario: PropTypes.number.isRequired,
+    tipo_usuario: PropTypes.string
+  }).isRequired,
+  soloLectura: PropTypes.bool
 };
 
 export default ModifyPersonalRanking;

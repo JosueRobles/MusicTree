@@ -46,21 +46,25 @@ const obtenerRankingPersonal = async (req, res) => {
     let entidades = [];
     if (entidadIds.length > 0) {
       if (tipo_entidad === "cancion") {
-        // Traer también el álbum y su foto
+        // Traer también el álbum, su foto y duración
         const { data: cancionesData, error: cancionesError } = await supabase
           .from("canciones")
-          .select("id_cancion, titulo, album, albumes!fk_album(foto_album)")
+          .select("id_cancion, titulo, album, duracion_ms, albumes!fk_album(foto_album)")
           .in("id_cancion", entidadIds);
 
         if (cancionesError) throw cancionesError;
         entidades = cancionesData.map(c => ({
           id_cancion: c.id_cancion,
           titulo: c.titulo,
+          album: c.album,
+          duracion_ms: c.duracion_ms,
           foto_album: c.albumes?.foto_album || null,
         }));
       } else {
         const selectCols = [entidadIdCol, entidadNameCol];
         if (entidadFotoCol) selectCols.push(entidadFotoCol);
+        if (tipo_entidad === 'album') selectCols.push('anio');
+        if (tipo_entidad === 'video') selectCols.push('duracion');
         const { data: entidadesData, error: entidadesError } = await supabase
           .from(entidadTable)
           .select(selectCols.join(", "))
@@ -71,9 +75,122 @@ const obtenerRankingPersonal = async (req, res) => {
       }
     }
 
-    // 3. Une los resultados y agrega detalles enriquecidos
+    // 3. Prepara relaciones para filtros de contexto
+    const artistasPorEntidad = {};
+    const coleccionesPorEntidad = {};
+    const coleccionIds = new Set();
+
+    if (entidadIds.length > 0) {
+      if (tipo_entidad === 'cancion') {
+        const { data: cancionArtistas, error: artistasError } = await supabase
+          .from('cancion_artistas')
+          .select('cancion_id, artista_id, artistas(nombre_artista)')
+          .in('cancion_id', entidadIds);
+        if (artistasError) throw artistasError;
+
+        cancionArtistas.forEach(row => {
+          artistasPorEntidad[row.cancion_id] = artistasPorEntidad[row.cancion_id] || [];
+          artistasPorEntidad[row.cancion_id].push({ id: row.artista_id, nombre: row.artistas?.nombre_artista });
+        });
+
+        const { data: coleccionElementos, error: coleccionError } = await supabase
+          .from('colecciones_elementos')
+          .select('entidad_id, coleccion_id')
+          .eq('entidad_tipo', 'cancion')
+          .in('entidad_id', entidadIds);
+        if (coleccionError) throw coleccionError;
+
+        coleccionElementos.forEach(row => {
+          coleccionesPorEntidad[row.entidad_id] = coleccionesPorEntidad[row.entidad_id] || [];
+          coleccionesPorEntidad[row.entidad_id].push(row.coleccion_id);
+          coleccionIds.add(row.coleccion_id);
+        });
+      } else if (tipo_entidad === 'album') {
+        const { data: albumArtistas, error: artistasError } = await supabase
+          .from('album_artistas')
+          .select('album_id, artista_id, artistas(nombre_artista)')
+          .in('album_id', entidadIds);
+        if (artistasError) throw artistasError;
+
+        albumArtistas.forEach(row => {
+          artistasPorEntidad[row.album_id] = artistasPorEntidad[row.album_id] || [];
+          artistasPorEntidad[row.album_id].push({ id: row.artista_id, nombre: row.artistas?.nombre_artista });
+        });
+
+        const { data: coleccionElementos, error: coleccionError } = await supabase
+          .from('colecciones_elementos')
+          .select('entidad_id, coleccion_id')
+          .eq('entidad_tipo', 'album')
+          .in('entidad_id', entidadIds);
+        if (coleccionError) throw coleccionError;
+
+        coleccionElementos.forEach(row => {
+          coleccionesPorEntidad[row.entidad_id] = coleccionesPorEntidad[row.entidad_id] || [];
+          coleccionesPorEntidad[row.entidad_id].push(row.coleccion_id);
+          coleccionIds.add(row.coleccion_id);
+        });
+      } else if (tipo_entidad === 'video') {
+        const { data: videoArtistas, error: artistasError } = await supabase
+          .from('video_artistas')
+          .select('video_id, artista_id, artistas(nombre_artista)')
+          .in('video_id', entidadIds);
+        if (artistasError) throw artistasError;
+
+        videoArtistas.forEach(row => {
+          artistasPorEntidad[row.video_id] = artistasPorEntidad[row.video_id] || [];
+          artistasPorEntidad[row.video_id].push({ id: row.artista_id, nombre: row.artistas?.nombre_artista });
+        });
+
+        const { data: coleccionElementos, error: coleccionError } = await supabase
+          .from('colecciones_elementos')
+          .select('entidad_id, coleccion_id')
+          .eq('entidad_tipo', 'video')
+          .in('entidad_id', entidadIds);
+        if (coleccionError) throw coleccionError;
+
+        coleccionElementos.forEach(row => {
+          coleccionesPorEntidad[row.entidad_id] = coleccionesPorEntidad[row.entidad_id] || [];
+          coleccionesPorEntidad[row.entidad_id].push(row.coleccion_id);
+          coleccionIds.add(row.coleccion_id);
+        });
+      } else if (tipo_entidad === 'artista') {
+        const { data: coleccionElementos, error: coleccionError } = await supabase
+          .from('colecciones_elementos')
+          .select('entidad_id, coleccion_id')
+          .eq('entidad_tipo', 'artista')
+          .in('entidad_id', entidadIds);
+        if (coleccionError) throw coleccionError;
+
+        coleccionElementos.forEach(row => {
+          coleccionesPorEntidad[row.entidad_id] = coleccionesPorEntidad[row.entidad_id] || [];
+          coleccionesPorEntidad[row.entidad_id].push(row.coleccion_id);
+          coleccionIds.add(row.coleccion_id);
+        });
+      }
+    }
+
+    let coleccionNombresById = {};
+    if (coleccionIds.size > 0) {
+      const { data: coleccionesData, error: coleccionesError } = await supabase
+        .from('colecciones')
+        .select('id_coleccion, nombre')
+        .in('id_coleccion', Array.from(coleccionIds));
+      if (coleccionesError) throw coleccionesError;
+      coleccionesNombresById = coleccionesData.reduce((acc, c) => {
+        acc[c.id_coleccion] = c.nombre;
+        return acc;
+      }, {});
+    }
+
+    const contextoTipo = req.query.contexto_tipo;
+    const contextoId = req.query.contexto_id ? parseInt(req.query.contexto_id) : null;
+
+    // 4. Une los resultados y agrega detalles enriquecidos
     const result = await Promise.all(ranking.map(async item => {
       let foto, nombre, detalles = {};
+      let artistaInfo = artistasPorEntidad[item.entidad_id] || [];
+      let coleccionInfo = (coleccionesPorEntidad[item.entidad_id] || []).map(id => ({ id, nombre: coleccionNombresById[id] || `Colección ${id}` }));
+
       if (tipo_entidad === "artista") {
         const entidad = entidades.find(e => e[entidadIdCol] === item.entidad_id);
         foto = entidad ? entidad[entidadFotoCol] : undefined;
@@ -125,10 +242,7 @@ const obtenerRankingPersonal = async (req, res) => {
         foto = entidad ? entidad[entidadFotoCol] : undefined;
         nombre = entidad ? entidad[entidadNameCol] : `ID ${item.entidad_id}`;
         // Artistas
-        const { data: artistas } = await supabase
-          .from('album_artistas')
-          .select('artistas(nombre_artista)')
-          .eq('album_id', item.entidad_id);
+        const artistas = artistaInfo;
         // Canciones
         const { data: canciones } = await supabase
           .from('canciones')
@@ -146,7 +260,7 @@ const obtenerRankingPersonal = async (req, res) => {
         const cincoEstrellas = valoraciones.filter(v => v.calificacion === 5).length;
         const porcentaje_5_estrellas = valoraciones.length > 0 ? (cincoEstrellas / valoraciones.length) * 100 : null;
         detalles = {
-          artistas: (artistas || []).map(a => a.artistas?.nombre_artista).filter(Boolean),
+          artistas: artistas.map(a => a.nombre).filter(Boolean),
           numero_canciones: canciones.length,
           anio: entidad?.anio,
           valoracion: promedio,
@@ -157,47 +271,29 @@ const obtenerRankingPersonal = async (req, res) => {
         foto = entidad ? entidad.foto_album : undefined;
         nombre = entidad ? entidad.titulo : `ID ${item.entidad_id}`;
         // Artistas
-        const { data: artistas } = await supabase
-          .from('cancion_artistas')
-          .select('artistas(nombre_artista)')
-          .eq('cancion_id', item.entidad_id);
+        const artistas = artistaInfo;
         // Valoración promedio
         const { data: val } = await supabase
           .from('valoraciones_canciones')
           .select('promedio')
           .eq('cancion', item.entidad_id)
           .maybeSingle();
-        // Duración
         detalles = {
-          artistas: (artistas || []).map(a => a.artistas?.nombre_artista).filter(Boolean),
+          artistas: artistas.map(a => a.nombre).filter(Boolean),
+          artista_ids: artistas.map(a => a.id),
           album: entidad?.album,
           valoracion: item.valoracion,
           duracion: entidad?.duracion_ms ? `${Math.floor(entidad.duracion_ms / 60000)}:${String(Math.floor((entidad.duracion_ms % 60000) / 1000)).padStart(2, '0')}` : null
         };
-        // Obtener info de la canción
-        const { data: cancion, error: cancionErr } = await supabase
-          .from("canciones")
-          .select("duracion_ms")
-          .eq("id_cancion", item.entidad_id)
-          .single();
-        if (!cancionErr && cancion) {
-          item.duracion_ms = cancion.duracion_ms;
-        }
       } else if (tipo_entidad === "video") {
         const entidad = entidades.find(e => e[entidadIdCol] === item.entidad_id);
         foto = entidad ? entidad[entidadFotoCol] : undefined;
         nombre = entidad ? entidad[entidadNameCol] : `ID ${item.entidad_id}`;
         // Artistas
-        const { data: artistas } = await supabase
-          .from('video_artistas')
-          .select('artistas(nombre_artista)')
-          .eq('video_id', item.entidad_id);
-        // Valoración personal
+        const artistas = artistaInfo;
         // Duración
-        let duracionSeg = null;
-        if (entidad?.duracion) {
-          duracionSeg = entidad.duracion;
-        } else {
+        let duracionSeg = entidad?.duracion || null;
+        if (duracionSeg === null) {
           const { data: video, error: videoErr } = await supabase
             .from("videos_musicales")
             .select("duracion")
@@ -208,20 +304,37 @@ const obtenerRankingPersonal = async (req, res) => {
           }
         }
         detalles = {
-          artistas: (artistas || []).map(a => a.artistas?.nombre_artista).filter(Boolean),
+          artistas: artistas.map(a => a.nombre).filter(Boolean),
+          artista_ids: artistas.map(a => a.id),
           valoracion: item.valoracion,
           duracion: duracionSeg
         };
       }
+
       return {
         ...item,
         nombre,
         foto,
+        artistas: (tipo_entidad === 'artista' ? undefined : (artistaInfo || []).map(a => a.nombre).filter(Boolean)),
+        artista_ids: (tipo_entidad === 'artista' ? [item.entidad_id] : (artistaInfo || []).map(a => a.id)),
+        colecciones: coleccionInfo,
+        coleccion_ids: coleccionInfo.map(c => c.id),
         ...detalles
       };
     }));
 
-    res.status(200).json(result);
+    const filteredResult = result.filter(item => {
+      if (!contextoTipo || !contextoId) return true;
+      if (contextoTipo === 'artista') {
+        return item.artista_ids?.some(id => String(id) === String(contextoId));
+      }
+      if (contextoTipo === 'coleccion') {
+        return item.coleccion_ids?.some(id => String(id) === String(contextoId));
+      }
+      return true;
+    });
+
+    res.status(200).json(filteredResult);
   } catch (error) {
     console.error("❌ Error al obtener el ranking personal:", error);
     res.status(500).json({ error: "Error al obtener el ranking personal" });

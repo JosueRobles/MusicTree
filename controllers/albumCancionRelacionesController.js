@@ -9,7 +9,8 @@ const obtenerCancionesDeAlbum = async (req, res) => {
     const { data: canciones, error: cancionesError } = await supabase
       .from('canciones')
       .select('*')
-      .eq('album', id);
+      .eq('album', id)
+      .order('orden', { ascending: true });
 
     if (cancionesError) throw cancionesError;
 

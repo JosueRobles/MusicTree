@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getCatalogosByUsuario, seguirArtistaCatalogo, getArtistasSeguidos, dejarDeSeguirArtista, getProgresoCancionesArtista, searchSpotifyArtists, createArtistFromSpotify } = require('../controllers/catalogosController');
+const { getCatalogosByUsuario, seguirArtistaCatalogo, getArtistasSeguidos, dejarDeSeguirArtista, getProgresoCancionesArtista, searchSpotifyArtists, createArtistFromSpotify, getPedidosUsuario } = require('../controllers/catalogosController');
 const { registrarActividad } = require('../controllers/utils/actividadUtils');
 const supabase = require('../supabaseClient'); // o '../db' según tu estructura
 
@@ -10,6 +10,7 @@ router.post('/create-artist', createArtistFromSpotify);
 router.post('/seguir', seguirArtistaCatalogo);
 router.post('/unfollow', dejarDeSeguirArtista); // <-- agrega esto
 router.get('/artistas-seguidos/:usuarioId', getArtistasSeguidos);
+router.get('/pedidos-usuario/:usuario_id', getPedidosUsuario);
 router.get('/pendientes-valoracion/:usuarioId', async (req, res) => {
   const { usuarioId } = req.params;
   const { tipo, offset = 0, limit = 10 } = req.query;

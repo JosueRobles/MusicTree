@@ -62,6 +62,7 @@ function App() {
         setCargandoUsuario(false);
         return;
       }
+      axios.defaults.headers.common.Authorization = `Bearer ${token}`;
       try {
         const response = await axios.get(`${API_URL}/usuarios/current-user`, {
           headers: {
@@ -126,6 +127,7 @@ function App() {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
+    delete axios.defaults.headers.common.Authorization;
     setUsuario(null);
   };
 

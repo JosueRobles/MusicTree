@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
 import axios from 'axios';
-import { useNavigate, Link } from 'react-router-dom'; // <-- Asegúrate de importar Link
+import { useNavigate, useLocation, Link } from 'react-router-dom'; // <-- Asegúrate de importar Link
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -10,6 +10,8 @@ const Login = ({ onLoginExitoso }) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = location.state?.from?.pathname || '/';
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -19,12 +21,12 @@ const Login = ({ onLoginExitoso }) => {
       if (token) {
         localStorage.setItem('token', token);
         onLoginExitoso(user);
-        navigate("/", { replace: true });
+        navigate(from, { replace: true });
         window.location.reload();
       } else {
         setError('No se recibió un token.');
       }
-    } catch (err) {
+    } catch {
       setError('Credenciales incorrectas');
     }
   };
