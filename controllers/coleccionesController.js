@@ -96,9 +96,8 @@ const getColeccionElementos = async (req, res) => {
     // 4. Ordenamiento
     if (orderBy && orderBy !== 'predeterminada') {
       query = query.order(orderBy, { ascending: orderDirection === 'asc' });
-    } else if (tipo.includes('cancion') || tipo.includes('album')) {
-      query = query.order('orden', { ascending: true });
     } else {
+      // Usar id_elemento como ordenamiento predeterminado para todas las colecciones
       query = query.order('id_elemento', { ascending: true });
     }
 

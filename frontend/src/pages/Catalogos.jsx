@@ -21,15 +21,21 @@ const Catalogos = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const savedInteres = localStorage.getItem('catalogoInteres');
-    if (savedInteres) {
+    const fetchPreferencias = async () => {
+      if (!usuario) return;
       try {
-        setInteresMap(JSON.parse(savedInteres));
-      } catch {
-        setInteresMap({});
+        const res = await axios.get(`${API_URL}/catalogos/preferencias/${usuario.id_usuario}`);
+        const preferencesMap = {};
+        res.data.forEach(pref => {
+          preferencesMap[pref.artista_id] = pref.nivel_interes;
+        });
+        setInteresMap(preferencesMap);
+      } catch (err) {
+        console.error('Error al cargar preferencias:', err);
       }
-    }
-  }, []);
+    };
+    fetchPreferencias();
+  }, [usuario]);
 
   useEffect(() => {
     const fetchCatalogos = async () => {
@@ -77,10 +83,20 @@ const Catalogos = () => {
     // Opcional: recargar masPedidos
   };
 
-  const handleInterestChange = (artistaId, nivel) => {
+  const handleInterestChange = async (artistaId, nivel) => {
     const next = { ...interesMap, [artistaId]: nivel };
     setInteresMap(next);
-    localStorage.setItem('catalogoInteres', JSON.stringify(next));
+    
+    // Guardar en BD
+    try {
+      await axios.post(`${API_URL}/catalogos/preferencias`, {
+        usuario_id: usuario.id_usuario,
+        artista_id: artistaId,
+        nivel_interes: nivel
+      });
+    } catch (err) {
+      console.error('Error al guardar preferencia:', err);
+    }
   };
 
   if (!usuario) {
@@ -115,7 +131,7 @@ const Catalogos = () => {
       ? 'mucho'
       : nivel === 'interes'
         ? 'interesa'
-        : nivel === 'no' || nivel === 'no-interesa'
+        : nivel === 'no'
           ? 'noInteresa'
           : 'none';
     groupedCatalogos[key].push(cat);
@@ -126,9 +142,10 @@ const Catalogos = () => {
   });
 
   const formatInterestLabel = (cat) => {
-    if (interesMap[cat.id_artista] === 'mucho') return 'Me interesa mucho';
-    if (interesMap[cat.id_artista] === 'interes') return 'Me interesa';
-    if (interesMap[cat.id_artista] === 'no' || interesMap[cat.id_artista] === 'no-interesa') return 'No me interesa';
+    const nivel = interesMap[cat.id_artista];
+    if (nivel === 'mucho') return 'Me interesa mucho';
+    if (nivel === 'interes') return 'Me interesa';
+    if (nivel === 'no') return 'No me interesa';
     return 'Sin indicar interés';
   };
 

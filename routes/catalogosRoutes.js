@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { getCatalogosByUsuario, seguirArtistaCatalogo, getArtistasSeguidos, dejarDeSeguirArtista, getProgresoCancionesArtista, searchSpotifyArtists, createArtistFromSpotify, getPedidosUsuario } = require('../controllers/catalogosController');
+const { getCatalogosByUsuario, seguirArtistaCatalogo, getArtistasSeguidos, dejarDeSeguirArtista, getProgresoCancionesArtista, searchSpotifyArtists, createArtistFromSpotify, getPedidosUsuario, getPreferenciasUsuario, guardarPreferencia, eliminarPreferencia } = require('../controllers/catalogosController');
 const { registrarActividad } = require('../controllers/utils/actividadUtils');
 const supabase = require('../supabaseClient'); // o '../db' según tu estructura
 
@@ -235,5 +235,10 @@ router.get('/votos-usuario/:usuario_id', async (req, res) => {
 });
 
 router.get('/progreso-canciones', getProgresoCancionesArtista);
+
+// Rutas para preferencias de catálogos
+router.get('/preferencias/:usuarioId', getPreferenciasUsuario);
+router.post('/preferencias', guardarPreferencia);
+router.delete('/preferencias/:usuarioId/:artistaId', eliminarPreferencia);
 
 module.exports = router;

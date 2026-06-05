@@ -191,9 +191,9 @@ const getPedidosUsuario = async (req, res) => {
   try {
     const { data: pedidos, error: pedidosError } = await supabase
       .from('pedidos_catalogo')
-      .select('id, artista_id, fecha')
+      .select('id, artista_id, registrado')
       .eq('usuario_id', usuario_id)
-      .order('fecha', { ascending: true });
+      .order('registrado', { ascending: true });
 
     if (pedidosError) throw pedidosError;
 
@@ -217,7 +217,7 @@ const getPedidosUsuario = async (req, res) => {
     const resultado = (pedidos || []).map(p => ({
       id: p.id,
       artista_id: p.artista_id,
-      fecha: p.fecha,
+      fecha: p.registrado,
       nombre_artista: artistasMap[p.artista_id]?.nombre_artista || null,
       foto_artista: artistasMap[p.artista_id]?.foto_artista || null
     }));
@@ -266,7 +266,7 @@ const createArtistFromSpotify = async (req, res) => {
     // Si el cliente envía usuario_id intentamos crear un pedido/voto en la tabla correcta 'pedidos_catalogo'
     if (usuario_id) {
       try {
-        await supabase.from('pedidos_catalogo').insert([{ usuario_id, artista_id: newArtistId, fecha: new Date() }]);
+        await supabase.from('pedidos_catalogo').insert([{ usuario_id, artista_id: newArtistId, registrado: new Date() }]);
       } catch (e) {
         console.warn('No se pudo insertar pedido automático:', e.message || e);
       }
@@ -281,4 +281,83 @@ const createArtistFromSpotify = async (req, res) => {
   }
 };
 
-module.exports = { getCatalogosByUsuario, seguirArtistaCatalogo, getArtistasSeguidos, dejarDeSeguirArtista, getProgresoCancionesArtista, searchSpotifyArtists, createArtistFromSpotify, getPedidosUsuario };
+// Obtener preferencias de catálogos del usuario
+const getPreferenciasUsuario = async (req, res) => {
+  const { usuarioId } = req.params;
+  if (!usuarioId) return res.status(400).json({ error: 'Falta usuarioId' });
+  try {
+    const { data, error } = await supabase
+      .from('preferencias_catalogos')
+      .select('artista_id, nivel_interes')
+      .eq('usuario_id', usuarioId);
+
+    if (error) throw error;
+    res.status(200).json(data || []);
+  } catch (err) {
+    console.error('Error al obtener preferencias:', err);
+    res.status(500).json({ error: 'Error al obtener preferencias.' });
+  }
+};
+
+// Guardar o actualizar preferencia de catálogo
+const guardarPreferencia = async (req, res) => {
+  const { usuario_id, artista_id, nivel_interes } = req.body;
+  if (!usuario_id || !artista_id || !nivel_interes) {
+    return res.status(400).json({ error: 'Faltan datos requeridos.' });
+  }
+  try {
+    // Verificar si ya existe
+    const { data: existente } = await supabase
+      .from('preferencias_catalogos')
+      .select('id')
+      .eq('usuario_id', usuario_id)
+      .eq('artista_id', artista_id)
+      .single();
+
+    if (existente) {
+      // Actualizar
+      const { error } = await supabase
+        .from('preferencias_catalogos')
+        .update({ nivel_interes, fecha_actualizado: new Date() })
+        .eq('usuario_id', usuario_id)
+        .eq('artista_id', artista_id);
+      if (error) throw error;
+      res.status(200).json({ message: 'Preferencia actualizada.' });
+    } else {
+      // Insertar
+      const { error } = await supabase
+        .from('preferencias_catalogos')
+        .insert([{
+          usuario_id,
+          artista_id,
+          nivel_interes,
+          fecha_actualizado: new Date()
+        }]);
+      if (error) throw error;
+      res.status(201).json({ message: 'Preferencia guardada.' });
+    }
+  } catch (err) {
+    console.error('Error al guardar preferencia:', err);
+    res.status(500).json({ error: 'Error al guardar preferencia.' });
+  }
+};
+
+// Eliminar preferencia
+const eliminarPreferencia = async (req, res) => {
+  const { usuarioId, artistaId } = req.params;
+  if (!usuarioId || !artistaId) return res.status(400).json({ error: 'Faltan parámetros.' });
+  try {
+    const { error } = await supabase
+      .from('preferencias_catalogos')
+      .delete()
+      .eq('usuario_id', usuarioId)
+      .eq('artista_id', artistaId);
+    if (error) throw error;
+    res.status(200).json({ message: 'Preferencia eliminada.' });
+  } catch (err) {
+    console.error('Error al eliminar preferencia:', err);
+    res.status(500).json({ error: 'Error al eliminar preferencia.' });
+  }
+};
+
+module.exports = { getCatalogosByUsuario, seguirArtistaCatalogo, getArtistasSeguidos, dejarDeSeguirArtista, getProgresoCancionesArtista, searchSpotifyArtists, createArtistFromSpotify, getPedidosUsuario, getPreferenciasUsuario, guardarPreferencia, eliminarPreferencia };
