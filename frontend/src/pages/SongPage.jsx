@@ -472,6 +472,8 @@ useEffect(() => {
               usuario={usuario}
               elementoNombre={song?.titulo}
               elementoFoto={song?.album_foto}
+              rankingContextoTipo={contextType}
+              rankingContextoId={contextId}
             />
 {historial.length > 0 && (
       <div className="my-2">

@@ -18,6 +18,8 @@ const StarRating = ({
   usuario,
   elementoNombre,
   elementoFoto,
+  rankingContextoTipo,
+  rankingContextoId,
 }) => {
   const [rating, setRating] = useState(valoracionInicial ?? null);
   const [hovered, setHovered] = useState(null);
@@ -28,6 +30,7 @@ const StarRating = ({
   const [elementoValorando, setElementoValorando] = useState({ nombre: elementoNombre, foto: elementoFoto });
   const [familiaridad, setFamiliaridad] = useState("");
   const [familiaridadCounts, setFamiliaridadCounts] = useState({});
+  const [usarRankingContexto, setUsarRankingContexto] = useState(false);
   const [modoValoracion, setModoValoracion] = useState("manual");
   const [editable, setEditable] = useState(true);
   const [mostrarGuardarAuto, setMostrarGuardarAuto] = useState(false);
@@ -44,6 +47,8 @@ const StarRating = ({
   const [rankingInfo, setRankingInfo] = useState(null);
   const [selectedPosition, setSelectedPosition] = useState(null);
   const [previewElements, setPreviewElements] = useState(null);
+  const [pendingReposition, setPendingReposition] = useState(false);
+  const [pendingRating, setPendingRating] = useState(null);
   const [detalleAbierto, setDetalleAbierto] = useState(null);
   const [detalleStats, setDetalleStats] = useState(null);
   const [isRevaluation, setIsRevaluation] = useState(false);
@@ -58,6 +63,10 @@ const StarRating = ({
   useEffect(() => {
     setRating(valoracionInicial);
   }, [valoracionInicial]);
+
+  useEffect(() => {
+    setElementoValorando({ nombre: elementoNombre, foto: elementoFoto });
+  }, [elementoNombre, elementoFoto]);
 
   useEffect(() => {
     const fetchEmociones = async () => {
@@ -210,12 +219,12 @@ const StarRating = ({
         const existingItem = Array.isArray(ranking) && ranking.find(item => item.entidad_id === entidadId);
         
         if (existingItem) {
-          console.log('Found existing rating, showing revaluation banner:', existingItem);
-          setIsRevaluation(true);
-          setCurrentRankingPosition(existingItem.posicion);
+          setIsRevaluation(false);
+          setCurrentRankingPosition(null);
           setRankingInfo({ ranking }); // Guardar ranking para usarlo después
         } else {
           setIsRevaluation(false);
+          setCurrentRankingPosition(null);
         }
       } catch (error) {
         console.error('Error checking existing rating:', error);
@@ -292,6 +301,17 @@ const StarRating = ({
       setRating(newRating);
       onRatingChange(newRating);
 
+      const shouldShowPrompt = (entidadTipo === "album" || entidadTipo === "artista" || entidadTipo === "cancion") && usuario;
+      if (shouldShowPrompt) {
+        setIsRevaluation(false);
+        setCurrentRankingPosition(null);
+        setPendingReposition(true);
+        setPendingRating(newRating);
+        setRankingInfo(null);
+        setSelectedPosition(null);
+        setPreviewElements(null);
+      }
+
       try {
         const token = localStorage.getItem('token');
         await axios.post(`${API_URL}/valoraciones`, {
@@ -308,15 +328,47 @@ const StarRating = ({
           },
         });
         console.log('Rating saved:', newRating);
-
-        // Para album y artista, mostrar modal de posicionamiento
-        if ((entidadTipo === "album" || entidadTipo === "artista" || entidadTipo === "cancion") && usuario) {
-          await fetchRankingPositionInfo(newRating);
-        }
       } catch (error) {
         console.error('Error saving rating:', error);
+        if (shouldShowPrompt) {
+          setPendingReposition(false);
+          setPendingRating(null);
+        }
       }
     }
+  };
+
+  const handleOpenPendingPositioning = async () => {
+    const ratingToUse = pendingRating ?? rating;
+    setPendingReposition(false);
+    setPendingRating(null);
+    setShowPositioningModal(true);
+    setRankingInfo({
+      loading: true,
+      totalElements: 0,
+      posicionMin: 1,
+      posicionMax: 1,
+      ranking: [],
+      itemsWithSameRating: [],
+      newRating: ratingToUse,
+    });
+    setSelectedPosition(1);
+    setPreviewElements(null);
+
+    await fetchRankingPositionInfo(ratingToUse, usarRankingContexto, true);
+  };
+
+  const getRankingParams = (useContextOverride) => {
+    const useContext = typeof useContextOverride === 'boolean' ? useContextOverride : usarRankingContexto;
+    const params = {
+      usuario: usuario.id_usuario,
+      tipo_entidad: entidadTipo,
+    };
+    if (useContext && rankingContextoTipo && rankingContextoId) {
+      params.contexto_tipo = rankingContextoTipo;
+      params.contexto_id = rankingContextoId;
+    }
+    return params;
   };
 
   const openPositioningModal = async (ranking, ratingValue) => {
@@ -331,6 +383,7 @@ const StarRating = ({
       });
       setSelectedPosition(1);
       setShowPositioningModal(true);
+      setPreviewElements(buildPositionPreview([], ratingValue, 1));
       return;
     }
 
@@ -346,6 +399,7 @@ const StarRating = ({
       });
       setSelectedPosition(1);
       setShowPositioningModal(true);
+      setPreviewElements(buildPositionPreview([], ratingValue, 1));
       return;
     }
 
@@ -368,29 +422,84 @@ const StarRating = ({
     });
 
     setRankingInfo({
+      loading: false,
       totalElements: ranking.length,
       countWithSameRating,
       posicionMin,
       posicionMax,
       ranking,
-      itemsWithSameRating,  // ✅ Guardar los elementos filtrados por valoración
+      itemsWithSameRating,
       newRating: ratingValue,
     });
     
     setSelectedPosition(posicionMax); // Por defecto al final del grupo
     setShowPositioningModal(true);
+    setPreviewElements(buildPositionPreview(ranking, ratingValue, posicionMax));
   };
 
-  const fetchRankingPositionInfo = async (rating) => {
+  const buildPositionPreview = (ranking, ratingValue, targetPosition) => {
+    const itemsWithSameRating = Array.isArray(ranking) ? ranking.filter(item => item.valoracion === ratingValue) : [];
+    const rankingParaVista = itemsWithSameRating;
+    const rangeStart = Math.max(0, targetPosition - 3);
+    const rangeEnd = Math.min(rankingParaVista.length, targetPosition + 2);
+
+    const elementsInRange = rankingParaVista
+      .slice(rangeStart, rangeEnd)
+      .filter(item => item.entidad_id !== entidadId);
+
+    const preview = [];
+    let previewPos = rangeStart + 1;
+    let newItemInserted = false;
+
+    elementsInRange.forEach((item) => {
+      if (previewPos === targetPosition && !newItemInserted) {
+        preview.push({
+          id: `new-${entidadId}`,
+          entidad_id: entidadId,
+          nombre: elementoValorando.nombre || 'Nueva valoración',
+          foto: elementoValorando.foto,
+          valoracion: ratingValue,
+          previewPosition: previewPos,
+          isNewItem: true,
+        });
+        previewPos++;
+        newItemInserted = true;
+      }
+
+      preview.push({
+        ...item,
+        previewPosition: previewPos,
+        isNewItem: false,
+      });
+      previewPos++;
+    });
+
+    if (!newItemInserted && previewPos === targetPosition) {
+      preview.push({
+        id: `new-${entidadId}`,
+        entidad_id: entidadId,
+        nombre: elementoValorando.nombre || 'Nueva valoración',
+        foto: elementoValorando.foto,
+        valoracion: ratingValue,
+        previewPosition: targetPosition,
+        isNewItem: true,
+      });
+    }
+
+    return preview;
+  };
+
+  const fetchRankingPositionInfo = async (rating, useContextOverride, openOnFetch = false) => {
     try {
       const token = localStorage.getItem('token');
-      console.log('Fetching ranking for:', { usuario: usuario.id_usuario, tipo_entidad: entidadTipo });
+      const params = getRankingParams(useContextOverride);
+      console.log('Fetching ranking for:', params);
       
       // Obtener ranking personal del usuario
       const { data: ranking } = await axios.get(`${API_URL}/rankings/personal`, {
         params: {
-          usuario: usuario.id_usuario,
-          tipo_entidad: entidadTipo,
+          ...params,
+          minimal: true,
         },
         headers: {
           Authorization: `Bearer ${token}`,
@@ -406,13 +515,32 @@ const StarRating = ({
         // Es una revaluación - mostrar banner de pregunta
         setIsRevaluation(true);
         setCurrentRankingPosition(existingItem.posicion);
-        setRankingInfo({ ranking }); // Guardar ranking para usarlo después
+        setRankingInfo({ ranking, loading: false }); // Guardar ranking para usarlo después
+        if (openOnFetch || showPositioningModal) {
+          await openPositioningModal(ranking, rating);
+        }
         return;
       }
 
-      // Es una nueva valoración - mostrar modal de posicionamiento
+      // Es una nueva valoración - guardar ranking sin abrir el modal inmediatamente
       setIsRevaluation(false);
-      await openPositioningModal(ranking, rating);
+      setPendingReposition(true);
+      setPendingRating(rating);
+      setRankingInfo({
+        loading: false,
+        totalElements: Array.isArray(ranking) ? ranking.length : 0,
+        posicionMin: 1,
+        posicionMax: 1,
+        ranking,
+        itemsWithSameRating: [],
+        newRating: rating,
+      });
+
+      if (openOnFetch || showPositioningModal) {
+        setPendingReposition(false);
+        setShowPositioningModal(true);
+        await openPositioningModal(ranking, rating);
+      }
     } catch (error) {
       console.error('Error fetching ranking info:', error);
       // Mostrar modal de todas formas para permitir posicionamiento
@@ -421,77 +549,20 @@ const StarRating = ({
         posicionMin: 1,
         posicionMax: 1,
         ranking: [],
+        itemsWithSameRating: [],
       });
       setSelectedPosition(1);
-      setShowPositioningModal(true);
+      if (openOnFetch) {
+        setShowPositioningModal(true);
+      }
     }
   };
 
   const handleUpdatePosition = async (newPosition) => {
     setSelectedPosition(newPosition);
-    
     if (!rankingInfo) return;
 
-    // ✅ Usar SOLO los elementos con la misma valoración, no todo el ranking
-    const rankingParaVista = rankingInfo.itemsWithSameRating || rankingInfo.ranking || [];
-    
-    // Determinar el rango a mostrar (2 arriba, 2 abajo de la posición seleccionada)
-    const rangeStart = Math.max(0, newPosition - 3);
-    const rangeEnd = Math.min(rankingParaVista.length, newPosition + 2);
-    
-    // Obtener los elementos en el rango (todos excepto el que estamos valorando actualmente si ya existe)
-    const elementsInRange = rankingParaVista
-      .slice(rangeStart, rangeEnd)
-      .filter(item => {
-        // Si el elemento ya estaba en el ranking, excluirlo para ver dónde entra
-        return item.entidad_id !== entidadId;
-      });
-    
-    // Construir la vista previa con el nuevo elemento en su posición
-    const preview = [];
-    let previewPos = rangeStart + 1;
-    let newItemInserted = false;
-
-    elementsInRange.forEach((item) => {
-      // Si hemos llegado a la posición donde va el nuevo elemento, insertarlo
-      if (previewPos === newPosition && !newItemInserted) {
-        preview.push({
-          id: `new-${entidadId}`,
-          entidad_id: entidadId,
-          nombre: elementoValorando.nombre || 'Nueva valoración',
-          foto: elementoValorando.foto,
-          valoracion: rating,
-          previewPosition: previewPos,
-          isNewItem: true,
-        });
-        previewPos++;
-        newItemInserted = true;
-      }
-
-      // Agregar el elemento actual del ranking
-      if (item) {
-        preview.push({
-          ...item,
-          previewPosition: previewPos,
-          isNewItem: false,
-        });
-        previewPos++;
-      }
-    });
-
-    // Si la nueva posición no fue insertada aún (está después del último elemento mostrado)
-    if (!newItemInserted && previewPos === newPosition) {
-      preview.push({
-        id: `new-${entidadId}`,
-        entidad_id: entidadId,
-        nombre: elementoValorando.nombre || 'Nueva valoración',
-        foto: elementoValorando.foto,
-        valoracion: rating,
-        previewPosition: newPosition,
-        isNewItem: true,
-      });
-    }
-
+    const preview = buildPositionPreview(rankingInfo.ranking || [], rating, newPosition);
     console.log('Preview elements:', preview);
     setPreviewElements(preview);
   };
@@ -514,16 +585,17 @@ const StarRating = ({
         return;
       }
 
-      // Obtener el ranking actual actualizado
-      const { data: rankingActual } = await axios.get(`${API_URL}/rankings/personal`, {
-        params: {
-          usuario: usuario.id_usuario,
-          tipo_entidad: entidadTipo,
-        },
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
+      // Usar el ranking ya cargado siempre que sea posible para ahorrar tiempo
+      let rankingActual = rankingInfo?.ranking;
+      if (!Array.isArray(rankingActual) || rankingActual.length === 0) {
+        const { data } = await axios.get(`${API_URL}/rankings/personal`, {
+          params: getRankingParams(),
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        rankingActual = data;
+      }
 
       if (!rankingActual) {
         alert('❌ Error al obtener el ranking actual');
@@ -532,85 +604,44 @@ const StarRating = ({
 
       // Buscar si el elemento YA está en el ranking (revaluación)
       const elementoExistente = rankingActual.find(item => item.entidad_id === entidadId);
+      const ratingValue = rankingInfo.newRating || rating;
       
       console.log('Elemento existente:', elementoExistente);
       console.log('Is revaluation:', !!elementoExistente);
 
-      let nuevoOrden = [];
+      const itemsWithoutCurrent = rankingActual.filter(item => item.entidad_id !== entidadId);
+      const higherRatingCount = itemsWithoutCurrent.filter(item => item.valoracion > ratingValue).length;
+      const targetAbsolutePosition = higherRatingCount + selectedPosition;
 
-      if (elementoExistente) {
-        // === CASO 1: REVALUACIÓN - El elemento ya existe en el ranking ===
-        // Remover el elemento de su posición actual e insertarlo en la nueva posición
-        console.log('Reordenando elemento existente de posición', elementoExistente.posicion, 'a', selectedPosition);
-        
-        let contador = 1;
-        
-        // Recorrer el ranking EXCLUYENDO el elemento que estamos reposicionando
-        rankingActual.forEach(item => {
-          // Si es el elemento que reposicionamos, saltar por ahora
-          if (item.entidad_id === entidadId) {
-            console.log('Saltando elemento a reposicionar en su posición actual:', item.posicion);
-            return;
-          }
-          
-          // Si llegamos a la posición seleccionada, PRIMERO insertar el elemento reposicionado
-          if (contador === selectedPosition) {
-            console.log('Insertando elemento reposicionado en posición', selectedPosition, 'con id:', elementoExistente.id);
-            nuevoOrden.push({
-              id: elementoExistente.id,
-              posicion: contador,
-            });
-            contador++;
-          }
-          
-          // Luego agregar el elemento actual
-          console.log('Agregando elemento', item.entidad_id, 'en posición', contador);
+      console.log('Target absolute position within ranking:', targetAbsolutePosition, { higherRatingCount, selectedPosition, ratingValue });
+
+      const nuevoOrden = [];
+      let contador = 1;
+      let inserted = false;
+      const newItemId = elementoExistente ? elementoExistente.id : `new-${entidadId}`;
+
+      itemsWithoutCurrent.forEach(item => {
+        if (!inserted && contador === targetAbsolutePosition) {
           nuevoOrden.push({
-            id: item.id,
+            id: newItemId,
             posicion: contador,
           });
+          inserted = true;
           contador++;
-        });
-        
-        // Si la posición seleccionada es mayor que todos los elementos excluidos
-        if (selectedPosition > rankingActual.length - 1) {
-          console.log('Insertando al final en posición', selectedPosition);
-          nuevoOrden.push({
-            id: elementoExistente.id,
-            posicion: selectedPosition,
-          });
         }
-      } else {
-        // === CASO 2: NUEVO ELEMENTO ===
-        console.log('Agregando nuevo elemento en posición', selectedPosition);
-        
-        let contador = 1;
-        
-        rankingActual.forEach(item => {
-          if (contador === selectedPosition) {
-            // Insertar el nuevo elemento
-            nuevoOrden.push({
-              id: `new-${entidadId}`,
-              posicion: contador,
-            });
-            contador++;
-          }
-          
-          // Agregar elemento actual
-          nuevoOrden.push({
-            id: item.id,
-            posicion: contador,
-          });
-          contador++;
+
+        nuevoOrden.push({
+          id: item.id,
+          posicion: contador,
         });
-        
-        // Si la posición está al final
-        if (selectedPosition > rankingActual.length) {
-          nuevoOrden.push({
-            id: `new-${entidadId}`,
-            posicion: selectedPosition,
-          });
-        }
+        contador++;
+      });
+
+      if (!inserted) {
+        nuevoOrden.push({
+          id: newItemId,
+          posicion: targetAbsolutePosition,
+        });
       }
 
       console.log('Final nuevoOrden:', nuevoOrden);
@@ -627,7 +658,7 @@ const StarRating = ({
       });
 
       console.log('Positioning confirmed response:', response);
-      alert(`✅ Posición actualizada a #${selectedPosition}`);
+      alert(`✅ Posición actualizada a #${targetAbsolutePosition} en tu ranking personal`);
       
       setShowPositioningModal(false);
       setRankingInfo(null);
@@ -864,13 +895,13 @@ const StarRating = ({
   : null;
 
   const getEntityName = (item) => {
-    if (item.isNewItem) return 'Tu nueva valoración';
+    if (item.isNewItem) return item.nombre || elementoValorando.nombre || 'Tu nueva valoración';
     // Los datos del ranking incluyen 'nombre' que es el nombre enriquecido de la entidad
     return item.nombre || item.titulo || `ID ${item.entidad_id}`;
   };
 
   const getEntityFoto = (item) => {
-    if (item.isNewItem) return null;
+    if (item.isNewItem) return item.foto || elementoValorando.foto || null;
     // Según el tipo de entidad, busca el campo de foto correcto
     if (entidadTipo === 'artista') {
       return item.foto_artista || item.foto;
@@ -1019,86 +1050,64 @@ const StarRating = ({
             ))}
           </div>
           
-          {/* BANNER DE REVALUACIÓN - Si el elemento ya fue valorado antes */}
-          {isRevaluation && currentRankingPosition && (
+          {pendingReposition && !isRevaluation && (
             <div style={{
-              background: "#222",
-              borderLeft: "4px solid #ffd700",
-              padding: "12px 16px",
-              borderRadius: 6,
-              marginTop: 12,
-              marginBottom: 12,
-              display: "flex",
-              alignItems: "center",
-              gap: 12,
-              justifyContent: "space-between"
+              background: '#1f2937',
+              borderLeft: '4px solid #3b82f6',
+              padding: '16px',
+              borderRadius: 8,
+              marginTop: 16,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 12
             }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1 }}>
+              <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                 {elementoValorando.foto && (
                   <img
                     src={elementoValorando.foto}
                     alt={elementoValorando.nombre}
-                    style={{
-                      width: 40,
-                      height: 40,
-                      borderRadius: 4,
-                      objectFit: "cover"
-                    }}
+                    style={{ width: 48, height: 48, borderRadius: 8, objectFit: 'cover' }}
                   />
                 )}
                 <div>
-                  <p style={{ margin: "0 0 4px 0", color: "#ffd700", fontWeight: "bold", fontSize: "0.95rem" }}>
-                    ⚠️ {elementoValorando.nombre || "Elemento"} (Pos. {currentRankingPosition})
+                  <p style={{ margin: 0, color: '#d1d5db', fontWeight: 'bold' }}>
+                    Valoración de {rating}⭐ guardada.
                   </p>
-                  <p style={{ margin: 0, color: "#aaa", fontSize: "0.85rem" }}>
-                    ¿Reposicionar con nueva valoración {rating}⭐?
+                  <p style={{ margin: '4px 0 0', color: '#9ca3af', fontSize: '0.9rem' }}>
+                    ¿Quieres reposicionar esta {entidadTipo === 'cancion' ? 'canción' : entidadTipo === 'album' ? 'álbum' : entidadTipo === 'video' ? 'video' : entidadTipo} dentro de tu ranking personal en el grupo de {rating} estrellas?
                   </p>
                 </div>
               </div>
-              <div style={{ display: "flex", gap: 8 }}>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
                 <button
                   onClick={() => {
-                    setIsRevaluation(false);
-                    setCurrentRankingPosition(null);
+                    setPendingReposition(false);
+                    setPendingRating(null);
+                    setRankingInfo(null);
+                    setSelectedPosition(null);
+                    setPreviewElements(null);
                   }}
                   style={{
-                    background: "#333",
-                    color: "#fff",
-                    border: "1px solid #555",
-                    padding: "6px 14px",
-                    borderRadius: 4,
-                    fontWeight: "bold",
-                    cursor: "pointer",
-                    fontSize: "0.8rem",
-                    whiteSpace: "nowrap"
+                    background: '#374151',
+                    color: '#fff',
+                    border: '1px solid #4b5563',
+                    padding: '10px 16px',
+                    borderRadius: 8,
+                    cursor: 'pointer'
                   }}
-                  onMouseOver={(e) => e.target.style.background = "#444"}
-                  onMouseOut={(e) => e.target.style.background = "#333"}
                 >
-                  No
+                  No, gracias
                 </button>
                 <button
-                  onClick={() => {
-                    setIsRevaluation(false);
-                    setCurrentRankingPosition(null);
-                    // Abrir modal con ranking guardado
-                    if (rankingInfo && rankingInfo.ranking) {
-                      openPositioningModal(rankingInfo.ranking, rating);
-                    }
-                  }}
+                  onClick={handleOpenPendingPositioning}
                   style={{
-                    background: "#16a34a",
-                    color: "#fff",
-                    border: "none",
-                    padding: "6px 14px",
-                    borderRadius: 4,
-                    fontWeight: "bold",
-                    cursor: "pointer",
-                    fontSize: "0.8rem",
-                    whiteSpace: "nowrap"
+                    background: '#16a34a',
+                    color: '#fff',
+                    border: 'none',
+                    padding: '10px 16px',
+                    borderRadius: 8,
+                    cursor: 'pointer'
                   }}
-                  onMouseOver={(e) => e.target.style.background = "#15803d"}
-                  onMouseOut={(e) => e.target.style.background = "#16a34a"}
                 >
                   Sí, reposicionar
                 </button>
@@ -1240,11 +1249,16 @@ const StarRating = ({
 
             {/* Título y descripción */}
             <h2 style={{ color: "#16a34a", fontWeight: "bold", marginBottom: 12, fontSize: "1.4rem" }}>
-              Posicionar en tu ranking
+              Reposicionar en tu ranking de {rating}⭐
             </h2>
             <p style={{ color: "#ccc", marginBottom: 4, fontSize: "0.95rem" }}>
-              Valoración: <span style={{ color: "#ffd700", fontWeight: "bold" }}>{rating} ⭐</span>
+              Posiciona esta {entidadTipo === 'cancion' ? 'canción' : entidadTipo === 'album' ? 'álbum' : entidadTipo === 'video' ? 'video' : entidadTipo} dentro de tu ranking personal en el grupo de {rating} estrellas.
             </p>
+            {currentRankingPosition && (
+              <p style={{ color: "#ccc", marginBottom: 4, fontSize: "0.95rem" }}>
+                Posición actual: <span style={{ color: "#3b82f6", fontWeight: "bold" }}>#{currentRankingPosition}</span>
+              </p>
+            )}
             {rankingInfo.totalElements > 0 && (
               <p style={{ color: "#888", marginBottom: 12, fontSize: "0.9rem" }}>
                 <span style={{ color: "#16a34a" }}>
@@ -1257,6 +1271,26 @@ const StarRating = ({
               </p>
             )}
 
+            {rankingContextoTipo && rankingContextoId && (
+              <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+                <label style={{ color: '#ccc', fontSize: '0.9rem' }}>
+                  <input
+                    type="checkbox"
+                    checked={usarRankingContexto}
+                    onChange={async (e) => {
+                      const nextValue = e.target.checked;
+                      setUsarRankingContexto(nextValue);
+                      await fetchRankingPositionInfo(rating, nextValue);
+                    }}
+                    style={{ marginRight: 8 }}
+                  />
+                  Ordenar solo por contexto ({rankingContextoTipo} #{rankingContextoId})
+                </label>
+                <span style={{ color: '#888', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+                  {usarRankingContexto ? 'Mostrando solo este contexto.' : 'Mostrando ranking completo.'}
+                </span>
+              </div>
+            )}
             {/* Selector de posición */}
             <div style={{ marginBottom: 20 }}>
               <label style={{ display: "block", fontSize: "0.9rem", fontWeight: "bold", marginBottom: 10, color: "#ccc" }}>
@@ -1278,32 +1312,98 @@ const StarRating = ({
                     cursor: "pointer"
                   }}
                 />
-                <input
-                  type="number"
-                  min={rankingInfo.posicionMin}
-                  max={rankingInfo.posicionMax}
-                  value={selectedPosition || rankingInfo.posicionMax}
-                  onChange={(e) => {
-                    const val = parseInt(e.target.value);
-                    if (val >= rankingInfo.posicionMin && val <= rankingInfo.posicionMax) {
-                      handleUpdatePosition(val);
-                    }
-                  }}
-                  style={{
-                    width: 60,
-                    padding: "6px",
-                    background: "#222",
-                    border: "2px solid #444",
-                    borderRadius: 6,
-                    color: "#fff",
-                    fontWeight: "bold",
-                    textAlign: "center",
-                    fontSize: "1rem"
-                  }}
-                />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => handleUpdatePosition(Math.max(rankingInfo.posicionMin, (selectedPosition || rankingInfo.posicionMax) - 1))}
+                    style={{
+                      background: '#333',
+                      border: '1px solid #444',
+                      color: '#fff',
+                      borderRadius: 6,
+                      width: 36,
+                      height: 36,
+                      fontSize: 20,
+                      cursor: 'pointer'
+                    }}
+                    title="Mejor posición"
+                  >
+                    ↑
+                  </button>
+                  <input
+                    type="number"
+                    min={rankingInfo.posicionMin}
+                    max={rankingInfo.posicionMax}
+                    value={selectedPosition || rankingInfo.posicionMax}
+                    onChange={(e) => {
+                      const val = parseInt(e.target.value);
+                      if (val >= rankingInfo.posicionMin && val <= rankingInfo.posicionMax) {
+                        handleUpdatePosition(val);
+                      }
+                    }}
+                    style={{
+                      width: 60,
+                      padding: "6px",
+                      background: "#222",
+                      border: "2px solid #444",
+                      borderRadius: 6,
+                      color: "#fff",
+                      fontWeight: "bold",
+                      textAlign: "center",
+                      fontSize: "1rem",
+                      WebkitAppearance: 'none',
+                      MozAppearance: 'textfield',
+                      appearance: 'textfield'
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleUpdatePosition(Math.min(rankingInfo.posicionMax, (selectedPosition || rankingInfo.posicionMax) + 1))}
+                    style={{
+                      background: '#333',
+                      border: '1px solid #444',
+                      color: '#fff',
+                      borderRadius: 6,
+                      width: 36,
+                      height: 36,
+                      fontSize: 20,
+                      cursor: 'pointer'
+                    }}
+                    title="Peor posición"
+                  >
+                    ↓
+                  </button>
+                </div>
                 <span style={{ color: "#888", fontSize: "0.9rem" }}>/ {rankingInfo.posicionMax}</span>
               </div>
             </div>
+
+            {rankingInfo?.loading && (
+              <div style={{
+                background: '#111',
+                borderRadius: 8,
+                padding: '12px',
+                marginBottom: 16,
+                color: '#fff'
+              }}>
+                <p style={{ margin: 0, color: '#a0e0a0' }}>Calculando posiciones... por favor espera.</p>
+              </div>
+            )}
+
+            {(!rankingInfo?.loading && rankingInfo?.countWithSameRating === 0 && rankingInfo?.totalElements > 0) && (
+              <div style={{
+                background: '#1d2630',
+                borderLeft: '4px solid #3b82f6',
+                padding: '12px',
+                borderRadius: 6,
+                fontSize: '0.9rem',
+                color: '#cbd5e1',
+                marginBottom: 16
+              }}>
+                <strong>No hay otros elementos con esta misma valoración en este ranking.</strong>
+                <div style={{ marginTop: 6 }}>Selecciona la posición dentro de tu grupo de {rating}⭐ sin mostrar el ranking completo.</div>
+              </div>
+            )}
 
             {/* Vista previa mejorada - estilo ModifyPersonalRanking */}
             {previewElements && previewElements.length > 0 && (
@@ -1732,6 +1832,8 @@ StarRating.propTypes = {
   usuario: PropTypes.object.isRequired,
   elementoNombre: PropTypes.string,
   elementoFoto: PropTypes.string,
+  rankingContextoTipo: PropTypes.string,
+  rankingContextoId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
 };
 
 export default StarRating;

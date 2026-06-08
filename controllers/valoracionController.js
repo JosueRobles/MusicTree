@@ -363,7 +363,7 @@ const recalcularRankingPersonal = async (usuario, tipo_entidad) => {
     // Obtener elementos del ranking personal ordenados por calificación
     const { data: elementos, error } = await supabase
       .from('ranking_elementos')
-      .select('*')
+      .select('id, valoracion, posicion')
       .eq('ranking_id', usuario)
       .eq('tipo_entidad', tipo_entidad)
       .order('valoracion', { ascending: false }) // Ordenar por calificación descendente
@@ -371,16 +371,20 @@ const recalcularRankingPersonal = async (usuario, tipo_entidad) => {
 
     if (error) throw error;
 
-    // Recalcular las posiciones
-    for (let i = 0; i < elementos.length; i++) {
-      const { id } = elementos[i];
-      const { error: updateError } = await supabase
-        .from('ranking_elementos')
-        .update({ posicion: i + 1 })
-        .eq('id', id);
-
-      if (updateError) throw updateError;
+    if (!Array.isArray(elementos) || elementos.length === 0) {
+      return;
     }
+
+    const updates = elementos.map((item, index) => ({
+      id: item.id,
+      posicion: index + 1,
+    }));
+
+    const { error: upsertError } = await supabase
+      .from('ranking_elementos')
+      .upsert(updates, { onConflict: 'id' });
+
+    if (upsertError) throw upsertError;
   } catch (error) {
     console.error("❌ Error al recalcular el ranking personal:", error);
   }
@@ -538,14 +542,59 @@ const crearValoracion = async (req, res) => {
     // Calcular y actualizar el promedio
     await calcularPromedio(tableName, referenciaId, entidad_id);
 
+    const { data: userData } = await supabase
+      .from('usuarios')
+      .select('metodologia_valoracion')
+      .eq('id_usuario', usuario)
+      .single();
+    const prefs = userData?.metodologia_valoracion || {};
+    const isRankingSemiauto = prefs.modo_ranking === 'semiautomatico';
+
     // Registrar tendencia
     await registrarTendencia(req.body);
 
-    // Recalcular el ranking personal del usuario
-    await recalcularRankingPersonal(usuario, entidad_tipo);
+    // Asegura que el elemento esté en ranking_elementos
+    const { data: rankingExistente, error: rankingError } = await supabase
+      .from('ranking_elementos')
+      .select('*')
+      .eq('ranking_id', usuario)
+      .eq('entidad_id', entidad_id)
+      .eq('tipo_entidad', entidad_tipo)
+      .single();
+
+    if (rankingError && rankingError.code !== 'PGRST116') throw rankingError;
+
+    if (!rankingExistente) {
+      const { data: maxPos } = await supabase
+        .from('ranking_elementos')
+        .select('posicion')
+        .eq('ranking_id', usuario)
+        .eq('tipo_entidad', entidad_tipo)
+        .order('posicion', { ascending: false })
+        .limit(1);
+      const nuevaPos = (maxPos && maxPos[0]?.posicion ? maxPos[0].posicion + 1 : 1);
+      await supabase
+        .from('ranking_elementos')
+        .insert([{
+          ranking_id: usuario,
+          entidad_id,
+          tipo_entidad: entidad_tipo,
+          valoracion: calificacion,
+          posicion: nuevaPos
+        }]);
+    } else {
+      await supabase
+        .from('ranking_elementos')
+        .update({ valoracion: calificacion })
+        .eq('id', rankingExistente.id);
+    }
+
+    if (isRankingSemiauto) {
+      await recalcularRankingPersonal(usuario, entidad_tipo);
+    }
 
     // REGISTRAR ACTIVIDAD DE VALORACIÓN EN EL FEED
-    await registrarActividad(usuario, 'valoracion', entidad_tipo, entidad_id); // <-- AGREGA ESTA LÍNEA
+    await registrarActividad(usuario, 'valoracion', entidad_tipo, entidad_id);
 
     if (entidad_tipo === 'artista' || entidad_tipo === 'album' || entidad_tipo === 'cancion' || entidad_tipo === 'video') {
       // Verifica progreso de catálogo para cada artista relacionado
@@ -553,21 +602,17 @@ const crearValoracion = async (req, res) => {
       if (entidad_tipo === 'artista') {
         artistasIds = [entidad_id];
       } else if (entidad_tipo === 'album') {
-        // Busca artistas del álbum
         const { data: albumArtistas } = await supabase.from('album_artistas').select('artista_id').eq('album_id', entidad_id);
         artistasIds = (albumArtistas || []).map(a => a.artista_id);
       } else if (entidad_tipo === 'cancion') {
-        // Busca artistas de la canción
         const { data: cancionArtistas } = await supabase.from('cancion_artistas').select('artista_id').eq('cancion_id', entidad_id);
         artistasIds = (cancionArtistas || []).map(a => a.artista_id);
       } else if (entidad_tipo === 'video') {
-        // Busca artistas del video
-        const { data: videoArtistas } = await supabase .from('video_artistas').select('artista_id').eq('video_id', entidad_id);
+        const { data: videoArtistas } = await supabase.from('video_artistas').select('artista_id').eq('video_id', entidad_id);
         artistasIds = (videoArtistas || []).map(a => a.artista_id);
       }
 
       for (const artista_id of artistasIds) {
-        // Trae progreso actual
         const { data: progresoData } = await supabase
           .from('vista_progreso_catalogos')
           .select('progreso')
@@ -576,7 +621,6 @@ const crearValoracion = async (req, res) => {
           .single();
 
         if (progresoData && progresoData.progreso >= 100) {
-          // Busca si ya notificó antes (opcional, para no duplicar)
           const { data: yaNotificada } = await supabase
             .from('notificaciones')
             .select('id_notificacion')
@@ -595,11 +639,9 @@ const crearValoracion = async (req, res) => {
 
     // NUEVO: Sugerir canciones duplicadas/similares
     if (entidad_tipo === 'cancion') {
-      // Sugerir canciones duplicadas/similares
       const similares = await sugerirSimilaresCancion(entidad_id);
       const duplicados = (similares && similares.similares) ? similares.similares : [];
 
-      // Obtener artista principal de la canción
       const { data: artistasRelacionados, error: artistasError } = await supabase
         .from('cancion_artistas')
         .select('artista_id')
@@ -610,7 +652,6 @@ const crearValoracion = async (req, res) => {
         artista_id = artistasRelacionados[0].artista_id;
       }
 
-      // Sugerir videos musicales relacionados
       let videosRelacionados = [];
       if (artista_id) {
         const { data: videosData } = await supabase
@@ -629,46 +670,6 @@ const crearValoracion = async (req, res) => {
       mensaje: "Valoración registrada correctamente",
       sugerencias: res.locals.sugerencias || {}
     });
-
-    // Asegura que el elemento esté en ranking_elementos
-    const { data: rankingExistente, error: rankingError } = await supabase
-      .from('ranking_elementos')
-      .select('*')
-      .eq('ranking_id', usuario)
-      .eq('entidad_id', entidad_id)
-      .eq('tipo_entidad', entidad_tipo)
-      .single();
-
-    if (rankingError && rankingError.code !== 'PGRST116') throw rankingError;
-
-    if (!rankingExistente) {
-      // Busca la última posición actual
-      const { data: maxPos } = await supabase
-        .from('ranking_elementos')
-        .select('posicion')
-        .eq('ranking_id', usuario)
-        .eq('tipo_entidad', entidad_tipo)
-        .order('posicion', { ascending: false })
-        .limit(1);
-      const nuevaPos = (maxPos && maxPos[0]?.posicion ? maxPos[0].posicion + 1 : 1);
-      await supabase
-        .from('ranking_elementos')
-        .insert([{
-          ranking_id: usuario,
-          entidad_id,
-          tipo_entidad: entidad_tipo, // <-- aquí
-          valoracion: calificacion,
-          posicion: nuevaPos
-        }]);
-    } else {
-      await supabase
-        .from('ranking_elementos')
-        .update({ valoracion: calificacion })
-        .eq('id', rankingExistente.id);
-    }
-
-    // Ahora sí, recalcula el ranking personal
-    await recalcularRankingPersonal(usuario, entidad_tipo);
 }   catch (error) {
     console.error("❌ Error al crear valoración:", error);
     res.status(500).json({ error: "Error al crear la valoración", detalle: error.message });

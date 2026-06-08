@@ -30,14 +30,20 @@ const obtenerRankingPersonal = async (req, res) => {
     entidadFotoCol = "miniatura";
   }
 
+  const minimal = req.query.minimal === 'true' || req.query.minimal === '1' || req.query.simple === 'true';
+  const contextoTipo = req.query.contexto_tipo;
+  const contextoId = req.query.contexto_id ? parseInt(req.query.contexto_id) : null;
+
   try {
     // 1. Trae los elementos del ranking personal
-    const { data: ranking, error: rankingError } = await supabase
+    const rankingQuery = supabase
       .from('ranking_elementos')
-      .select('*')
+      .select(minimal ? 'id, entidad_id, valoracion, posicion' : '*')
       .eq('ranking_id', usuario)
       .eq('tipo_entidad', tipo_entidad)
       .order('posicion', { ascending: true });
+
+    const { data: ranking, error: rankingError } = await rankingQuery;
 
     if (rankingError) throw rankingError;
 
@@ -89,8 +95,9 @@ const obtenerRankingPersonal = async (req, res) => {
         if (artistasError) throw artistasError;
 
         cancionArtistas.forEach(row => {
-          artistasPorEntidad[row.cancion_id] = artistasPorEntidad[row.cancion_id] || [];
-          artistasPorEntidad[row.cancion_id].push({ id: row.artista_id, nombre: row.artistas?.nombre_artista });
+          const cancionKey = String(row.cancion_id);
+          artistasPorEntidad[cancionKey] = artistasPorEntidad[cancionKey] || [];
+          artistasPorEntidad[cancionKey].push({ id: row.artista_id, nombre: row.artistas?.nombre_artista });
         });
 
         const { data: coleccionElementos, error: coleccionError } = await supabase
@@ -101,8 +108,9 @@ const obtenerRankingPersonal = async (req, res) => {
         if (coleccionError) throw coleccionError;
 
         coleccionElementos.forEach(row => {
-          coleccionesPorEntidad[row.entidad_id] = coleccionesPorEntidad[row.entidad_id] || [];
-          coleccionesPorEntidad[row.entidad_id].push(row.coleccion_id);
+          const entidadKey = String(row.entidad_id);
+          coleccionesPorEntidad[entidadKey] = coleccionesPorEntidad[entidadKey] || [];
+          coleccionesPorEntidad[entidadKey].push(row.coleccion_id);
           coleccionIds.add(row.coleccion_id);
         });
       } else if (tipo_entidad === 'album') {
@@ -113,8 +121,9 @@ const obtenerRankingPersonal = async (req, res) => {
         if (artistasError) throw artistasError;
 
         albumArtistas.forEach(row => {
-          artistasPorEntidad[row.album_id] = artistasPorEntidad[row.album_id] || [];
-          artistasPorEntidad[row.album_id].push({ id: row.artista_id, nombre: row.artistas?.nombre_artista });
+          const albumKey = String(row.album_id);
+          artistasPorEntidad[albumKey] = artistasPorEntidad[albumKey] || [];
+          artistasPorEntidad[albumKey].push({ id: row.artista_id, nombre: row.artistas?.nombre_artista });
         });
 
         const { data: coleccionElementos, error: coleccionError } = await supabase
@@ -125,8 +134,9 @@ const obtenerRankingPersonal = async (req, res) => {
         if (coleccionError) throw coleccionError;
 
         coleccionElementos.forEach(row => {
-          coleccionesPorEntidad[row.entidad_id] = coleccionesPorEntidad[row.entidad_id] || [];
-          coleccionesPorEntidad[row.entidad_id].push(row.coleccion_id);
+          const entidadKey = String(row.entidad_id);
+          coleccionesPorEntidad[entidadKey] = coleccionesPorEntidad[entidadKey] || [];
+          coleccionesPorEntidad[entidadKey].push(row.coleccion_id);
           coleccionIds.add(row.coleccion_id);
         });
       } else if (tipo_entidad === 'video') {
@@ -137,8 +147,9 @@ const obtenerRankingPersonal = async (req, res) => {
         if (artistasError) throw artistasError;
 
         videoArtistas.forEach(row => {
-          artistasPorEntidad[row.video_id] = artistasPorEntidad[row.video_id] || [];
-          artistasPorEntidad[row.video_id].push({ id: row.artista_id, nombre: row.artistas?.nombre_artista });
+          const videoKey = String(row.video_id);
+          artistasPorEntidad[videoKey] = artistasPorEntidad[videoKey] || [];
+          artistasPorEntidad[videoKey].push({ id: row.artista_id, nombre: row.artistas?.nombre_artista });
         });
 
         const { data: coleccionElementos, error: coleccionError } = await supabase
@@ -149,8 +160,9 @@ const obtenerRankingPersonal = async (req, res) => {
         if (coleccionError) throw coleccionError;
 
         coleccionElementos.forEach(row => {
-          coleccionesPorEntidad[row.entidad_id] = coleccionesPorEntidad[row.entidad_id] || [];
-          coleccionesPorEntidad[row.entidad_id].push(row.coleccion_id);
+          const entidadKey = String(row.entidad_id);
+          coleccionesPorEntidad[entidadKey] = coleccionesPorEntidad[entidadKey] || [];
+          coleccionesPorEntidad[entidadKey].push(row.coleccion_id);
           coleccionIds.add(row.coleccion_id);
         });
       } else if (tipo_entidad === 'artista') {
@@ -162,8 +174,9 @@ const obtenerRankingPersonal = async (req, res) => {
         if (coleccionError) throw coleccionError;
 
         coleccionElementos.forEach(row => {
-          coleccionesPorEntidad[row.entidad_id] = coleccionesPorEntidad[row.entidad_id] || [];
-          coleccionesPorEntidad[row.entidad_id].push(row.coleccion_id);
+          const entidadKey = String(row.entidad_id);
+          coleccionesPorEntidad[entidadKey] = coleccionesPorEntidad[entidadKey] || [];
+          coleccionesPorEntidad[entidadKey].push(row.coleccion_id);
           coleccionIds.add(row.coleccion_id);
         });
       }
@@ -182,17 +195,87 @@ const obtenerRankingPersonal = async (req, res) => {
       }, {});
     }
 
-    const contextoTipo = req.query.contexto_tipo;
-    const contextoId = req.query.contexto_id ? parseInt(req.query.contexto_id) : null;
+    if (minimal) {
+      let filteredRanking = ranking;
+      if (contextoTipo && contextoId) {
+        let idsInContext = null;
+
+        if (contextoTipo === 'coleccion') {
+          const { data: coleccionElementos, error: coleccionError } = await supabase
+            .from('colecciones_elementos')
+            .select('entidad_id')
+            .eq('entidad_tipo', tipo_entidad)
+            .eq('coleccion_id', contextoId);
+          if (coleccionError) throw coleccionError;
+          idsInContext = new Set((coleccionElementos || []).map(row => String(row.entidad_id)));
+        } else if (contextoTipo === 'artista') {
+          if (tipo_entidad === 'cancion') {
+            const { data: cancionArtistas, error } = await supabase
+              .from('cancion_artistas')
+              .select('cancion_id')
+              .eq('artista_id', contextoId);
+            if (error) throw error;
+            idsInContext = new Set((cancionArtistas || []).map(row => String(row.cancion_id)));
+          } else if (tipo_entidad === 'album') {
+            const { data: albumArtistas, error } = await supabase
+              .from('album_artistas')
+              .select('album_id')
+              .eq('artista_id', contextoId);
+            if (error) throw error;
+            idsInContext = new Set((albumArtistas || []).map(row => String(row.album_id)));
+          } else if (tipo_entidad === 'video') {
+            const { data: videoArtistas, error } = await supabase
+              .from('video_artistas')
+              .select('video_id')
+              .eq('artista_id', contextoId);
+            if (error) throw error;
+            idsInContext = new Set((videoArtistas || []).map(row => String(row.video_id)));
+          } else if (tipo_entidad === 'artista') {
+            idsInContext = new Set([String(contextoId)]);
+          }
+        }
+
+        if (idsInContext) {
+          filteredRanking = ranking.filter(item => idsInContext.has(String(item.entidad_id)));
+        } else {
+          filteredRanking = [];
+        }
+      }
+
+      const enrichedMinimal = filteredRanking.map(item => {
+        const entidad = tipo_entidad === 'cancion'
+          ? entidades.find(e => String(e.id_cancion) === String(item.entidad_id))
+          : entidades.find(e => String(e[entidadIdCol]) === String(item.entidad_id));
+
+        const foto = entidad ? (tipo_entidad === 'cancion' ? entidad.foto_album : entidadFotoCol ? entidad[entidadFotoCol] : undefined) : undefined;
+        const nombre = entidad ? (tipo_entidad === 'cancion' ? entidad.titulo : entidad[entidadNameCol]) : `ID ${item.entidad_id}`;
+        const entidadKey = String(item.entidad_id);
+        const artistaInfo = artistasPorEntidad[entidadKey] || [];
+        const coleccionInfo = (coleccionesPorEntidad[entidadKey] || []).map(id => ({ id, nombre: coleccionNombresById[id] || `Colección ${id}` }));
+
+        return {
+          ...item,
+          nombre,
+          foto,
+          artistas: (tipo_entidad === 'artista' ? undefined : artistaInfo.map(a => a.nombre).filter(Boolean)),
+          artista_ids: (tipo_entidad === 'artista' ? [item.entidad_id] : artistaInfo.map(a => a.id)),
+          colecciones: coleccionInfo,
+          coleccion_ids: coleccionInfo.map(c => c.id),
+        };
+      });
+
+      return res.status(200).json(enrichedMinimal);
+    }
 
     // 4. Une los resultados y agrega detalles enriquecidos
     const result = await Promise.all(ranking.map(async item => {
       let foto, nombre, detalles = {};
-      let artistaInfo = artistasPorEntidad[item.entidad_id] || [];
-      let coleccionInfo = (coleccionesPorEntidad[item.entidad_id] || []).map(id => ({ id, nombre: coleccionNombresById[id] || `Colección ${id}` }));
+      const entidadKey = String(item.entidad_id);
+      let artistaInfo = artistasPorEntidad[entidadKey] || [];
+      let coleccionInfo = (coleccionesPorEntidad[entidadKey] || []).map(id => ({ id, nombre: coleccionNombresById[id] || `Colección ${id}` }));
 
       if (tipo_entidad === "artista") {
-        const entidad = entidades.find(e => e[entidadIdCol] === item.entidad_id);
+        const entidad = entidades.find(e => String(e[entidadIdCol]) === String(item.entidad_id));
         foto = entidad ? entidad[entidadFotoCol] : undefined;
         nombre = entidad ? entidad[entidadNameCol] : `ID ${item.entidad_id}`;
         // ¿Tiene catálogo?
@@ -238,7 +321,7 @@ const obtenerRankingPersonal = async (req, res) => {
           valoracion: item.valoracion
         };
       } else if (tipo_entidad === "album") {
-        const entidad = entidades.find(e => e[entidadIdCol] === item.entidad_id);
+        const entidad = entidades.find(e => String(e[entidadIdCol]) === String(item.entidad_id));
         foto = entidad ? entidad[entidadFotoCol] : undefined;
         nombre = entidad ? entidad[entidadNameCol] : `ID ${item.entidad_id}`;
         // Artistas
@@ -267,7 +350,7 @@ const obtenerRankingPersonal = async (req, res) => {
           porcentaje_5_estrellas: porcentaje_5_estrellas ? porcentaje_5_estrellas.toFixed(1) : null
         };
       } else if (tipo_entidad === "cancion") {
-        const entidad = entidades.find(e => e.id_cancion === item.entidad_id);
+        const entidad = entidades.find(e => String(e.id_cancion) === String(item.entidad_id));
         foto = entidad ? entidad.foto_album : undefined;
         nombre = entidad ? entidad.titulo : `ID ${item.entidad_id}`;
         // Artistas
@@ -286,7 +369,7 @@ const obtenerRankingPersonal = async (req, res) => {
           duracion: entidad?.duracion_ms ? `${Math.floor(entidad.duracion_ms / 60000)}:${String(Math.floor((entidad.duracion_ms % 60000) / 1000)).padStart(2, '0')}` : null
         };
       } else if (tipo_entidad === "video") {
-        const entidad = entidades.find(e => e[entidadIdCol] === item.entidad_id);
+        const entidad = entidades.find(e => String(e[entidadIdCol]) === String(item.entidad_id));
         foto = entidad ? entidad[entidadFotoCol] : undefined;
         nombre = entidad ? entidad[entidadNameCol] : `ID ${item.entidad_id}`;
         // Artistas
@@ -522,50 +605,69 @@ const actualizarOrdenRankingPersonal = async (req, res) => {
   const { usuario, tipo_entidad, nuevoOrden } = req.body;
   // nuevoOrden: [{ id, posicion }, ...]
   try {
+    const newItems = [];
+    const existingItems = [];
+    const newEntityIds = [];
+
     for (const { id, posicion } of nuevoOrden) {
-      // Si el id comienza con "new-", es un nuevo elemento
       if (id.toString().startsWith('new-')) {
-        // Extraer el entidad_id del formato "new-{entidad_id}"
-        const entidad_id = parseInt(id.toString().replace('new-', ''));
-        
-        console.log('Insertando nuevo elemento:', { entidad_id, tipo_entidad, usuario, posicion });
-        
-        // Insertar nuevo elemento
-        const { data: existingElement, error: checkError } = await supabase
-          .from('ranking_elementos')
-          .select('id')
-          .eq('ranking_id', usuario)
-          .eq('tipo_entidad', tipo_entidad)
-          .eq('entidad_id', entidad_id)
-          .single();
-        
-        if (!checkError && existingElement) {
-          // El elemento ya existe, solo actualizar posición
-          await supabase
-            .from('ranking_elementos')
-            .update({ posicion })
-            .eq('id', existingElement.id);
-        } else {
-          // Es realmente nuevo, insertar
-          await supabase
-            .from('ranking_elementos')
-            .insert([{
-              ranking_id: usuario,
-              tipo_entidad,
-              entidad_id,
-              posicion,
-            }]);
-        }
+        const entidad_id = parseInt(id.toString().replace('new-', ''), 10);
+        newItems.push({ entidad_id, posicion });
+        newEntityIds.push(entidad_id);
       } else {
-        // Es un elemento existente, solo actualizar posición
-        console.log('Actualizando posición de elemento existente:', id, 'a posición:', posicion);
-        
-        await supabase
-          .from('ranking_elementos')
-          .update({ posicion })
-          .eq('id', id);
+        existingItems.push({ id, posicion });
       }
     }
+
+    // Comprobar si alguno de los nuevos elementos ya existe en el ranking
+    const existingByEntity = {};
+    if (newEntityIds.length > 0) {
+      const { data: existingEntities, error: existingEntitiesError } = await supabase
+        .from('ranking_elementos')
+        .select('id, entidad_id')
+        .eq('ranking_id', usuario)
+        .eq('tipo_entidad', tipo_entidad)
+        .in('entidad_id', newEntityIds);
+
+      if (existingEntitiesError) {
+        throw existingEntitiesError;
+      }
+
+      (existingEntities || []).forEach(row => {
+        existingByEntity[row.entidad_id] = row.id;
+      });
+    }
+
+    const inserts = [];
+    const updates = [...existingItems];
+
+    for (const item of newItems) {
+      if (existingByEntity[item.entidad_id]) {
+        updates.push({ id: existingByEntity[item.entidad_id], posicion: item.posicion });
+      } else {
+        inserts.push({
+          ranking_id: usuario,
+          tipo_entidad,
+          entidad_id: item.entidad_id,
+          posicion: item.posicion,
+        });
+      }
+    }
+
+    if (inserts.length > 0) {
+      const { error: insertError } = await supabase
+        .from('ranking_elementos')
+        .insert(inserts);
+      if (insertError) throw insertError;
+    }
+
+    if (updates.length > 0) {
+      const { error: upsertError } = await supabase
+        .from('ranking_elementos')
+        .upsert(updates, { onConflict: 'id' });
+      if (upsertError) throw upsertError;
+    }
+
     res.status(200).json({ mensaje: "Orden actualizado correctamente" });
   } catch (error) {
     console.error("❌ Error al actualizar el orden del ranking personal:", error);
