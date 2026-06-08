@@ -14,6 +14,7 @@ const {
   updateCollectionFromPlaylist,
 } = require('./handlers/playlistHandler');
 const { processArtistList, importFullArtistCatalog, updateMissingFromArtistCatalog } = require('./utils/spotifyHelpers');
+const { getCheckpoint, setCheckpoint, clearCheckpoint } = require('./utils/checkpoint');
 const supabase = require('../supabaseClient');
 const { safeSpotifyCall } = require('./utils/spotifySafeCall');
 const { notificarCatalogoExtraido } = require('./utils/notifyHelpers');
@@ -22,8 +23,9 @@ const { notificarCatalogoExtraido } = require('./utils/notifyHelpers');
 const importFullArtistCatalogController = async (req, res) => {
   const { artistId } = req.params;
   try {
-    // Buscar el id_artista interno si solo tienes el spotify_id
-    let id_artista = artistId;
+    let spotifyId = artistId;
+    let id_artista = null;
+
     if (/^[a-zA-Z0-9]{22}$/.test(artistId)) {
       const { data, error } = await supabase
         .from('artistas')
@@ -32,9 +34,19 @@ const importFullArtistCatalogController = async (req, res) => {
         .single();
       if (error || !data) throw new Error("Artista no encontrado en la base de datos.");
       id_artista = data.id_artista;
+    } else {
+      const { data, error } = await supabase
+        .from('artistas')
+        .select('spotify_id')
+        .eq('id_artista', artistId)
+        .single();
+      if (error || !data) throw new Error("Artista no encontrado en la base de datos.");
+      spotifyId = data.spotify_id;
+      id_artista = artistId;
     }
 
-    const { artistIds, albumIds, trackIds } = await importFullArtistCatalog(artistId);
+    const checkpointKey = `artist_catalog_${id_artista}`;
+    const { artistIds, albumIds, trackIds } = await importFullArtistCatalog(spotifyId, id_artista);
 
     const {
       updateArtistsPopularityAndPhotosByIds,
@@ -45,14 +57,13 @@ const importFullArtistCatalogController = async (req, res) => {
       updateSongGenresByIds,
     } = require('./handlers/batchUpdateHandler');
 
-    await updateArtistsPopularityAndPhotosByIds(artistIds);
-    await updateAlbumsPopularityByIds(albumIds);
-    await updateTracksPopularityByIds(trackIds);
-    await updateArtistGenresByIds(artistIds);
-    await updateAlbumGenresByIds(albumIds);
-    await updateSongGenresByIds(trackIds);
+    await updateArtistsPopularityAndPhotosByIds(artistIds, checkpointKey);
+    await updateAlbumsPopularityByIds(albumIds, checkpointKey);
+    await updateTracksPopularityByIds(trackIds, checkpointKey);
+    await updateArtistGenresByIds(artistIds, checkpointKey);
+    await updateAlbumGenresByIds(albumIds, checkpointKey);
+    await updateSongGenresByIds(trackIds, checkpointKey);
 
-    // Marca como principal al final SOLO si existe el id_artista
     if (id_artista) {
       await supabase
         .from('artistas')
@@ -60,11 +71,15 @@ const importFullArtistCatalogController = async (req, res) => {
         .eq('id_artista', id_artista);
     }
 
+    await clearCheckpoint(checkpointKey).catch(() => {});
     await notificarCatalogoExtraido(id_artista);
 
     res.status(200).send(`Catálogo importado y artista ${id_artista} marcado como principal.`);
   } catch (err) {
     console.error("Error al importar catálogo:", err);
+    if (err && (err.code === 'RATE_LIMIT_LONG' || err.message === 'RATE_LIMIT_LONG')) {
+      return res.status(202).json({ message: 'Proceso pausado por rate-limit', retry_after: err.retryAfter || null });
+    }
     res.status(500).send("Error al importar catálogo.");
   }
 };
@@ -168,27 +183,13 @@ const processArtistListController = async (req, res) => {
 const processPlaylistController = async (req, res) => {
   const { playlistId } = req.params;
   try {
-    const { artistIds, albumIds, trackIds } = await processSpotifyPlaylist(playlistId);
-
-    const {
-      updateArtistsPopularityAndPhotosByIds,
-      updateAlbumsPopularityByIds,
-      updateTracksPopularityByIds,
-      updateArtistGenresByIds,
-      updateAlbumGenresByIds,
-      updateSongGenresByIds,
-    } = require('./handlers/batchUpdateHandler');
-
-    await updateArtistsPopularityAndPhotosByIds(artistIds);
-    await updateAlbumsPopularityByIds(albumIds);
-    await updateTracksPopularityByIds(trackIds);
-    await updateArtistGenresByIds(artistIds);
-    await updateAlbumGenresByIds(albumIds);
-    await updateSongGenresByIds(trackIds);
-
+    await processSpotifyPlaylist(playlistId);
     res.status(200).send("Colección creada/actualizada correctamente desde la playlist.");
   } catch (err) {
     console.error("Error al procesar la playlist:", err);
+    if (err && (err.code === 'RATE_LIMIT_LONG' || err.message === 'RATE_LIMIT_LONG')) {
+      return res.status(202).json({ message: 'Proceso pausado por rate-limit', retry_after: err.retryAfter || null });
+    }
     res.status(500).send("Error al procesar la playlist.");
   }
 };
@@ -198,24 +199,7 @@ const processPlaylistController = async (req, res) => {
 const updateCollectionFromPlaylistController = async (req, res) => {
   const { coleccionId } = req.params;
   try {
-    const { artistIds, albumIds, trackIds } = await updateCollectionFromPlaylist(coleccionId);
-
-    const {
-      updateArtistsPopularityAndPhotosByIds,
-      updateAlbumsPopularityByIds,
-      updateTracksPopularityByIds,
-      updateArtistGenresByIds,
-      updateAlbumGenresByIds,
-      updateSongGenresByIds,
-    } = require('./handlers/batchUpdateHandler');
-
-    await updateArtistsPopularityAndPhotosByIds(artistIds);
-    await updateAlbumsPopularityByIds(albumIds);
-    await updateTracksPopularityByIds(trackIds);
-    await updateArtistGenresByIds(artistIds);
-    await updateAlbumGenresByIds(albumIds);
-    await updateSongGenresByIds(trackIds);
-
+    await updateCollectionFromPlaylist(coleccionId);
     res.status(200).send("Colección actualizada correctamente desde la playlist.");
   } catch (err) {
     console.error("Error al actualizar la colección:", err);
@@ -239,7 +223,10 @@ const updateValidatedArtistCatalogController = async (req, res) => {
     if (error) throw error;
     if (!artist || !artist.es_principal) return res.status(400).send("El artista no está validado como principal.");
 
-    // Solo agrega lo nuevo y actualiza lo faltante
+    const checkpointKey = `artist_catalog_${artistId}`;
+    const checkpoint = await getCheckpoint(checkpointKey);
+    const startingStage = checkpoint?.stage === 'missing-update-complete' ? 'artist-popularity' : checkpoint?.stage || 'missing-update';
+
     const { artistIds, albumIds, trackIds } = await updateMissingFromArtistCatalog(artist.spotify_id, artistId);
 
     const {
@@ -251,12 +238,45 @@ const updateValidatedArtistCatalogController = async (req, res) => {
       updateSongGenresByIds,
     } = require('./handlers/batchUpdateHandler');
 
-    await updateArtistsPopularityAndPhotosByIds(artistIds);
-    await updateAlbumsPopularityByIds(albumIds);
-    await updateTracksPopularityByIds(trackIds);
-    await updateArtistGenresByIds(artistIds);
-    await updateAlbumGenresByIds(albumIds);
-    await updateSongGenresByIds(trackIds);
+    const stageOrder = [
+      'missing-update',
+      'artist-popularity',
+      'album-popularity',
+      'track-popularity',
+      'artist-genres',
+      'album-genres',
+      'song-genres',
+      'done',
+    ];
+    const currentStageIndex = stageOrder.indexOf(startingStage);
+
+    if (currentStageIndex <= stageOrder.indexOf('artist-popularity')) {
+      await setCheckpoint(checkpointKey, { ...checkpoint, stage: 'artist-popularity', artistIds, albumIds, trackIds, updated_at: Date.now() });
+      await updateArtistsPopularityAndPhotosByIds(artistIds, checkpointKey);
+    }
+    if (currentStageIndex <= stageOrder.indexOf('album-popularity')) {
+      await setCheckpoint(checkpointKey, { ...checkpoint, stage: 'album-popularity', artistIds, albumIds, trackIds, updated_at: Date.now() });
+      await updateAlbumsPopularityByIds(albumIds, checkpointKey);
+    }
+    if (currentStageIndex <= stageOrder.indexOf('track-popularity')) {
+      await setCheckpoint(checkpointKey, { ...checkpoint, stage: 'track-popularity', artistIds, albumIds, trackIds, updated_at: Date.now() });
+      await updateTracksPopularityByIds(trackIds, checkpointKey);
+    }
+    if (currentStageIndex <= stageOrder.indexOf('artist-genres')) {
+      await setCheckpoint(checkpointKey, { ...checkpoint, stage: 'artist-genres', artistIds, albumIds, trackIds, updated_at: Date.now() });
+      await updateArtistGenresByIds(artistIds, checkpointKey);
+    }
+    if (currentStageIndex <= stageOrder.indexOf('album-genres')) {
+      await setCheckpoint(checkpointKey, { ...checkpoint, stage: 'album-genres', artistIds, albumIds, trackIds, updated_at: Date.now() });
+      await updateAlbumGenresByIds(albumIds, checkpointKey);
+    }
+    if (currentStageIndex <= stageOrder.indexOf('song-genres')) {
+      await setCheckpoint(checkpointKey, { ...checkpoint, stage: 'song-genres', artistIds, albumIds, trackIds, updated_at: Date.now() });
+      await updateSongGenresByIds(trackIds, checkpointKey);
+    }
+
+    await setCheckpoint(checkpointKey, { ...checkpoint, stage: 'done', artistIds, albumIds, trackIds, updated_at: Date.now() });
+    await clearCheckpoint(checkpointKey).catch(() => {});
 
     res.status(200).send("Catálogo de artista validado actualizado correctamente.");
   } catch (err) {

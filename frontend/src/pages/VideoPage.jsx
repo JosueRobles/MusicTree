@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import PropTypes from 'prop-types';
 import StarRating from '../components/StarRating';
 import ValoracionComentario from '../components/ValoracionComentario';
 import React from 'react';
+import { FaArrowLeft, FaArrowRight } from 'react-icons/fa';
 import CreateList from '../components/CreateList';
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -29,6 +30,49 @@ const VideoPage = ({ usuario }) => {
   const [listasDestacadas, setListasDestacadas] = useState([]);
   const [showHistorial, setShowHistorial] = useState(false);
   const [showCreateListModal, setShowCreateListModal] = useState(false);
+  const location = useLocation();
+  const [contextType, setContextType] = useState(() => {
+    const p = new URLSearchParams(location.search);
+    return p.get('context') || null;
+  });
+  const [contextId, setContextId] = useState(() => {
+    const p = new URLSearchParams(location.search);
+    return p.get('contextId') || null;
+  });
+  const [contextList, setContextList] = useState([]);
+  const [contextName, setContextName] = useState(null);
+  const [prevInfo, setPrevInfo] = useState(null);
+  const [nextInfo, setNextInfo] = useState(null);
+  const [contextLoading, setContextLoading] = useState(false);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    setContextType(params.get('context') || null);
+    setContextId(params.get('contextId') || null);
+  }, [location.search]);
+
+  const fetchColeccionContextItems = async (coleccionId, entidadTipo = 'video') => {
+    const pageSize = 1000;
+    let allItems = [];
+    let offset = 0;
+    while (true) {
+      const res = await axios.get(`${API_URL}/colecciones/${coleccionId}/elementos`, {
+        params: {
+          offset,
+          limit: pageSize,
+          orderBy: 'id_elemento',
+          orderDirection: 'asc',
+        },
+      });
+      const items = Array.isArray(res.data) ? res.data : [];
+      const filtered = items.filter(item => item.entidad_tipo === entidadTipo);
+      allItems = allItems.concat(filtered);
+      if (items.length < pageSize) break;
+      offset += pageSize;
+      if (offset >= 50000) break;
+    }
+    return allItems;
+  };
 
   useEffect(() => {
     const fetchVideoData = async () => {
@@ -106,10 +150,80 @@ const VideoPage = ({ usuario }) => {
 }, [usuario, id]);
 
   useEffect(() => {
+    const fetchContext = async () => {
+      if (contextType === 'coleccion' && contextId) {
+        try {
+          setContextLoading(true);
+          const items = await fetchColeccionContextItems(contextId, 'video');
+          setContextList(items.map(item => item.entidad_id));
+          const c = await axios.get(`${API_URL}/colecciones/${contextId}`);
+          setContextName(c.data.nombre || null);
+        } catch (error) {
+          console.error('Error loading collection context for video:', error);
+          setContextName(null);
+          setContextList([]);
+        } finally {
+          setContextLoading(false);
+        }
+      }
+    };
+    fetchContext();
+  }, [contextType, contextId]);
+
+  useEffect(() => {
   axios.get(`${API_URL}/rankings/posicion-global`, {
     params: { tipo_entidad: 'video', entidad_id: id }
   }).then(res => setPosicionRanking(res.data.posicion));
 }, [id, usuario]);
+
+  const prevVideo = useMemo(() => {
+    if (!contextType || !contextList || contextList.length === 0) return null;
+    const currentIdx = contextList.findIndex(c => String(c) === String(id));
+    if (currentIdx > 0) {
+      return { id_video: contextList[currentIdx - 1] };
+    }
+    return null;
+  }, [id, contextType, contextList]);
+
+  const nextVideo = useMemo(() => {
+    if (!contextType || !contextList || contextList.length === 0) return null;
+    const currentIdx = contextList.findIndex(c => String(c) === String(id));
+    if (currentIdx >= 0 && currentIdx < contextList.length - 1) {
+      return { id_video: contextList[currentIdx + 1] };
+    }
+    return null;
+  }, [id, contextType, contextList]);
+
+  const fetchVideoMinimal = async (videoId) => {
+    try {
+      const res = await axios.get(`${API_URL}/videos/${videoId}`);
+      return res.data;
+    } catch (error) {
+      console.error('Error fetching video minimal:', error);
+      return null;
+    }
+  };
+
+  useEffect(() => {
+    let mounted = true;
+    const fetchInfos = async () => {
+      if (prevVideo) {
+        if (!prevVideo.titulo) {
+          const data = await fetchVideoMinimal(prevVideo.id_video);
+          if (mounted) setPrevInfo(data);
+        } else if (mounted) setPrevInfo(prevVideo);
+      } else if (mounted) setPrevInfo(null);
+
+      if (nextVideo) {
+        if (!nextVideo.titulo) {
+          const data = await fetchVideoMinimal(nextVideo.id_video);
+          if (mounted) setNextInfo(data);
+        } else if (mounted) setNextInfo(nextVideo);
+      } else if (mounted) setNextInfo(null);
+    };
+    fetchInfos();
+    return () => { mounted = false; };
+  }, [prevVideo?.id_video, nextVideo?.id_video]);
 
   const handleRatingChange = async (newRating) => {
     setRating(newRating);
@@ -172,6 +286,45 @@ const handleAddToList = async () => {
       <h2 className="text-4xl font-bold my-4 text-center">
             {video.titulo}
           </h2>
+          {contextType && contextName && (
+            <div className="text-center mb-2">
+              <span className="inline-block bg-gray-100 text-gray-800 px-2 py-1 rounded text-sm">
+                Navegando por: {contextName}
+              </span>
+            </div>
+          )}
+          {(prevVideo || nextVideo) && (
+            <div className="flex justify-between items-center mb-4">
+              <div style={{ flex: 1, textAlign: 'left' }}>
+                {prevVideo && (
+                  (() => {
+                    const prevId = prevVideo.id_video;
+                    const title = prevInfo?.titulo || 'Anterior';
+                    const query = contextType && contextId ? `?context=${contextType}&contextId=${contextId}` : '';
+                    return (
+                      <Link to={`/video/${prevId}${query}`} className="text-blue-600 flex items-center">
+                        <FaArrowLeft /> <span className="ml-1">{title}</span>
+                      </Link>
+                    );
+                  })()
+                )}
+              </div>
+              <div style={{ flex: 1, textAlign: 'right' }}>
+                {nextVideo && (
+                  (() => {
+                    const nextId = nextVideo.id_video;
+                    const title = nextInfo?.titulo || 'Siguiente';
+                    const query = contextType && contextId ? `?context=${contextType}&contextId=${contextId}` : '';
+                    return (
+                      <Link to={`/video/${nextId}${query}`} className="text-blue-600 flex items-center justify-end">
+                        <span className="mr-1">{title}</span> <FaArrowRight />
+                      </Link>
+                    );
+                  })()
+                )}
+              </div>
+            </div>
+          )}
           {posicionRanking && (
             <div className="text-center mt-2">
               <span className="ranking-global">

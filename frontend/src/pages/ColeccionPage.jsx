@@ -212,7 +212,9 @@ const ColeccionPage = () => {
                   to={
                     el.entidad_tipo === 'cancion'
                       ? `/song/${el.entidad_id}?context=coleccion&contextId=${id}`
-                      : `/${el.entidad_tipo === 'artista' ? 'artist' : el.entidad_tipo}/${el.entidad_id}`
+                      : el.entidad_tipo === 'video'
+                        ? `/video/${el.entidad_id}?context=coleccion&contextId=${id}`
+                        : `/${el.entidad_tipo === 'artista' ? 'artist' : el.entidad_tipo}/${el.entidad_id}`
                   }
                   style={{ textDecoration: 'none', color: 'inherit' }}
                 >

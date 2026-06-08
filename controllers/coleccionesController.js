@@ -207,55 +207,48 @@ const getProgresoColeccion = async (req, res) => {
 const getColeccionElementosCount = async (req, res) => {
   const { id } = req.params;
   const userId = req.query.userId;
-  let filterValorados = req.query.filterValorados;
+  const filterValorados = req.query.filterValorados;
 
   try {
-    let elementosQuery = supabase
-      .from('colecciones_elementos')
-      .select('id_elemento, entidad_id')
+    const { data: coleccion, error: errorColeccion } = await supabase
+      .from('colecciones')
+      .select('tipo_coleccion')
+      .eq('id_coleccion', id)
+      .single();
+
+    if (errorColeccion || !coleccion) {
+      return res.status(404).json({ error: 'Colección no encontrada.' });
+    }
+
+    let vista = '';
+    const tipo = (coleccion.tipo_coleccion || '').toLowerCase();
+    if (tipo.includes('cancion')) vista = 'vista_coleccion_canciones';
+    else if (tipo.includes('album')) vista = 'vista_coleccion_albumes';
+    else if (tipo.includes('artista')) vista = 'vista_coleccion_artistas';
+    else if (tipo.includes('video')) vista = 'vista_coleccion_videos';
+    else return res.status(400).json({ error: `Tipo de colección no soportado: ${coleccion.tipo_coleccion}` });
+
+    let countQuery = supabase
+      .from(vista)
+      .select('id_elemento', { count: 'exact', head: true })
       .eq('coleccion_id', id);
 
-    const { data: elementos, error } = await elementosQuery;
+    if (filterValorados === 'true') {
+      if (!userId) {
+        return res.json({ total: 0 });
+      }
+      countQuery = countQuery.eq('valorado', true);
+    } else if (filterValorados === 'false' || filterValorados === 'pendientes') {
+      countQuery = countQuery.eq('valorado', false);
+    }
+
+    const { count, error } = await countQuery;
     if (error) throw error;
 
-    // Si hay filtro de valorados, filtra aquí
-    let total = elementos.length;
-    if (filterValorados !== undefined && userId) {
-      // Determina tipo de colección
-      const { data: coleccion } = await supabase
-        .from('colecciones')
-        .select('tipo_coleccion')
-        .eq('id_coleccion', id)
-        .single();
-      let tablaValoraciones = '';
-      let campoEntidad = '';
-      let tipo = (coleccion.tipo_coleccion || '').toLowerCase();
-      if (tipo === 'cancion' || tipo === 'canciones') {
-        tablaValoraciones = 'valoraciones_canciones';
-        campoEntidad = 'cancion';
-      } else if (tipo === 'album' || tipo === 'álbum' || tipo === 'albumes' || tipo === 'álbumes') {
-        tablaValoraciones = 'valoraciones_albumes';
-        campoEntidad = 'album';
-      } else if (tipo === 'artista' || tipo === 'artistas') {
-        tablaValoraciones = 'valoraciones_artistas';
-        campoEntidad = 'artista';
-      } else if (tipo === 'video' || tipo === 'videos' || tipo === 'video musical' || tipo === 'videos musicales') {
-        tablaValoraciones = 'valoraciones_videos_musicales';
-        campoEntidad = 'video';
-      }
-      const { data: valorados } = await supabase
-        .from(tablaValoraciones)
-        .select(campoEntidad)
-        .eq('usuario', userId);
-      const idsValorados = (valorados || []).map(v => v[campoEntidad]);
-      if (filterValorados === 'true') {
-        total = elementos.filter(e => idsValorados.includes(e.entidad_id)).length;
-      } else if (filterValorados === 'false') {
-        total = elementos.filter(e => !idsValorados.includes(e.entidad_id)).length;
-      }
-    }
+    const total = count || 0;
     res.json({ total });
   } catch (err) {
+    console.error('Error en getColeccionElementosCount:', err);
     res.status(500).json({ error: 'Error al contar elementos.' });
   }
 };

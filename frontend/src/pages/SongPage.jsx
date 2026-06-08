@@ -48,10 +48,44 @@ const SongPage = ({ usuario }) => {
   const [contextName, setContextName] = useState(null);
   const [prevInfo, setPrevInfo] = useState(null);
   const [nextInfo, setNextInfo] = useState(null);
+  const [contextLoading, setContextLoading] = useState(false);
 
   const valoradasEnGrupo = useMemo(() => {
   return miembrosGrupo.filter(mid => valoradas.includes(`cancion-${mid}`));
 }, [miembrosGrupo, valoradas]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    setContextType(params.get('context') || null);
+    setContextId(params.get('contextId') || null);
+  }, [location.search]);
+
+  const fetchColeccionContextItems = async (coleccionId, entidadTipo = 'cancion') => {
+    const pageSize = 1000;
+    let allItems = [];
+    let offset = 0;
+
+    while (true) {
+      const res = await axios.get(`${API_URL}/colecciones/${coleccionId}/elementos`, {
+        params: {
+          offset,
+          limit: pageSize,
+          orderBy: 'id_elemento',
+          orderDirection: 'asc',
+        },
+      });
+
+      const items = Array.isArray(res.data) ? res.data : [];
+      const filtered = items.filter(item => item.entidad_tipo === entidadTipo);
+      allItems = allItems.concat(filtered);
+
+      if (items.length < pageSize) break;
+      offset += pageSize;
+      if (offset >= 50000) break;
+    }
+
+    return allItems;
+  };
 
   useEffect(() => {
     const fetchSongData = async () => {
@@ -230,9 +264,9 @@ useEffect(() => {
         } else if (contextType === 'coleccion' && contextId) {
           // Obtener elementos de la colección
           try {
-            const res = await axios.get(`${API_URL}/colecciones/${contextId}/elementos`, { params: { limit: 1000 } });
-            const items = Array.isArray(res.data) ? res.data : [];
-            const ids = items.filter(it => it.entidad_tipo === 'cancion').map(it => it.entidad_id);
+            setContextLoading(true);
+            const items = await fetchColeccionContextItems(contextId, 'cancion');
+            const ids = items.map(it => it.entidad_id);
             setContextList(ids);
             
             // Obtener nombre de la colección
@@ -245,6 +279,8 @@ useEffect(() => {
           } catch (e) {
             console.error('Error fetching collection:', e);
             setContextName(null);
+          } finally {
+            setContextLoading(false);
           }
         } else if (contextType === 'lista' && contextId) {
           // Obtener elementos de la lista personalizada
@@ -275,7 +311,7 @@ useEffect(() => {
     };
 
     fetchAll();
-  }, [album, contextType, contextId]);
+  }, [album, contextType, contextId, id]);
 
   // Compute prev/next songs based on contextList or albumSongs
   const prevSong = useMemo(() => {

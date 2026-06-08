@@ -46,23 +46,44 @@ async function obtenerGenerosDeSpotify(artistId) {
     const response = await safeSpotifyCall(() => spotifyApi.getArtist(artistId));
     return response.genres || [];
   } catch (error) {
+    if (error && error.code === 'RATE_LIMIT_LONG') {
+      throw error;
+    }
     console.error(`Error al consultar géneros en Spotify para el artista ${artistId}:`, error);
     return [];
   }
 }
 
-// Consultar géneros en LastFM
+// Consultar géneros en LastFM con reintentos
 async function obtenerGenerosDeLastFM(nombre, artista = null) {
-  try {
-    const params = { method: artista ? 'album.gettoptags' : 'artist.gettoptags', artist: artista || nombre, album: nombre };
-    const response = await lastFmApi.get('', { params });
-    const tags = response.data?.toptags?.tag;
-    if (!tags || !Array.isArray(tags)) return [];
-    return tags.map(tag => tag.name) || [];
-  } catch (error) {
-    console.error(`Error al consultar géneros en LastFM para ${nombre}:`, error);
-    return [];
+  const maxRetries = 3;
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const params = { method: artista ? 'album.gettoptags' : 'artist.gettoptags', artist: artista || nombre, album: nombre };
+      const response = await lastFmApi.get('', { params });
+      const tags = response.data?.toptags?.tag;
+      if (!tags || !Array.isArray(tags)) return [];
+      return tags.map(tag => tag.name) || [];
+    } catch (error) {
+      lastError = error;
+      // Si es error 504 o timeout, esperar antes de reintentar
+      if (error?.response?.status === 504 || error?.code === 'ECONNABORTED') {
+        const waitMs = Math.min(1000 * Math.pow(2, attempt - 1), 10000); // Backoff exponencial máx 10s
+        console.warn(`⏳ LastFM devolvió ${error?.response?.status || 'timeout'}. Reintentando en ${waitMs}ms (intento ${attempt}/${maxRetries})...`);
+        await new Promise(res => setTimeout(res, waitMs));
+      } else {
+        // Otros errores: loguear y salir
+        console.error(`Error al consultar géneros en LastFM para ${nombre}:`, error?.message || error);
+        return [];
+      }
+    }
   }
+
+  // Si llegamos aquí, agotamos reintentos
+  console.error(`❌ No se pudo obtener géneros de LastFM para ${nombre} después de ${maxRetries} intentos:`, lastError?.message || lastError);
+  return [];
 }
 
 async function insertarGenerosPrincipales(mainGenres) {
@@ -158,7 +179,11 @@ async function buscarGenerosDeArtista(artistaId, nombreArtista) {
     // Spotify
     try {
       generos = await obtenerGenerosDeSpotify(spotifyId);
-    } catch {}
+    } catch (error) {
+      if (error && error.code === 'RATE_LIMIT_LONG') {
+        throw error;
+      }
+    }
 
     // LastFM si Spotify no devuelve nada
     if (generos.length === 0) {
