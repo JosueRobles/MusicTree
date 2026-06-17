@@ -1,0 +1,153 @@
+http://localhost:5000/spotify/import-catalog/3fMbdgg4jU18AjLCKBhRSm
+Estas son las cosas que deberia hacer:
+#1 Extraer el catalogo de un nuevo artista router.get('/import-catalog/:artistId', importFullArtistCatalogController);
+1. Buscar artista por spotify_id o nombre.
+2. Insertar su info en artistas con es_principal = false.
+3. Extraer sus álbumes desde Spotify: Insertar en albumes. Relacionar en album_artistas.
+4. Extraer sus canciones: Insertar en canciones. Relacionar en cancion_artistas.
+5. Actualizar popularidad (artistas, álbumes, canciones) en paso separado.
+6. Actualizar foto del artista (también en paso separado).
+7. Marcar es_principal = true para indicar que ya fue correctamente importado.
+8. Extraer y relacionar géneros desde Spotify para artistas; desde Last.fm para albumes y canciones (solo si tienen muchos votos).
+
+http://localhost:5000/spotify/update-catalog/272
+Estas son las cosas que deberia hacer:
+#2 Extraer el catalogo de un artista ya validado router.get('/import-catalog/:artistId', importFullArtistCatalogController);
+1. Buscar artista por spotify_id o nombre.
+2. Validar que es_principal = true en artistas (si no lo es, abortar o lanzar advertencia).
+3. Validar o insertar álbumes: Si un álbum nuevo aparece, insertarlo. Relacionarlo en album_artistas si no está.
+4. Validar o insertar canciones: Lo mismo: insertar solo si no existen. Relacionar en cancion_artistas si falta.
+5. Actualizar popularidad (artista, álbumes, canciones) como paso separado.
+6. Actualizar foto del artista (si ha cambiado).
+7. Actualizar o insertar géneros desde Last.fm/Spotify si nuevos géneros válidos aparecen.
+
+http://localhost:5000/spotify/process-playlist/3OFt9yKT3rp0rWCHknRWF4
+Estas son las cosas que deberia hacer:
+#3 Extraer una playlist para crear una coleccion router.post('/process-playlist/:playlistId', processPlaylistController);
+1. Crear la coleccion con el titulo de la playlist y guardar el id_coleccion para usarlo mas tarde (paso 6), asegurarse que el tipo_coleccion es de canciones
+2. Buscar playlist por spotify_id, la coleccion tiene el campo playlist_id (para futuras actualizaciones).
+3. Validar o insertar canciones: Lo mismo: insertar solo si no existen (Pueden existir de otra coleccion o del catalogo de un artista). Relacionar en cancion_artistas todas.
+4. Ir validando la info en artistas y si no existe crearlo y manejarlo con es_principal = false. En caso que si exista pues no afectar este dato.
+5. Validar o insertar álbumes: Si un álbum nuevo aparece, insertarlo. Relacionarlo en album_artistas solo con el artista principal o principales si tiene mas de un artista el album. Por ahora solo la cancion(es) en la playlist y la categoria del album 'coleccion'.
+6. Ir insertando cada cancion en la tabla colecciones_elementos con coleccion_id el que le pasemos, entidad_tipo='cancion' y entidad_id el id_cancion que tenga
+7. Actualizar popularidad (artistas, álbumes, canciones) en paso separado pero dentro de esta secuencia.
+8. Actualizar foto del artista (también en paso separado pero dentro de esta secuencia).
+9. Extraer y relacionar géneros desde Spotify para artistas; desde Last.fm para albumes y canciones (solo si tienen muchos votos).
+
+http://localhost:5000/spotify/update-collection-from-playlist/1 
+Estas son las cosas que deberia hacer:
+#4 Extraer una playlist para modificar una coleccion router.post('/update-collection-from-playlist/:coleccionId', updateCollectionFromPlaylistController);
+1. Buscar playlist por spotify_id, tener presente el id_coleccion para usarlo mas tarde. la coleccion tiene el campo playlist_id.
+2. Extraer los datos de sus canciones
+3. Ir validando la info en artistas y si no existe crearlo y manejarlo con es_principal = false. En caso que si exista pues no afectarlo.
+4. Extraer sus álbumes desde Spotify: Insertar en albumes. Relacionar en album_artistas. Por ahora solo la cancion(es) en la playlist.
+5. Ir validando cada cancion en la tabla colecciones_elementos con coleccion_id el que le pasemos, entidad_tipo='cancion' y entidad_id el id_cancion que tenga, y solo insertar los nuevos que no hayan estado
+6. Actualizar popularidad (artistas, álbumes, canciones) en paso separado.
+7. Actualizar foto del artista (también en paso separado).
+8. Extraer y relacionar géneros desde Spotify para artistas; desde Last.fm para albumes y canciones (solo si tienen muchos votos).
+
+mis tablas:
+|table_name|column_name|data_type|
+|album_artistas|album_id|integer|
+|album_artistas|artista_id|integer|
+|album_generos|album_id|integer|
+|album_generos|genero_id|integer|
+|album_generos|subgeneros|jsonb|
+|albumes|id_album|integer|
+|albumes|spotify_id|charactervarying|
+|albumes|titulo|charactervarying|
+|albumes|anio|integer|
+|albumes|foto_album|charactervarying|
+|albumes|numero_canciones|integer|
+|albumes|tipo_album|charactervarying|
+|albumes|popularidad_album|integer|
+|albumes|categoria|charactervarying|
+|artista_generos|artista_id|integer|
+|artista_generos|genero_id|integer|
+|artista_generos|subgeneros|jsonb|
+|artistas|id_artista|integer|
+|artistas|spotify_id|charactervarying|
+|artistas|nombre_artista|charactervarying|
+|artistas|biografia|text|
+|artistas|foto_artista|charactervarying|
+|artistas|popularidad_artista|integer|
+|artistas|numero_albumes|integer|
+|artistas|numero_canciones|integer|
+|artistas|es_principal|boolean|
+|artistas|channel_id_youtube|text|
+|cancion_artistas|cancion_id|integer|
+|cancion_artistas|artista_id|integer|
+|cancion_generos|cancion_id|integer|
+|cancion_generos|genero_id|integer|
+|cancion_generos|subgeneros|jsonb|
+|canciones|id_cancion|integer|
+|canciones|spotify_id|charactervarying|
+|canciones|titulo|charactervarying|
+|canciones|album|integer|
+|canciones|orden|integer|
+|canciones|duracion_ms|integer|
+|canciones|popularidad|integer|
+|canciones|categoria|charactervarying|
+|colecciones|id_coleccion|integer|
+|colecciones|nombre|charactervarying|
+|colecciones|descripcion|text|
+|colecciones|icono|text|
+|colecciones|tipo_coleccion|charactervarying|
+|colecciones|criterios|jsonb|
+|colecciones|playlist_id|text|
+|colecciones_elementos|id_elemento|integer|
+|colecciones_elementos|coleccion_id|integer|
+|colecciones_elementos|entidad_tipo|charactervarying|
+|colecciones_elementos|entidad_id|integer|
+|generos|id_genero|integer|
+|generos|nombre|charactervarying|
+|generos|descripcion|text|
+|generos|subgeneros|jsonb|
+|staging_videos_youtube|video_id|text|
+|staging_videos_youtube|artista_id|integer|
+|staging_videos_youtube|titulo_original|text|
+|staging_videos_youtube|titulo_limpio|text|
+|staging_videos_youtube|artista_principal|text|
+|staging_videos_youtube|artista_colaborador1|text|
+|staging_videos_youtube|artista_colaborador2|text|
+|staging_videos_youtube|artista_colaborador3|text|
+|staging_videos_youtube|artista_colaborador4|text|
+|staging_videos_youtube|artista_colaborador5|text|
+|staging_videos_youtube|duracion_iso|text|
+|staging_videos_youtube|duracion_segundos|integer|
+|staging_videos_youtube|published_at|timestampwithouttimezone|
+|staging_videos_youtube|view_count|bigint|
+|staging_videos_youtube|popularidad|numeric|
+|staging_videos_youtube|miniatura|text|
+|staging_videos_youtube|anio|integer|
+|staging_videos_youtube|is_musical|boolean|
+|staging_videos_youtube|fecha_extraccion|timestampwithouttimezone|
+|staging_videos_youtube|extraccion_batch_id|text|
+|staging_videos_youtube|es_nueva_extraccion|boolean|
+|staging_videos_youtube|artista_colaborador1_id|integer|
+|staging_videos_youtube|artista_colaborador2_id|integer|
+|staging_videos_youtube|artista_colaborador3_id|integer|
+|staging_videos_youtube|artista_colaborador4_id|integer|
+|staging_videos_youtube|artista_colaborador5_id|integer|
+|video_artistas|video_id|integer|
+|video_artistas|artista_id|integer|
+|video_generos|video_id|integer|
+|video_generos|genero_id|integer|
+|video_generos|subgeneros|jsonb|
+|videos_musicales|id_video|integer|
+|videos_musicales|titulo|charactervarying|
+|videos_musicales|url_video|text|
+|videos_musicales|duracion|integer|
+|videos_musicales|popularidad|numeric|
+|videos_musicales|miniatura|text|
+|videos_musicales|anio|integer|
+|videos_musicales|youtube_id|text|
+
+http://localhost:5000/spotify/search/update-artist-photos 
+http://localhost:5000/spotify/search/update-album-popularity 
+http://localhost:5000/generos/update/artists 
+http://localhost:5000/generos/update/albums 
+824 albumes sin genero
+http://localhost:5000/generos/update/songs 
+1000 canciones sin genero
+

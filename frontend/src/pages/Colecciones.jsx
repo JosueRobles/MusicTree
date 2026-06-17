@@ -41,15 +41,6 @@ const Colecciones = () => {
     fetchProgresos();
   }, [usuario]);
 
-  if (!usuario) {
-    return (
-      <div style={{ padding: '2rem', textAlign: 'center' }}>
-        <h1>Colecciones</h1>
-        <p>Debes iniciar sesión para ver las colecciones. Inicia sesión para descubrir y explorar las colecciones disponibles.</p>
-      </div>
-    );
-  }
-
   // Dimensiones
   const rectWidth = 450;
   const rectHeight = 120;
@@ -58,6 +49,11 @@ const Colecciones = () => {
   return (
     <div style={{ padding: '2rem' }}>
       <h1>Colecciones</h1>
+      {!usuario && (
+        <div style={{ margin: '1rem 0', padding: '1rem', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 12 }}>
+          Explora las colecciones disponibles públicamente. Inicia sesión para seguir tu progreso y completar colecciones.
+        </div>
+      )}
       {error && <p style={{ color: 'red' }}>{error}</p>}
       {colecciones.length > 0 ? (
         <div style={{

@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { getCatalogosByUsuario, seguirArtistaCatalogo, getArtistasSeguidos, dejarDeSeguirArtista, getProgresoCancionesArtista, searchSpotifyArtists, createArtistFromSpotify, getPedidosUsuario, getPreferenciasUsuario, guardarPreferencia, eliminarPreferencia } = require('../controllers/catalogosController');
+const { getCatalogosByUsuario, getTodosCatalogos, seguirArtistaCatalogo, getArtistasSeguidos, dejarDeSeguirArtista, getProgresoCancionesArtista, searchSpotifyArtists, createArtistFromSpotify, getPedidosUsuario, getPreferenciasUsuario, guardarPreferencia, eliminarPreferencia } = require('../controllers/catalogosController');
 const { registrarActividad } = require('../controllers/utils/actividadUtils');
 const supabase = require('../supabaseClient'); // o '../db' según tu estructura
 
+router.get('/', getTodosCatalogos);
 router.get('/usuario/:usuarioId', getCatalogosByUsuario);
 router.post('/search-spotify', searchSpotifyArtists);
 router.post('/create-artist', createArtistFromSpotify);

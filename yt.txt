@@ -1,0 +1,200 @@
+Se mas especifico con los archivos que tenemos que modificar, no solo des codigo
+Ejecute http://localhost:5000/youtube/import-catalog/188
+Dice la pagina: Catálogo de YouTube importado correctamente.
+No se realizo ningun registro en staging_videos_youtube
+
+Ejecute 
+Dice la pagina: Colección creada/actualizada desde playlist de YouTube.
+Me creo 412 registros en staging_videos_youtube
+Sobre los registros en SELECT * FROM staging_videos_youtube; comento que
+video_id: (Bien)
+artista_id: Todas NULL (Mal)
+titulo_original: (Bien)
+titulo_limpio: No se extrajo ningun artista (Mal)
+artista_principal: No se extrajo ningun artista (Mal)
+artista_colaboradorN y artista_colaboradorN_id: No se extrajo ningun artista (Mal)
+duracion_iso y duracion_segundos: (Bien)
+published_at: se extrae en este formato: 2024-08-29 20:40:59 (Bien)
+view_count: (Bien)
+popularidad: (Bien)
+miniatura: (Bien)
+anio: (Bien)
+is_musical: Manual (Bien)
+fecha_extraccion: (Bien)
+extraccion_batch_id: (Bien)
+es_nueva_extraccion: Todas dicen TRUE, debo cambiarlo manualmente (Bien)
+
+http://localhost:5000/youtube/update-catalog/188 
+Me dice: Catálogo de YouTube actualizado correctamente.
+
+http://localhost:5000/youtube/update-collection-from-playlist/PL7VuK4dN6eJ3tR7zKE_LWCzXFlAMppXHI/7
+Me dice: Colección actualizada desde playlist de YouTube.
+
+http://localhost:5000/youtube/playlist-to-collection/PLU3EPrQN9Asn9ac7GRFyczK3FBcklL-oB
+Estas son las cosas que deberia hacer:
+#1 Extraer una playlist para crear una coleccion router.get('/playlist-to-collection/:playlistId', playlistToCollectionController);
+1. Crear la coleccion con el titulo de la playlist y guardar el id_coleccion para usarlo mas tarde (paso 5), asegurarse que el tipo_coleccion es de videos
+2. Buscar playlist por youtube_id, la coleccion tiene el campo playlist_id (para futuras actualizaciones).
+3. Validar o insertar videos: Lo mismo: insertar solo si no existen (Pueden existir de otra coleccion o del catalogo de un artista). Relacionar en video_artistas todas.
+4. Ir validando la info en artistas y si no existe crearlo y manejarlo con es_principal = false. En caso que si exista pues no afectar este dato.
+5. Ir insertando cada video en la tabla colecciones_elementos con coleccion_id el que le pasemos, entidad_tipo='video' y entidad_id el id_cancion que tenga
+6. Actualizar popularidad (artistas, videos) en paso separado pero dentro de esta secuencia.
+7. Actualizar foto del artista (también en paso separado pero dentro de esta secuencia).
+8. Extraer y relacionar géneros desde Spotify para artistas; desde Last.fm para videos (solo si tienen suficientes votos).
+
+Ahora lo anterior se esta haciendo en staging_videos_youtube no directamente en videos_musicales, asi que cual seria la mejor alternativa para usar la anterior y tambien el siguiente endpoint una vez normalicemos los titulos limpios los artistas correctamente y asi?
+router.post('/finalizar-importacion/:batchId', finalizarImportacionYoutubeController);
+Por que tambien estara http://localhost:5000/youtube/update-collection-from-playlist/PLU3EPrQN9Asn9ac7GRFyczK3FBcklL-oB/2
+Que tendria que insertar solo lo nuevo:
+Estas son las cosas que deberia hacer:
+#2 Extraer una playlist para modificar una coleccion router.get('/update-collection-from-playlist/:playlistId/:coleccionId', updateCollectionFromYoutubePlaylistController);
+1. Buscar playlist por youtube_id y coleccion_id, tener presente el id_coleccion para usarlo mas tarde. la coleccion tiene el campo playlist_id.
+2. Extraer los datos de sus videos
+3. Ir validando la info en artistas y si no existe crearlo y manejarlo con es_principal = false. En caso que si exista pues no afectarlo.
+4. Ir validando cada video en la tabla colecciones_elementos con coleccion_id el que le pasemos, entidad_tipo='video' y entidad_id el id_video que tenga, y solo insertar los nuevos que no hayan estado
+5. Actualizar popularidad (artistas, videos) en paso separado.
+6. Actualizar foto del artista (también en paso separado).
+7. Extraer y relacionar géneros desde Spotify para artistas; desde Last.fm para videos (solo si tienen suficientes votos).
+Parece un proceso super largo pero quiero que sea rapido y solo para lo nuevo, siendo que en la tabla staging_videos_youtube no veamos videos que ya hayamos insertado, sino tal vez solo como referencia al video_id y actualizacion de su popularidad nomas.
+Mientras que si los que no ahyan estado le ponemos sus artistas, colaboradores, limpiamos titulo, ponemos sus generos, etc. pero igual que en la funcion anterior estamos combinando dos endpoints diferentes y por ejemplo este estado
+agarrando el batch y no el playlist_id asi que lo estamos haciendo mal, asi que dime como le haremos para eficalizar estos 3 endpoints y en un futuro tambien:
+
+http://localhost:5000/youtube/import-catalog/272
+Estas son las cosas que deberia hacer:
+#3 Extraer el catalogo de videos musicales un artista con youtube_id de canal de VEVO router.get('/import-catalog/:artistId', importFullArtistCatalogController);
+http://localhost:5000/spotify/update-catalog/1888
+Estas son las cosas que deberia hacer:
+#4 Extraer el catalogo de videos musicales nuevos de un artista ya validado con youtube_id de canal de VEVO router.get('/import-catalog/:artistId', importFullArtistCatalogController);
+
+Entonces en staging_videos_youtube debemos tambien poner la playlist_id o como mejoramos estos 3 y futuro 5 endpoints de YouTube (aunque los catalogos no tendran coleccion ni playlist_id)
+
+a) /youtube/playlist-to-collection/:playlistId
+Extrae videos y artistas.
+Crea artistas faltantes con insertOrUpdateArtist.
+Limpia títulos con limpiarTituloAvanzado.
+Inserta en staging_videos_youtube.
+(Opcional) Llama a /finalizar-importacion/:batchId para pasar a tablas finales.
+b) /youtube/update-collection-from-playlist/:playlistId/:coleccionId
+Extrae videos y artistas.
+Crea artistas faltantes solo si no existen.
+Limpia títulos.
+Inserta solo videos nuevos en staging_videos_youtube y luego en tablas finales y colección.
+c) /youtube/import-catalog/:artistId y /youtube/update-catalog/:artistId
+Extrae videos del canal.
+Crea artistas faltantes.
+Limpia títulos.
+Inserta en staging_videos_youtube.
+Inserta en tablas finales solo lo nuevo.
+
+mis tablas:
+|table_name|column_name|data_type|
+|artistas|id_artista|integer|
+|artistas|spotify_id|charactervarying|
+|artistas|nombre_artista|charactervarying|
+|artistas|biografia|text|
+|artistas|foto_artista|charactervarying|
+|artistas|popularidad_artista|integer|
+|artistas|numero_albumes|integer|
+|artistas|numero_canciones|integer|
+|artistas|es_principal|boolean|
+|artistas|channel_id_youtube|text|
+|colecciones|id_coleccion|integer|
+|colecciones|nombre|charactervarying|
+|colecciones|descripcion|text|
+|colecciones|icono|text|
+|colecciones|tipo_coleccion|charactervarying|
+|colecciones|criterios|jsonb|
+|colecciones|playlist_id|text|
+|colecciones_elementos|id_elemento|integer|
+|colecciones_elementos|coleccion_id|integer|
+|colecciones_elementos|entidad_tipo|charactervarying|
+|colecciones_elementos|entidad_id|integer|
+|generos|id_genero|integer|
+|generos|nombre|charactervarying|
+|generos|descripcion|text|
+|generos|subgeneros|jsonb|
+|staging_videos_youtube|video_id|text|
+|staging_videos_youtube|artista_id|integer|
+|staging_videos_youtube|titulo_original|text|
+|staging_videos_youtube|titulo_limpio|text|
+|staging_videos_youtube|artista_principal|text|
+|staging_videos_youtube|artista_colaborador1|text|
+|staging_videos_youtube|artista_colaborador2|text|
+|staging_videos_youtube|artista_colaborador3|text|
+|staging_videos_youtube|artista_colaborador4|text|
+|staging_videos_youtube|artista_colaborador5|text|
+|staging_videos_youtube|duracion_iso|text|
+|staging_videos_youtube|duracion_segundos|integer|
+|staging_videos_youtube|published_at|timestampwithouttimezone|
+|staging_videos_youtube|view_count|bigint|
+|staging_videos_youtube|popularidad|numeric|
+|staging_videos_youtube|miniatura|text|
+|staging_videos_youtube|anio|integer|
+|staging_videos_youtube|is_musical|boolean|
+|staging_videos_youtube|fecha_extraccion|timestampwithouttimezone|
+|staging_videos_youtube|extraccion_batch_id|text|
+|staging_videos_youtube|es_nueva_extraccion|boolean|
+|staging_videos_youtube|artista_colaborador1_id|integer|
+|staging_videos_youtube|artista_colaborador2_id|integer|
+|staging_videos_youtube|artista_colaborador3_id|integer|
+|staging_videos_youtube|artista_colaborador4_id|integer|
+|staging_videos_youtube|artista_colaborador5_id|integer|
+|staging_videos_youtube|playlist_id|text|
+|video_artistas|video_id|integer|
+|video_artistas|artista_id|integer|
+|video_generos|video_id|integer|
+|video_generos|genero_id|integer|
+|video_generos|subgeneros|jsonb|
+|videos_musicales|id_video|integer|
+|videos_musicales|titulo|charactervarying|
+|videos_musicales|url_video|text|
+|videos_musicales|duracion|integer|
+|videos_musicales|popularidad|numeric|
+|videos_musicales|miniatura|text|
+|videos_musicales|anio|integer|
+|videos_musicales|youtube_id|text|
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ 

@@ -141,9 +141,9 @@ const Lists = () => {
   const [nombreLista, setNombreLista] = useState('');
   const [tipoLista, setTipoLista] = useState('');
   const [descripcion, setDescripcion] = useState('');
-  const [privacidad, setPrivacidad] = useState('publica'); // Nueva variable de estado para privacidad
-  const [tendencias, setTendencias] = useState([]); // Nueva variable de estado para tendencias
-  const { usuario } = useContext(UsuarioContext); // Obtener el usuario del contexto
+  const [privacidad, setPrivacidad] = useState('publica');
+  const [tendencias, setTendencias] = useState([]);
+  const { usuario } = useContext(UsuarioContext);
   const [listasGuardadas, setListasGuardadas] = useState([]);
   const [listasColaborativas, setListasColaborativas] = useState([]);
   const [imagen, setImagen] = useState(null);
@@ -151,59 +151,49 @@ const Lists = () => {
 
   useEffect(() => {
     const fetchListas = async () => {
-    if (usuario) {
+      if (!usuario) return;
       try {
         const response = await axios.get(`${API_URL}/listas-personalizadas/${usuario.id_usuario}`);
         setListas(response.data);
       } catch (error) {
         console.error('Error fetching lists:', error);
       }
-    }
-  };
+    };
 
     const fetchListasGuardadas = async () => {
-      if (usuario) {
-        try {
-          const response = await axios.get(`${API_URL}/listas-personalizadas/guardadas/${usuario.id_usuario}`);
-          setListasGuardadas(response.data);
-        } catch (error) {
-          console.error('Error fetching saved lists:', error);
-        }
+      if (!usuario) return;
+      try {
+        const response = await axios.get(`${API_URL}/listas-personalizadas/guardadas/${usuario.id_usuario}`);
+        setListasGuardadas(response.data);
+      } catch (error) {
+        console.error('Error fetching saved lists:', error);
       }
     };
 
     const fetchTendencias = async () => {
-    try {
-      // Quita el params: usuario
-      const response = await axios.get(`${API_URL}/tendencias/listas-populares`);
-      setTendencias(response.data);
-    } catch (error) {
-      console.error('Error fetching trends:', error);
-    }
-  };
-
-    const fetchListasColaborativas = async () => {
-      if (usuario) {
-        try {
-          const response = await axios.get(`${API_URL}/listas-personalizadas/colaborativas/${usuario.id_usuario}`);
-          setListasColaborativas(response.data);
-        } catch (error) {
-          console.error('Error fetching collaborative lists:', error);
-        }
+      try {
+        const response = await axios.get(`${API_URL}/tendencias/listas-populares`);
+        setTendencias(response.data);
+      } catch (error) {
+        console.error('Error fetching trends:', error);
       }
     };
 
-  fetchListasColaborativas();
-  fetchListas();
-  fetchListasGuardadas();
-  fetchTendencias();
-}, [usuario]);
+    const fetchListasColaborativas = async () => {
+      if (!usuario) return;
+      try {
+        const response = await axios.get(`${API_URL}/listas-personalizadas/colaborativas/${usuario.id_usuario}`);
+        setListasColaborativas(response.data);
+      } catch (error) {
+        console.error('Error fetching collaborative lists:', error);
+      }
+    };
 
-<input
-  type="file"
-  accept="image/*"
-  onChange={e => setImagen(e.target.files[0])}
-/>
+    fetchListas();
+    fetchListasGuardadas();
+    fetchListasColaborativas();
+    fetchTendencias();
+  }, [usuario]);
 
   const crearLista = async () => {
   if (!nombreLista || !tipoLista) {

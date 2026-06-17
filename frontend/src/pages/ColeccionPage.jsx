@@ -30,27 +30,34 @@ const ColeccionPage = () => {
   const fetchElementos = useCallback(async (paginaActual = 1) => {
     setLoading(true);
     try {
+      const params = {
+        offset: (paginaActual - 1) * limit,
+        limit,
+        orderBy: ordenarPor,
+        orderDirection: ordenDireccion,
+        filterValorados: filtroEstado === 'todos' ? undefined :
+                        filtroEstado === 'valorados' ? true : false,
+      };
+      if (usuario) {
+        params.userId = usuario.id_usuario;
+      }
+
       const elementosResponse = await axios.get(`${API_URL}/colecciones/${id}/elementos`, {
-        params: {
-          offset: (paginaActual - 1) * limit,
-          limit,
-          userId: usuario?.id_usuario,
-          orderBy: ordenarPor,             // siempre manda algo
-          orderDirection: ordenDireccion,  // siempre manda algo
-          filterValorados: filtroEstado === 'todos' ? undefined :
-                          filtroEstado === 'valorados' ? true : false,
-        },
+        params,
       });
       setElementos(elementosResponse.data);
       setPagina(paginaActual);
 
-      // Obtener el total de elementos para calcular totalPaginas
+      const countParams = {
+        filterValorados: filtroEstado === 'todos' ? undefined :
+               filtroEstado === 'valorados' ? 'true' : 'false',
+      };
+      if (usuario) {
+        countParams.userId = usuario.id_usuario;
+      }
+
       const totalRes = await axios.get(`${API_URL}/colecciones/${id}/elementos/count`, {
-        params: {
-          userId: usuario?.id_usuario,
-          filterValorados: filtroEstado === 'todos' ? undefined :
-                 filtroEstado === 'valorados' ? 'true' : 'false',
-        },
+        params: countParams,
       });
       setTotalPaginas(Math.ceil(totalRes.data.total / limit));
       setLoading(false);
@@ -252,7 +259,7 @@ const ColeccionPage = () => {
                 </Link>
 
                 {/* Indicador de valoración */}
-                {el.valorado && (
+                {usuario && valorados.includes(el.id_elemento) && (
                   <div
                     style={{
                       position: 'absolute',

@@ -39,13 +39,22 @@ const Catalogos = () => {
 
   useEffect(() => {
     const fetchCatalogos = async () => {
-      if (!usuario) return;
       try {
-        const response = await axios.get(`${API_URL}/catalogos/usuario/${usuario.id_usuario}`);
-        const principales = response.data
-          .filter(a => a.es_principal)
-          .sort((a, b) => (b.progreso || 0) - (a.progreso || 0));
-        setCatalogos(principales);
+        if (usuario) {
+          // Si el usuario está logueado, cargar sus catálogos con progreso
+          const response = await axios.get(`${API_URL}/catalogos/usuario/${usuario.id_usuario}`);
+          const principales = response.data
+            .filter(a => a.es_principal)
+            .sort((a, b) => (b.progreso || 0) - (a.progreso || 0));
+          setCatalogos(principales);
+        } else {
+          // Si no hay usuario, cargar todos los catálogos disponibles
+          const response = await axios.get(`${API_URL}/catalogos`);
+          const principales = response.data
+            .filter(a => a.es_principal)
+            .sort((a, b) => (b.progreso || 0) - (a.progreso || 0));
+          setCatalogos(principales);
+        }
       } catch (err) {
         console.error(err);
         setError('No se pudieron cargar los catálogos.');
@@ -74,7 +83,10 @@ const Catalogos = () => {
   }, [usuario]);
 
   const handleVotarPedido = async (artista_id) => {
-    if (!usuario) return;
+    if (!usuario) {
+      alert('Debes iniciar sesión para votar por un catálogo.');
+      return;
+    }
     await axios.post(`${API_URL}/catalogos/votar-pedido`, {
       usuario_id: usuario.id_usuario,
       artista_id
@@ -84,10 +96,13 @@ const Catalogos = () => {
   };
 
   const handleInterestChange = async (artistaId, nivel) => {
+    if (!usuario) {
+      alert('Inicia sesión para guardar tus preferencias.');
+      return;
+    }
     const next = { ...interesMap, [artistaId]: nivel };
     setInteresMap(next);
     
-    // Guardar en BD
     try {
       await axios.post(`${API_URL}/catalogos/preferencias`, {
         usuario_id: usuario.id_usuario,
@@ -98,15 +113,6 @@ const Catalogos = () => {
       console.error('Error al guardar preferencia:', err);
     }
   };
-
-  if (!usuario) {
-    return (
-      <div style={{ padding: '2rem', textAlign: 'center' }}>
-        <h1>Catálogos</h1>
-        <p>Debes iniciar sesión para ver los catálogos. Inicia sesión para descubrir y explorar los catálogos disponibles.</p>
-      </div>
-    );
-  }
 
   // Dimensiones
   const rectWidth = 450;
@@ -152,6 +158,11 @@ const Catalogos = () => {
   return (
     <div style={{ padding: '2rem' }}>
       <h1>Catálogos</h1>
+      {!usuario && (
+        <div style={{ margin: '1rem 0', padding: '1rem', background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: 12 }}>
+          Explora artistas populares y solicitudes públicas. Inicia sesión para votar por catálogos y ver tus preferencias personales.
+        </div>
+      )}
       <div style={{ margin: '1rem 0' }}>
         <input
           placeholder="Buscar artista para pedir catálogo..."
@@ -209,26 +220,33 @@ const Catalogos = () => {
                       <div key={s.spotify_id} style={{ padding: 8, border: '1px solid #eee', borderRadius: 6 }}>
                         <div style={{ fontWeight: 700 }}>{s.nombre}</div>
                         <div style={{ fontSize: 12, marginTop: 6 }}>
-                          <button onClick={async () => {
-                            try {
-                              const createRes = await axios.post(`${API_URL}/catalogos/create-artist`, { spotify_id: s.spotify_id, usuario_id: usuario?.id_usuario });
-                              const created = createRes.data;
-                              // intentar votar automáticamente
-                              if (usuario && (created.id_artista || created.id)) {
-                                const artistId = created.id_artista || created.id;
-                                await axios.post(`${API_URL}/catalogos/votar-pedido`, { usuario_id: usuario.id_usuario, artista_id: artistId });
-                                setVotados(prev => [...prev, artistId]);
+                          <button
+                            disabled={!usuario}
+                            onClick={async () => {
+                              if (!usuario) {
+                                alert('Inicia sesión para crear y solicitar catálogos.');
+                                return;
                               }
-                              // refrescar catálogos
-                              const resp = await axios.get(`${API_URL}/catalogos/usuario/${usuario.id_usuario}`);
-                              setCatalogos(resp.data.filter(a => a.es_principal).sort((a, b) => (b.progreso || 0) - (a.progreso || 0)));
-                              setSearchTerm('');
-                              setLocalResults([]);
-                              setSpotifyResults([]);
-                            } catch (err) {
-                              console.error('Error creating artist:', err);
-                            }
-                          }}>Crear y pedir</button>
+                              try {
+                                const createRes = await axios.post(`${API_URL}/catalogos/create-artist`, { spotify_id: s.spotify_id, usuario_id: usuario.id_usuario });
+                                const created = createRes.data;
+                                if (usuario && (created.id_artista || created.id)) {
+                                  const artistId = created.id_artista || created.id;
+                                  await axios.post(`${API_URL}/catalogos/votar-pedido`, { usuario_id: usuario.id_usuario, artista_id: artistId });
+                                  setVotados(prev => [...prev, artistId]);
+                                }
+                                const resp = await axios.get(`${API_URL}/catalogos/usuario/${usuario.id_usuario}`);
+                                setCatalogos(resp.data.filter(a => a.es_principal).sort((a, b) => (b.progreso || 0) - (a.progreso || 0)));
+                                setSearchTerm('');
+                                setLocalResults([]);
+                                setSpotifyResults([]);
+                              } catch (err) {
+                                console.error('Error creating artist:', err);
+                              }
+                            }}
+                          >
+                            {usuario ? 'Crear y pedir' : 'Inicia sesión para crear'}
+                          </button>
                         </div>
                       </div>
                     ))}

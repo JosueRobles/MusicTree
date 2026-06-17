@@ -1,0 +1,250 @@
+Hemos obtenido mejores resultados, aun asi todavia quedan una cantidad considerable de albumes por agrupar, y corregir algunos que no deberian de agruparse, pero primero los resultados:
+| grupo | id_album | titulo_album | anio | numero_canciones | tipo_album| popularidad_album | artistas| generos| subgeneros |
+| 3 | 4| Divinely Uninspired To A Hellish Extent| 2019 | 12 | album | 80| Lewis Capaldi | null | null |
+| 3 | 116| Divinely Uninspired To A Hellish Extent (Extended Edition) | 2019 | 15 | album | 73| Lewis Capaldi | Pop| null |
+MAL| 8 | 9| STAY (with Justin Bieber)| 2021 | 1| single| 69| Justin Bieber, The Kid LAROI| null | null |
+MAL| 8 | 568| Stay | 2017 | 1| single| 66| Alessia Cara, Zedd| null | null |
+| 27| 30 | Future Nostalgia | 2020 | 11 | album | 79| Dua Lipa| Pop| null |
+| 27| 94 | Future Nostalgia | 2020 | 13 | album | 72| Dua Lipa| Pop| null |
+| 28| 31 | The Heist| 2012 | 15 | album | 69| Macklemore, Macklemore & Ryan Lewis, Ryan Lewis | null | null |
+| 28| 460| The Heist| 2012 | 15 | album | 76| Macklemore, Macklemore & Ryan Lewis, Ryan Lewis | null | null |
+| 38| 43 | A Star Is Born Soundtrack| 2018 | 34 | album | 76| Bradley Cooper, Lady Gaga | null | null |
+| 38| 342| A Star Is Born Soundtrack (Without Dialogue) | 2018 | 19 | album | 74| Bradley Cooper, Lady Gaga | null | null |
+| 39| 3| Starboy| 2016 | 18 | album | 85| The Weeknd| Pop| null |
+| 39| 1072 | Starboy (Deluxe) | 2023 | 21 | album | 67| The Weeknd| null | null |
+| 42| 44 | Scorpion | 2018 | 25 | album | 81| Drake | Hip Hop| [["rap"]]|
+| 42| 458| Scorpion | 2018 | 25 | album | 53| Drake | Hip Hop| [["rap"]]|
+| 43| 1| After Hours| 2020 | 14 | album | 85| The Weeknd| null | null |
+| 43| 1076 | After Hours (Deluxe) | 2020 | 18 | album | 62| The Weeknd| null | null |
+| 73| 89 | Peace Is The Mission | 2015 | 9| album | 66| Major Lazer | null | null |
+| 73| 453| Peace Is The Mission (Extended)| 2015 | 17 | album | 58| Diplo, Major Lazer| null | null |
+| 101 | 117| Rumours (Super Deluxe) | 1977 | 58 | album | 84| Fleetwood Mac | Rock | null |
+| 101 | 697| Rumours| 1977 | 11 | album | 78| Fleetwood Mac | Rock | [["classic rock"]] |
+| 105 | 122| The Marshall Mathers LP| 2000 | 18 | album | 79| Eminem| Hip Hop| [["rap"]]|
+| 105 | 670| The Marshall Mathers LP2 | 2013 | 16 | album | 68| Eminem| Hip Hop| [["rap"]]|
+| 105 | 703| The Marshall Mathers LP2 (Deluxe)| 2013 | 21 | album | 69| Eminem| Hip Hop| [["rap"]]|
+| 126 | 114| Thriller | 1982 | 9| album | 80| Michael Jackson | Pop| null |
+| 126 | 1021 | Thriller 40| 2022 | 34 | album | 59| Michael Jackson | R&B| [["funk"]] |
+| 126 | 1026 | Thriller 25 Super Deluxe Edition | 2008 | 30 | album | 73| Michael Jackson | Pop| null |
+| 127 | 97 | Luv Is Rage 2| 2017 | 16 | album | 75| Lil Uzi Vert| null | null |
+| 127 | 607| Luv Is Rage 2 (Deluxe) | 2017 | 20 | album | 72| Lil Uzi Vert| Country, Hip Hop | [["rap"]]|
+MAL| 143 | 164| Roses (Imanbek Remix)| 2019 | 1| single| 64| Imanbek, SAINt JHN| null | null |
+MAL| 143 | 706| Roses| 2015 | 1| single| 69| The Chainsmokers| null | null |
+MAL| 153 | 177| The Idol Episode 4 (Music from the HBO Original Series)| 2023 | 3| single| 81| JENNIE, Lily-Rose Depp, The Weeknd| null | null |
+MAL| 153 | 1102 | The Idol Episode 3 (Music from the HBO Original Series)| 2023 | 3| single| 47| Moses Sumney, The Weeknd| null | null |
+| 164 | 192| Justice| 2021 | 16 | album | 62| Justin Bieber | Electronic | null |
+| 164 | 267| Justice| 2021 | 16 | album | 80| Justin Bieber | Electronic | null |
+| 169 | 147| 1989 (Deluxe)| 2013 | 19 | album | 81| Taylor Swift| Pop| null |
+| 169 | 880| 1989 | 2013 | 13 | album | 71| Taylor Swift| Pop| null |
+| 169 | 1223 | 1989 (Taylor's Version) [Deluxe] | 2023 | 22 | album | 72| Taylor Swift| Pop| null |
+| 169 | 1224 | 1989 (Taylor's Version)| 2023 | 21 | album | 81| Taylor Swift| null | null |
+| 173 | 203| Lose Control | 2023 | 1| single| 70| Teddy Swims | null | null |
+| 173 | 993| Lose Control | 2019 | 1| single| 59| Becky Hill, Goodboys, MEDUZA| null | null |
+MAL| 174 | 204| VIDA | 2019 | 15 | album | 74| Luis Fonsi| Latin, Pop | [["reggaeton"]]|
+MAL| 174 | 259| Despacito Feat. Justin Bieber (Remix)| 2017 | 1| single| 61| Daddy Yankee, Luis Fonsi| null | null |
+| 319 | 383| Teenage Dream| 2009 | 12 | album | 76| Katy Perry| Pop| null |
+| 319 | 549| Teenage Dream: The Complete Confection | 2012 | 19 | album | 77| Katy Perry| Pop| null |
+| 319 | 672| Teenage Dream| 2010 | 12 | album | 52| Katy Perry| Pop| null |
+| 339 | 407| MAÑANA SERÁ BONITO | 2023 | 17 | album | 83| KAROL G | Latin| null |
+| 339 | 605| MAÑANA SERÁ BONITO (BICHOTA SEASON)| 2023 | 9| album | 76| KAROL G | null | null |
+MAL| 347 | 417| Con Calma| 2019 | 1| single| 68| Daddy Yankee| null | null |
+MAL| 347 | 656| Calma (Remix)| 2018 | 1| single| 62| Farruko, Pedro Capó | null | null |
+| 454 | 564| Until I Found You| 2021 | 1| single| 67| Stephen Sanchez | null | null |
+| 454 | 576| Until I Found You (Em Beihold Version) | 2022 | 1| single| 67| Em Beihold, Stephen Sanchez | null | null |
+| 583 | 737| Moth To A Flame| 2022 | 2| single| 62| Swedish House Mafia, The Weeknd | null | null |
+| 583 | 1115 | Moth To A Flame (Moojo Remix)| 2022 | 1| single| 41| Moojo, Swedish House Mafia, The Weeknd| null | null |
+| 583 | 1116 | Moth To A Flame| 2022 | 4| single| 39| Swedish House Mafia, The Weeknd | null | null |
+| 596 | 753| Die For You| 2023 | 4| single| 57| The Weeknd| null | null |
+| 596 | 1109 | Die For You (Remix)| 2023 | 1| single| 62| Ariana Grande, The Weeknd | null | null |
+MAL| 596 | 1119 | Die For It (ft. Nas) | 2021 | 1| single| 32| Belly, The Weeknd | null | null |
+MAL| 627 | 767| 13 Reasons Why (Season 2)| 2018 | 20 | compilation | 60| OneRepublic, Selena Gomez, YUNGBLUD | null | null |
+MAL| 627 | 1217 | 13 Reasons Why (A Netflix Original Series Soundtrack)| 2017 | 13 | compilation | 41| Various Artists | null | null |
+| 670 | 808| Bellyache| 2017 | 1| single| 65| Billie Eilish | null | null |
+| 670 | 1195 | Bellyache (Marian Hill Remix)| 2017 | 1| single| 43| Billie Eilish | null | null |
+MAL| 766 | 980| Love Lies| 2018 | 1| single| 60| Khalid, Normani | null | null |
+MAL| 766 | 1147 | Digital Love | 2001 | 3| single| 24| Daft Punk | Electronic | [["house"]]|
+| 804 | 1022 | XSCAPE - Track by Track Commentary | 2014 | 8| album | 25| Michael Jackson | null | null |
+| 804 | 1023 | XSCAPE | 2014 | 17 | album | 73| Michael Jackson | Pop| null |
+| 805 | 1024 | Bad 25th Anniversary | 2012 | 24 | album | 71| Michael Jackson | Blues, Pop, R&B| [["soul"],["soul","funk"]] |
+| 805 | 1031 | Bad (Remastered) | 1987 | 11 | album | 73| Michael Jackson | null | null |
+MAL| 812 | 1034 | Forever, Michael | 1975 | 10 | album | 38| Michael Jackson | Blues, R&B | [["soul"]] |
+MAL| 812 | 1035 | Music And Me | 1973 | 14 | album | 11| Michael Jackson | Blues, R&B | [["soul"]] |
+MAL| 812 | 1036 | Ben| 1972 | 10 | album | 43| Michael Jackson | Blues, R&B | [["soul"]] |
+MAL| 812 | 1037 | Got To Be There| 1972 | 10 | album | 43| Michael Jackson | Blues, R&B | [["soul"]] |
+| 843 | 1069 | All The Best (UK Version)| 1987 | 17 | compilation | 51| Paul McCartney| null | null |
+| 843 | 1070 | All The Best | 1987 | 17 | compilation | 51| Paul McCartney| null | null |
+| 844 | 1074 | Dawn FM (Alternate World)| 2022 | 24 | album | 60| The Weeknd| Electronic, Pop, R&B, Rock | [["dream pop"],["funk"],["synthpop"],["dream pop","synthpop"]] |
+| 844 | 1075 | Dawn FM| 2022 | 16 | album | 78| The Weeknd| Electronic, Pop| [["synthpop"]] |
+| 845 | 1081 | Kiss Land (Deluxe) | 2013 | 12 | album | 56| The Weeknd| null | null |
+| 845 | 1082 | Kiss Land| 2013 | 10 | album | 63| The Weeknd| null | null |
+| 855 | 1092 | Dancing In The Flames (Live from São Paulo)| 2024 | 1| single| 33| The Weeknd| null | null |
+| 855 | 1093 | Dancing In The Flames| 2024 | 5| single| 46| The Weeknd| Pop| null |
+| 859 | 1097 | K-POP| 2023 | 1| single| 58| Bad Bunny, The Weeknd, Travis Scott | null | null |
+| 859 | 1098 | K-POP (Chopped & Screwed)| 2023 | 4| single| 31| The Weeknd, Travis Scott| null | null |
+| 866 | 1121 | Random Access Memories (Drumless Edition)| 2023 | 13 | album | 45| Daft Punk | null | null |
+| 866 | 1122 | Random Access Memories (10th Anniversary Edition)| 2023 | 22 | album | 55| Daft Punk | null | null |
+| 866 | 1123 | Random Access Memories | 2013 | 13 | album | 74| Daft Punk | Electronic | null |
+| 886 | 1134 | Homework (25th Anniversary Edition)| 1997 | 31 | album | 37| Daft Punk | null | null |
+| 886 | 1135 | Homework | 1997 | 16 | album | 66| Daft Punk | Electronic | [["house"]]|
+| 893 | 1144 | Harder, Better, Faster, Stronger (Live)| 2001 | 2| single| 25| Daft Punk | null | null |
+| 893 | 1145 | Harder, Better, Faster, Stronger (Alive Radio Edit 2007) | 2001 | 1| single| 34| Daft Punk | null | null |
+| 893 | 1146 | Harder, Better, Faster, Stronger | 2001 | 4| single| 33| Daft Punk | null | null |
+| 903 | 1157 | The Highlights | 2021 | 18 | compilation | 72| The Weeknd| null | null |
+| 903 | 1159 | The Highlights (Deluxe)| 2024 | 36 | compilation | 61| The Weeknd| null | null |
+| 929 | 1198 | Six Feet Under (The Remixes) | 2017 | 4| single| 44| Billie Eilish | Electronic | [["house","deep house","beach house","chill house"]] |
+| 929 | 1201 | Six Feet Under | 2016 | 1| single| 62| Billie Eilish | null | null |
+| 951 | 1225 | Speak Now (Taylor's Version) | 2023 | 22 | album | 80| Taylor Swift| null | null |
+| 951 | 1245 | Speak Now| 2010 | 14 | album | 67| Taylor Swift| Country, Pop | null |
+| 951 | 1246 | Speak Now (Deluxe Package) | 2009 | 22 | album | 69| Taylor Swift| Country, Pop | [["country pop"]]|
+| 952 | 1226 | Midnights (The Til Dawn Edition) | 2023 | 23 | album | 75| Taylor Swift| null | null |
+| 952 | 1227 | Midnights (3am Edition)| 2022 | 20 | album | 72| Taylor Swift| null | null |
+| 953 | 1230 | Fearless (Taylor's Version)| 2021 | 26 | album | 81| Taylor Swift| Country, Pop | [["country pop"]]|
+| 953 | 1247 | Fearless (Platinum Edition)| 2008 | 19 | album | 62| Taylor Swift| Country| null |
+| 953 | 1248 | Fearless (International Version) | 2008 | 16 | album | 47| Taylor Swift| Country, Pop | [["country pop"],["teen pop","country pop"]] |
+MAL| 953 | 1250 | Taylor Swift (Deluxe Edition)| 2006 | 15 | album | 65| Taylor Swift| Country| null |
+| 958 | 1242 | Red (Deluxe Edition) | 2012 | 22 | album | 64| Taylor Swift| Pop| null |
+| 958 | 1243 | Red| 2012 | 16 | album | 69| Taylor Swift| Pop| null |
+| 961 | 1251 | I Can Do It With a Broken Heart (Dombresky Remix)| 2024 | 3| single| 40| Dombresky, Taylor Swift | null | null |
+| 961 | 1252 | I Can Do It With a Broken Heart| 2024 | 2| single| 38| Taylor Swift| null | null |
+| 966 | 1221 | THE TORTURED POETS DEPARTMENT: THE ANTHOLOGY | 2024 | 31 | album | 85| Taylor Swift| Pop| null |
+| 966 | 1222 | THE TORTURED POETS DEPARTMENT| 2024 | 16 | album | 81| Taylor Swift| Pop| null |
+| 967 | 1257 | Lavender Haze (Acoustic Version) | 2023 | 1| single| 42| Taylor Swift| null | null |
+| 967 | 1258 | Lavender Haze (Remixes)| 2023 | 5| single| 45| Taylor Swift| null | null |
+| 967 | 1259 | Lavender Haze (Felix Jaehn Remix)| 2023 | 1| single| 37| Felix Jaehn, Taylor Swift | null | null |
+| 973 | 1260 | Anti-Hero (Acoustic Version) | 2022 | 1| single| 44| Taylor Swift| null | null |
+| 973 | 1261 | Anti-Hero (ILLENIUM Remix) | 2022 | 1| single| 39| ILLENIUM, Taylor Swift| null | null |
+| 973 | 1262 | Anti-Hero (Remixes)| 2022 | 5| single| 48| Taylor Swift| null | null |
+| 973 | 1263 | Anti-Hero (feat. Bleachers)| 2022 | 2| single| 41| Bleachers, Taylor Swift | null | null |
+| 975 | 1269 | Christmas Tree Farm (Old Timey Version)| 2021 | 1| single| 27| Taylor Swift| null | null |
+| 975 | 1270 | Christmas Tree Farm| 2021 | 3| single| 23| Taylor Swift| null | null |
+
+Y lo que hace falta agruparse:
+| id_album | titulo_album| anio | numero_canciones | tipo_album| popularidad_album | artistas| generos| subgeneros |
+| 197| Born To Die – Paradise Edition (Special Version)| 2011 | 24 | album | 74| Lana Del Rey| Classical, Pop | [["baroque pop"],["baroque pop","alternative pop"]]|
+| 696| Born To Die - The Paradise Edition| 2012 | 23 | album | 68| Lana Del Rey| Pop, Rock| [["indie pop"]]|
+| 245| Ocean Eyes| 2016 | 1| single| 66| Billie Eilish | null | null |
+| 1199 | Ocean Eyes (The Remixes)| 2017 | 4| single| 56| Billie Eilish | Electronic | [["house","deep house","chill house","beach house"]] |
+| 270| Songs About Jane| 2002 | 12 | album | 66| Maroon 5| Pop, Rock| null |
+| 465| Songs About Jane: 10th Anniversary Edition| 2001 | 29 | album | 80| Maroon 5| Pop| null |
+| 352| Happier Than Ever | 2021 | 16 | album | 83| Billie Eilish | null | null |
+| 1179 | Happier Than Ever (Edit)| 2021 | 1| single| 59| Billie Eilish | null | null |
+| 499| Pink Friday ... Roman Reloaded| 2010 | 19 | album | 66| Nicki Minaj | Hip Hop, Pop | [["rap"]]|
+| 942| Pink Friday (Complete Edition)| 2010 | 21 | album | 69| Nicki Minaj | null | null |
+| 755| Popular (Music from the HBO Original Series)| 2023 | 1| single| 70| Madonna, The Weeknd | null | null |
+| 1094 | Popular | 2024 | 5| single| 48| Madonna, The Weeknd | null | null |
+| 832| This One's for You| 2017 | 12 | album | 75| Luke Combs| Country, Pop | [["country pop"]]|
+| 906| This One's for You Too (Deluxe Edition) | 2018 | 17 | album | 74| Luke Combs| Country, Pop | [["country pop"],["country pop","contemporary country"]] |
+| 1041 | Love Never Felt So Good (David Morales and Eric Kupper Def Mix) | 2014 | 4| single| 25| Justin Timberlake, Michael Jackson| null | null |
+| 1042 | Love Never Felt So Good (Fedde Le Grand Remix Radio Edit) | 2014 | 1| single| 23| Michael Jackson | null | null |
+| 1129 | Human After All (Remixes) | 2006 | 15 | album | 30| Daft Punk | null | null |
+| 1130 | Human After All | 2005 | 10 | album | 54| Daft Punk | Electronic | [["house"]]|
+| 1142 | Human After All (Medley)| 2004 | 1| single| 9 | Daft Punk | null | null |
+| 1132 | Alive 1997| 2001 | 1| album | 22| Daft Punk| null | null|
+| 1128 | Alive 2007| 2007 | 13 | album | 58| Daft Punk| Electronic | null|
+(Con el album de arriba Random Access Memories)| 1124 | Daft Punk | Random Access Memories | The Collaborators| 2013 | 8| album | 19| Daft Punk| null | null|
+| 311| folklore| 2020 | 16 | album | 87| Taylor Swift | Folk | null|
+| 1234 | folklore (deluxe version) | 2020 | 17 | album | 74| Taylor Swift | null | null|
+| 1233 | folklore: the long pond studio sessions (from the Disney+ special) [deluxe edition] | 2020 | 34 | album | 65| Taylor Swift | Folk, Rock | [["indie folk"]]|
+| 1253 | Fortnight (Acoustic Version)| 2024 | 3| single| 46| Cults, Taylor Swift| null | null|
+| 1254 | Fortnight (feat. Post Malone) [BLOND:ISH Remix] | 2024 | 2| single| 52| BLOND:ISH, Taylor Swift| null | null|
+| 357| Graduation| 2007 | 14 | album | 56| Kanye West | null | null|
+| 471| Graduation| 2007 | 14 | album | 84| Kanye West | null | null|
+| 70 | Illuminate| 2017 | 13 | album | 75| Shawn Mendes | null | null|
+| 78 | Illuminate (Deluxe) | 2017 | 16 | album | 78| Shawn Mendes | Pop| null|
+| 735| Indigo| 2019 | 32 | album | 72| Chris Brown| null | null|
+| 344| Indigo (Extended) | 2019 | 42 | album | 74| Chris Brown| Electronic | [["ai"]]|
+| 423| Loud| 2010 | 11 | album | 53| Rihanna| Pop| null|
+| 506| Loud (Japan Version)| 2009 | 13 | album | 79| Rihanna| Electronic, Pop| [["dance"]] |
+(Con los otros albumes Midnights)| 239| Midnights | 2022 | 13 | album | 81| Taylor Swift | null | null|
+| 105| Overexposed | 2021 | 12 | album | 57| Maroon 5 | Pop| null|
+| 799| Overexposed (Deluxe)| 2011 | 15 | album | 67| Maroon 5 | Electronic, Pop| [["dance pop","electropop"]]|
+(Con los otros albumes Red)| 908| Red (Taylor's Version)| 2021 | 30 | album | 83| Taylor Swift | Pop, Rock| [["pop rock"]]|
+| 467| reputation| 2017 | 15 | album | 86| Taylor Swift | Pop| null|
+| 1239 | reputation Stadium Tour Surprise Song Playlist| 2017 | 46 | album | 71| Taylor Swift | Country, Pop | null|
+(Con los otros albumes Speak Now)| 1244 | Speak Now World Tour Live | 2010 | 16 | album | 51| Taylor Swift | Country| null|
+| 265| The Fame| 2007 | 15 | album | 77| Lady Gaga| Electronic, Pop| [["dance"]] |
+| 370| The Fame Monster (Deluxe Edition) | 2009 | 22 | album | 71| Lady Gaga| Electronic, Pop| [["dance"]] |
+| 1127 | TRON: Legacy| 2010 | 22 | album | 56| Daft Punk| Classical, Electronic| [["soundtrack"]]|
+| 1125 | TRON: Legacy Reconfigured | 2010 | 15 | album | 48| Daft Punk| Classical, Electronic| [["soundtrack"]]|
+| 1126 | TRON: Legacy - The Complete Edition (Original Motion Picture Soundtrack)| 2010 | 31 | album | 64| Daft Punk| null | null|
+
+Que ajustes debemos de hacer para que la poblacion de cluster y/o embeddings (no estamos utilizando el microservicio de similitud, tal vez porque queremos resultados rapidos) nos de mejores resultados de los que tenemos?
+
+El orden que sigo:
+1).\venv\Scripts\activate
+source venv/bin/activate
+2)python generar_embeddings.py
+3)python detectar_no_musical.py
+4)python microservicio_similitud.py
+(y despues en otra terminal)5).\venv\Scripts\activate
+							6)python poblar_clusters.py
+							7)python canciones_similares.py
+
+| table_name | column_name | data_type |
+| album_artistas | album_id| integer |
+| album_artistas | artista_id| integer |
+| album_clusters | cluster_id| integer |
+| album_clusters | id_album| integer |
+| album_clusters | grupo | integer |
+| album_clusters | creado_en | timestamp without time zone |
+| album_embeddings | id_album| integer |
+| album_embeddings | embedding | jsonb |
+| album_embeddings | actualizado_en| timestamp without time zone |
+| album_embeddings | cluster_pendiente | boolean |
+| album_embeddings | texto_embedding | text|
+| album_generos| album_id| integer |
+| album_generos| genero_id | integer |
+| album_generos| subgeneros| jsonb |
+| albumes| id_album| integer |
+| albumes| spotify_id| character varying |
+| albumes| titulo| character varying |
+| albumes| anio| integer |
+| albumes| foto_album| character varying |
+| albumes| numero_canciones| integer |
+| albumes| tipo_album| character varying |
+| albumes| popularidad_album | integer |
+| albumes| categoria | character varying |
+| albumes_valorados_por_canciones| id_usuario| integer |
+| albumes_valorados_por_canciones| id_album| integer |
+| albumes_valorados_por_canciones| valorado_por_canciones| boolean |
+| artista_generos| artista_id| integer |
+| artista_generos| genero_id | integer |
+| artista_generos| subgeneros| jsonb |
+| artistas | id_artista| integer |
+| artistas | spotify_id| character varying |
+| artistas | nombre_artista| character varying |
+| artistas | biografia | text|
+| artistas | foto_artista| character varying |
+| artistas | popularidad_artista | integer |
+| artistas | numero_albumes| integer |
+| artistas | numero_canciones| integer |
+| artistas | es_principal| boolean |
+| artistas | channel_id_youtube| text|
+| cancion_artistas | cancion_id| integer |
+| cancion_artistas | artista_id| integer |
+| cancion_generos| cancion_id| integer |
+| cancion_generos| genero_id | integer |
+| cancion_generos| subgeneros| jsonb |
+| canciones| id_cancion| integer |
+| canciones| spotify_id| character varying |
+| canciones| titulo| character varying |
+| canciones| album | integer |
+| canciones| orden | integer |
+| canciones| duracion_ms | integer |
+| canciones| popularidad | integer |
+| canciones| categoria | character varying |
+| canciones| es_no_musical | boolean |
+| canciones_similares| id_cancion1 | integer |
+| canciones_similares| id_cancion2 | integer |
+| generos| id_genero | integer |
+| generos| nombre| character varying |
+| generos| descripcion | text|
+| generos| subgeneros| jsonb |
+| ml_feedback| id| integer |
+| ml_feedback| usuario_id| integer |
+| ml_feedback| entidad_tipo| text|
+| ml_feedback| entidad_id_1| integer |
+| ml_feedback| entidad_id_2| integer |
+| ml_feedback| es_duplicado| boolean |
+| ml_feedback| confianza_modelo| numeric |
+| ml_feedback| fecha | timestamp without time zone |

@@ -40,6 +40,33 @@ const getCatalogosByUsuario = async (req, res) => {
   }
 };
 
+const getTodosCatalogos = async (req, res) => {
+  try {
+    // Obtener solo los artistas principales de la plataforma (con catálogo completo)
+    const { data, error } = await supabase
+      .from('artistas')
+      .select('id_artista, nombre_artista, foto_artista')
+      .eq('es_principal', true)
+      .order('nombre_artista', { ascending: true });
+
+    if (error) throw error;
+
+    // Devolver catálogos con progreso 0 (usuarios invitados no tienen progreso)
+    const resultado = (data || []).map(art => ({
+      id_artista: art.id_artista,
+      nombre_artista: art.nombre_artista,
+      foto_artista: art.foto_artista,
+      progreso: 0,
+      es_principal: true
+    }));
+
+    res.status(200).json(resultado);
+  } catch (err) {
+    console.error('Error al obtener todos los catálogos:', err);
+    res.status(500).json({ error: 'Error al obtener catálogos.' });
+  }
+};
+
 const seguirArtistaCatalogo = async (req, res) => {
   const { usuario_id, artista_id } = req.body;
   if (!usuario_id || !artista_id) return res.status(400).json({ error: 'Faltan datos.' });
@@ -360,4 +387,4 @@ const eliminarPreferencia = async (req, res) => {
   }
 };
 
-module.exports = { getCatalogosByUsuario, seguirArtistaCatalogo, getArtistasSeguidos, dejarDeSeguirArtista, getProgresoCancionesArtista, searchSpotifyArtists, createArtistFromSpotify, getPedidosUsuario, getPreferenciasUsuario, guardarPreferencia, eliminarPreferencia };
+module.exports = { getCatalogosByUsuario, getTodosCatalogos, seguirArtistaCatalogo, getArtistasSeguidos, dejarDeSeguirArtista, getProgresoCancionesArtista, searchSpotifyArtists, createArtistFromSpotify, getPedidosUsuario, getPreferenciasUsuario, guardarPreferencia, eliminarPreferencia };

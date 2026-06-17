@@ -220,87 +220,81 @@ const Badges = ({ usuario }) => {
           </div>
         )}
 
-        {usuario ? (
-          <>
-            <div className="insignias-grid">
-              {insigniasOrdenadas.length > 0 ? (
-                insigniasOrdenadas.map((insignia) => {
-                  const progreso = obtenerProgresoInsignia(insignia.id_insignia);
-                  const progresoValor = progreso ? Number(progreso.progreso) : 0;
-                  const obtenida = progresoValor >= 100;
-                  
-                  // Obtener info del criterio para mostrar progreso parcial (ej: 1/5)
-                  let criterioInfo = {};
-                  if (insignia.criterio) {
-                    try {
-                      criterioInfo = typeof insignia.criterio === 'string'
-                        ? JSON.parse(insignia.criterio)
-                        : insignia.criterio;
-                    } catch (e) {
-                      criterioInfo = {};
-                    }
-                  }
-                  
-                  // Calcular progreso parcial
-                  const cantidad = criterioInfo.cantidad || 1;
-                  const progresoActual = Math.round((progresoValor / 100) * cantidad);
+        <div className="insignias-grid">
+          {insigniasOrdenadas.length > 0 ? (
+            insigniasOrdenadas.map((insignia) => {
+              const progreso = obtenerProgresoInsignia(insignia.id_insignia);
+              const progresoValor = progreso ? Number(progreso.progreso) : 0;
+              const obtenida = progresoValor >= 100;
 
-                  return (
-                    <Link
-                      to={`/badge/${insignia.id_insignia}`}
-                      key={insignia.id_insignia}
-                      className={`insignia-badge-link${obtenida ? ' obtenida' : ''}`}
-                      style={{ textDecoration: 'none', color: 'inherit' }}
-                    >
-                      <div className="insignia-badge">
-                        <img
-                          src={insignia.icono || '/insignias/placeholder.png'}
-                          alt={insignia.nombre}
-                          className={`insignia-img${obtenida ? ' obtenida' : ''}`}
+              let criterioInfo = {};
+              if (insignia.criterio) {
+                try {
+                  criterioInfo = typeof insignia.criterio === 'string'
+                    ? JSON.parse(insignia.criterio)
+                    : insignia.criterio;
+                } catch (e) {
+                  criterioInfo = {};
+                }
+              }
+
+              const cantidad = criterioInfo.cantidad || 1;
+              const progresoActual = Math.round((progresoValor / 100) * cantidad);
+
+              return (
+                <Link
+                  to={`/badge/${insignia.id_insignia}`}
+                  key={insignia.id_insignia}
+                  className={`insignia-badge-link${obtenida ? ' obtenida' : ''}`}
+                  style={{ textDecoration: 'none', color: 'inherit' }}
+                >
+                  <div className="insignia-badge">
+                    <img
+                      src={insignia.icono || '/insignias/placeholder.png'}
+                      alt={insignia.nombre}
+                      className={`insignia-img${obtenida ? ' obtenida' : ''}`}
+                    />
+                    <h3>{insignia.nombre}</h3>
+                    <p>{insignia.descripcion}</p>
+                    <div style={{ width: "100%", display: "flex", justifyContent: "center" }}>
+                      <div style={{
+                        width: 200,
+                        background: "#eee",
+                        borderRadius: 8,
+                        overflow: "hidden",
+                        margin: "0.5rem 0"
+                      }}>
+                        <div
+                          style={{
+                            width: `${Math.min(progresoValor || 0, 100)}%`,
+                            background: "#16a34a",
+                            height: 10
+                          }}
                         />
-                        <h3>{insignia.nombre}</h3>
-                        <p>{insignia.descripcion}</p>
-                        <div style={{ width: "100%", display: "flex", justifyContent: "center" }}>
-                          <div style={{
-                            width: 200,
-                            background: "#eee",
-                            borderRadius: 8,
-                            overflow: "hidden",
-                            margin: "0.5rem 0"
-                          }}>
-                            <div
-                              style={{
-                                width: `${Math.min(progresoValor || 0, 100)}%`,
-                                background: "#16a34a",
-                                height: 10
-                              }}
-                            />
-                          </div>
-                        </div>
-                        {obtenida ? (
-                          <p style={{ color: "#16a34a", fontWeight: "bold", marginTop: 8 }}>
-                            Obtenida {progreso?.fecha ? new Date(progreso.fecha).toLocaleDateString() : ''}
-                          </p>
-                        ) : (
-                          <p className="text-red-500" style={{ marginTop: 8 }}>
-                            {progresoValor > 0 ? `${progresoActual}/${cantidad} (${Math.round(progresoValor)}%)` : 'No iniciada'}
-                          </p>
-                        )}
                       </div>
-                    </Link>
-                  );
-                })
-              ) : (
-                <div style={{ textAlign: 'center', width: '100%', padding: '2rem 0' }}>
-                  <p>No se encontraron insignias que coincidan con los filtros seleccionados.</p>
-                </div>
-              )}
+                    </div>
+                    {obtenida ? (
+                      <p style={{ color: "#16a34a", fontWeight: "bold", marginTop: 8 }}>
+                        Obtenida {progreso?.fecha ? new Date(progreso.fecha).toLocaleDateString() : ''}
+                      </p>
+                    ) : (
+                      <p className="text-red-500" style={{ marginTop: 8 }}>
+                        {progresoValor > 0 ? `${progresoActual}/${cantidad} (${Math.round(progresoValor)}%)` : 'No iniciada'}
+                      </p>
+                    )}
+                  </div>
+                </Link>
+              );
+            })
+          ) : (
+            <div style={{ textAlign: 'center', width: '100%', padding: '2rem 0' }}>
+              <p>No se encontraron insignias que coincidan con los filtros seleccionados.</p>
             </div>
-          </>
-        ) : (
-          <div>
-            <p>¡Inicia sesión o crea una cuenta para comenzar a obtener insignias!</p>
-            <p>Las insignias son una forma divertida de reconocer tus logros y participación en MusicTree. ¡Empieza hoy mismo!</p>
+          )}
+        </div>
+        {!usuario && (
+          <div style={{ color: '#6b7280', marginTop: 24, textAlign: 'center' }}>
+            Inicia sesión para ver tu progreso personal y desbloquear insignias.
           </div>
         )}
         {error && <div style={{color: 'red'}}>Error: {error}</div>}

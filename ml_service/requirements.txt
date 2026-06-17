@@ -2,6 +2,9 @@ python-dotenv
 requests
 supabase
 sentence-transformers
-numpy
+numpy<2
 flask
 pandas
+wheel
+faiss-cpu==1.7.1.post3
+
